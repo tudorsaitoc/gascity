@@ -611,7 +611,7 @@ func doOrderRunExecTracked(a orders.Order, cityPath string, cfg *config.City, st
 		return 1
 	}
 
-	code := doOrderRunExec(a, cityPath, cfg, stdout, stderr)
+	code := doOrderRunExecWithTracking(a, cityPath, cfg, tracking.ID, stdout, stderr)
 	labels := []string{"exec"}
 	if code != 0 {
 		labels = []string{"exec-failed"}
@@ -625,6 +625,10 @@ func doOrderRunExecTracked(a orders.Order, cityPath string, cfg *config.City, st
 
 // doOrderRunExec runs an exec order directly via shell.
 func doOrderRunExec(a orders.Order, cityPath string, cfg *config.City, stdout, stderr io.Writer) int {
+	return doOrderRunExecWithTracking(a, cityPath, cfg, "", stdout, stderr)
+}
+
+func doOrderRunExecWithTracking(a orders.Order, cityPath string, cfg *config.City, trackingID string, stdout, stderr io.Writer) int {
 	var maxTimeout time.Duration
 	if cfg != nil {
 		maxTimeout = cfg.Orders.MaxTimeoutDuration()
@@ -638,7 +642,7 @@ func doOrderRunExec(a orders.Order, cityPath string, cfg *config.City, stdout, s
 		fmt.Fprintf(stderr, "gc order run: %v\n", err) //nolint:errcheck // best-effort stderr
 		return 1
 	}
-	env := orderExecEnv(cityPath, cfg, target, a)
+	env := appendOrderTrackingEnv(orderExecEnv(cityPath, cfg, target, a), a, trackingID)
 
 	output, err := shellExecRunner(ctx, a.Exec, target.ScopeRoot, env)
 	if err != nil {

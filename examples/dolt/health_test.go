@@ -52,6 +52,26 @@ func filteredEnv(keys ...string) []string {
 	return env
 }
 
+func filteredDoltRuntimeEnv(extraKeys ...string) []string {
+	keys := []string{
+		"GC_CITY_PATH",
+		"GC_CITY_RUNTIME_DIR",
+		"GC_PACK_DIR",
+		"GC_PACK_STATE_DIR",
+		"GC_DOLT_CONFIG_FILE",
+		"GC_DOLT_DATA_DIR",
+		"GC_DOLT_HOST",
+		"GC_DOLT_LOCK_FILE",
+		"GC_DOLT_LOG_FILE",
+		"GC_DOLT_MANAGED_LOCAL",
+		"GC_DOLT_PID_FILE",
+		"GC_DOLT_PORT",
+		"GC_DOLT_STATE_FILE",
+	}
+	keys = append(keys, extraKeys...)
+	return filteredEnv(keys...)
+}
+
 // startDeadTCPListener accepts connections but never writes or reads —
 // simulating a Dolt server whose goroutines are stuck before the MySQL
 // handshake completes. Returns the port and a cleanup func.
@@ -267,7 +287,7 @@ func TestRuntimeScriptPortPrecedence(t *testing.T) {
 			want := tt.setup(t, cityPath)
 
 			cmd := exec.Command("sh", "-c", `. "$GC_PACK_DIR/assets/scripts/runtime.sh"; printf '%s\n' "$GC_DOLT_PORT"`)
-			cmd.Env = filteredEnv("GC_CITY_PATH", "GC_PACK_DIR", "GC_DOLT_PORT", "GC_DOLT_HOST")
+			cmd.Env = filteredDoltRuntimeEnv()
 			cmd.Env = append(cmd.Env,
 				"GC_CITY_PATH="+cityPath,
 				"GC_PACK_DIR="+root,
@@ -350,7 +370,7 @@ exit 1
 			writeExecutable(t, filepath.Join(fakeBin, "nc"), tt.ncBody(managedPort))
 
 			cmd := exec.Command("sh", "-c", `. "$GC_PACK_DIR/assets/scripts/runtime.sh"; printf '%s\n' "$GC_DOLT_PORT"`)
-			cmd.Env = filteredEnv("GC_CITY_PATH", "GC_PACK_DIR", "GC_DOLT_PORT", "GC_DOLT_HOST", "PATH")
+			cmd.Env = filteredDoltRuntimeEnv("PATH")
 			cmd.Env = append(cmd.Env,
 				"GC_CITY_PATH="+cityPath,
 				"GC_PACK_DIR="+root,
@@ -424,7 +444,7 @@ exit 1
 `)
 
 			cmd := exec.Command("sh", "-c", `. "$GC_PACK_DIR/assets/scripts/runtime.sh"; printf '%s\n' "$GC_DOLT_PORT"`)
-			cmd.Env = filteredEnv("GC_CITY_PATH", "GC_PACK_DIR", "GC_DOLT_PORT", "GC_DOLT_HOST", "PATH")
+			cmd.Env = filteredDoltRuntimeEnv("PATH")
 			cmd.Env = append(cmd.Env,
 				"GC_CITY_PATH="+cityPath,
 				"GC_PACK_DIR="+root,
@@ -470,7 +490,7 @@ exec %q "$@"
 
 	root := repoRoot(t)
 	cmd := exec.Command("sh", "-c", `. "$GC_PACK_DIR/assets/scripts/runtime.sh"; printf '%s\n' "$GC_DOLT_PORT"`)
-	cmd.Env = filteredEnv("GC_CITY_PATH", "GC_PACK_DIR", "GC_DOLT_PORT", "GC_DOLT_HOST", "PATH")
+	cmd.Env = filteredDoltRuntimeEnv("PATH")
 	cmd.Env = append(cmd.Env,
 		"GC_CITY_PATH="+cityPath,
 		"GC_PACK_DIR="+root,

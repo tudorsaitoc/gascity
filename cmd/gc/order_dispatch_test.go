@@ -899,10 +899,19 @@ source = "`+doltDir+`"
 		t.Fatalf("scanAllOrders: %v; stderr: %s", err, stderr.String())
 	}
 
-	const wantDogOrders = 5
+	const wantDogOrders = 4
 	var gotDogOrders int
 	for _, a := range aa {
 		if !strings.HasPrefix(a.Name, "mol-dog-") {
+			continue
+		}
+		if a.Name == "mol-dog-compactor" {
+			if !a.IsExec() {
+				t.Fatalf("%s IsExec() = false, want daemon-owned exec order", a.Name)
+			}
+			if a.Pool != "" {
+				t.Fatalf("%s pool = %q, want no pool for daemon-owned exec order", a.Name, a.Pool)
+			}
 			continue
 		}
 		gotDogOrders++
@@ -1124,8 +1133,10 @@ func TestOrderDispatchExecDue(t *testing.T) {
 	var rec memRecorder
 
 	ran := false
-	fakeExec := func(_ context.Context, _, _ string, _ []string) ([]byte, error) {
+	var gotEnv []string
+	fakeExec := func(_ context.Context, _, _ string, env []string) ([]byte, error) {
 		ran = true
+		gotEnv = append([]string(nil), env...)
 		return []byte("ok\n"), nil
 	}
 
@@ -1168,6 +1179,18 @@ func TestOrderDispatchExecDue(t *testing.T) {
 	if !hasExec {
 		t.Error("tracking bead missing exec label")
 	}
+	if len(all) != 1 {
+		t.Fatalf("tracking beads with order-run label = %d, want 1", len(all))
+	}
+	for _, want := range []string{
+		"GC_ORDER_TRACKING_ID=" + all[0].ID,
+		"GC_ORDER_NAME=wasteland-poll",
+		"GC_ORDER_SCOPED_NAME=wasteland-poll",
+	} {
+		if !slicesContain(gotEnv, want) {
+			t.Fatalf("exec env missing %q; env=%v", want, gotEnv)
+		}
+	}
 
 	// Check events.
 	if !rec.hasType(events.OrderFired) {
@@ -1175,6 +1198,53 @@ func TestOrderDispatchExecDue(t *testing.T) {
 	}
 	if !rec.hasType(events.OrderCompleted) {
 		t.Error("missing order.completed event")
+	}
+}
+
+func TestOrderDispatchExecExposesTrackingID(t *testing.T) {
+	store := beads.NewMemStore()
+	envCh := make(chan []string, 1)
+	fakeExec := func(_ context.Context, _, _ string, env []string) ([]byte, error) {
+		envCh <- env
+		return []byte("ok\n"), nil
+	}
+
+	aa := []orders.Order{{
+		Name:     "wasteland-poll",
+		Trigger:  "cooldown",
+		Interval: "2m",
+		Exec:     "$ORDER_DIR/scripts/poll.sh",
+		Source:   "/city/formulas/orders/wasteland-poll/order.toml",
+	}}
+	ad := buildOrderDispatcherFromListExec(aa, store, nil, fakeExec, nil)
+	if ad == nil {
+		t.Fatal("expected non-nil dispatcher")
+	}
+
+	ad.dispatch(context.Background(), t.TempDir(), time.Now())
+	ad.drain(context.Background())
+
+	got := orderDispatchTestEnv(t, envCh)
+	if got["GC_ORDER_TRACKING_ID"] == "" {
+		t.Fatalf("GC_ORDER_TRACKING_ID missing from exec env: %v", got)
+	}
+	if got["GC_ORDER_NAME"] != "wasteland-poll" {
+		t.Fatalf("GC_ORDER_NAME = %q, want wasteland-poll", got["GC_ORDER_NAME"])
+	}
+	if got["GC_ORDER_SCOPED_NAME"] != "wasteland-poll" {
+		t.Fatalf("GC_ORDER_SCOPED_NAME = %q, want wasteland-poll", got["GC_ORDER_SCOPED_NAME"])
+	}
+
+	tracking := trackingBeads(t, store, "order-run:wasteland-poll")
+	found := false
+	for _, bead := range tracking {
+		if bead.ID == got["GC_ORDER_TRACKING_ID"] {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("GC_ORDER_TRACKING_ID=%q did not match a tracking bead: %+v", got["GC_ORDER_TRACKING_ID"], tracking)
 	}
 }
 

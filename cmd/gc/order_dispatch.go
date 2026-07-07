@@ -463,7 +463,7 @@ func (m *memoryOrderDispatcher) dispatchExec(ctx context.Context, store beads.St
 		}
 	}
 
-	env := orderExecEnv(cityPath, m.cfg, target, a)
+	env := appendOrderTrackingEnv(orderExecEnv(cityPath, m.cfg, target, a), a, trackingID)
 	output, err := m.execRun(ctx, a.Exec, target.ScopeRoot, env)
 	var execErrMsg string
 	if err != nil {
@@ -509,6 +509,17 @@ func (m *memoryOrderDispatcher) dispatchExec(ctx context.Context, store beads.St
 		Actor:   "controller",
 		Subject: scoped,
 	})
+}
+
+func appendOrderTrackingEnv(env []string, a orders.Order, trackingID string) []string {
+	if trackingID == "" {
+		return env
+	}
+	return append(env,
+		"GC_ORDER_TRACKING_ID="+trackingID,
+		"GC_ORDER_NAME="+a.Name,
+		"GC_ORDER_SCOPED_NAME="+a.ScopedName(),
+	)
 }
 
 // dispatchWisp instantiates a wisp from the order's formula.

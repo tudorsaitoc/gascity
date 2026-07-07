@@ -1,6 +1,6 @@
 [order]
-description = "Flatten Dolt commit history to reduce storage"
-formula = "mol-dog-compactor"
+description = "Daemon-owned Dolt history compaction with SQL preflight, verification, and DOLT_GC"
+exec = "$PACK_DIR/assets/scripts/compactor.sh"
 trigger = "cooldown"
 interval = "24h"
-pool = "dog"
+timeout = "24h"

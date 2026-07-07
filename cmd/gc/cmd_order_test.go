@@ -733,11 +733,12 @@ name = "test-city"
 	if err != nil {
 		t.Fatalf("LatestSeq(): %v", err)
 	}
+	envPath := filepath.Join(cityDir, "exec-env.txt")
 	aa := []orders.Order{{
 		Name:    "release-exec",
 		Trigger: "event",
 		On:      events.BeadClosed,
-		Exec:    "printf ok",
+		Exec:    fmt.Sprintf(`printf '%%s\n%%s\n%%s\n' "$GC_ORDER_TRACKING_ID" "$GC_ORDER_NAME" "$GC_ORDER_SCOPED_NAME" > %q`, envPath),
 	}}
 
 	var stdout, stderr bytes.Buffer
@@ -757,6 +758,13 @@ name = "test-city"
 		if !slicesContain(results[0].Labels, want) {
 			t.Fatalf("tracking bead labels = %v, want %s", results[0].Labels, want)
 		}
+	}
+	data, err := os.ReadFile(envPath)
+	if err != nil {
+		t.Fatalf("ReadFile(exec-env): %v", err)
+	}
+	if got, want := strings.TrimSpace(string(data)), results[0].ID+"\nrelease-exec\nrelease-exec"; got != want {
+		t.Fatalf("exec tracking env = %q, want %q", got, want)
 	}
 }
 
