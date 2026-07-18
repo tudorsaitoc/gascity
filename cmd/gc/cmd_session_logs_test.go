@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -295,6 +296,58 @@ func TestDoSessionLogsToolResultError(t *testing.T) {
 	}
 }
 
+// TestDoSessionLogsTailNeverRendersEmpty pins the invariant that every tail-slot
+// entry renders at least one line. A block-array entry whose blocks are all
+// non-rendering (a non-error tool_result, or an unknown/thinking block) used to
+// print nothing and return before the raw fallback, so a `--tail N` window
+// landing on such entries produced empty stdout with exit 0 -- the
+// TestTutorial03Sessions "session logs --tail 2 output is empty" RC flake.
+func TestDoSessionLogsTailNeverRendersEmpty(t *testing.T) {
+	cases := []struct {
+		name      string
+		lastEntry string
+		wantSub   string
+	}{
+		{
+			name:      "non_error_tool_result",
+			lastEntry: `{"uuid":"2","parentUuid":"1","type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","is_error":false,"content":"ok"}]},"timestamp":"2025-01-01T00:00:01Z"}`,
+			wantSub:   "tool_result: ok",
+		},
+		{
+			name:      "unknown_block_type",
+			lastEntry: `{"uuid":"2","parentUuid":"1","type":"assistant","message":{"role":"assistant","content":[{"type":"thinking","thinking":"hmm"}]},"timestamp":"2025-01-01T00:00:01Z"}`,
+			wantSub:   "no displayable content",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			searchBase := t.TempDir()
+			workDir := t.TempDir()
+			writeTestSession(t, searchBase, workDir,
+				`{"uuid":"1","parentUuid":"","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"working"}]},"timestamp":"2025-01-01T00:00:00Z"}`,
+				tc.lastEntry,
+			)
+			path := sessionlog.FindSessionFile([]string{searchBase}, workDir)
+			if path == "" {
+				t.Fatal("session file not found")
+			}
+
+			// --tail 1 lands entirely on the non-rendering last entry.
+			var stdout, stderr bytes.Buffer
+			code := doSessionLogs(path, "", false, 1, &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("code = %d, want 0; stderr: %s", code, stderr.String())
+			}
+			if strings.TrimSpace(stdout.String()) == "" {
+				t.Fatalf("`--tail 1` produced empty output; every tail-slot entry must render at least one line")
+			}
+			if !strings.Contains(stdout.String(), tc.wantSub) {
+				t.Errorf("output = %q, want it to contain %q", stdout.String(), tc.wantSub)
+			}
+		})
+	}
+}
+
 func TestResolveSessionLogPathPrefersKeyedTranscriptWhenPresent(t *testing.T) {
 	searchBase := t.TempDir()
 	workDir := t.TempDir()
@@ -351,7 +404,7 @@ func TestResolveStoredSessionLogSource_UniqueWorkDirFallsBackBeyondLatestAlias(t
 		},
 	})
 
-	got, provider, ok, diagnostic := resolveStoredSessionLogSource("", nil, store, "mayor", []string{searchBase})
+	got, provider, ok, diagnostic := resolveStoredSessionLogSource("", nil, sessionFrontDoor(store), "mayor", []string{searchBase})
 	if !ok {
 		t.Fatal("resolveStoredSessionLogSource() = not found, want found")
 	}
@@ -398,7 +451,7 @@ func TestResolveStoredSessionLogSource_DoesNotCrossAmbiguousWorkDir(t *testing.T
 		},
 	})
 
-	got, provider, ok, diagnostic := resolveStoredSessionLogSource("", nil, store, "mayor", []string{searchBase})
+	got, provider, ok, diagnostic := resolveStoredSessionLogSource("", nil, sessionFrontDoor(store), "mayor", []string{searchBase})
 	if !ok {
 		t.Fatal("resolveStoredSessionLogSource() = not found, want found")
 	}
@@ -438,7 +491,7 @@ func TestResolveStoredSessionLogSource_CodexDoesNotUseAmbiguousWorkDirFallback(t
 		_ = store.Close(b.ID)
 	}
 
-	got, provider, ok, diagnostic := resolveStoredSessionLogSource("", nil, store, "workflows__codex-max-mc-one", []string{searchBase})
+	got, provider, ok, diagnostic := resolveStoredSessionLogSource("", nil, sessionFrontDoor(store), "workflows__codex-max-mc-one", []string{searchBase})
 	if !ok {
 		t.Fatal("resolveStoredSessionLogSource() = not found, want found")
 	}
@@ -450,6 +503,76 @@ func TestResolveStoredSessionLogSource_CodexDoesNotUseAmbiguousWorkDirFallback(t
 	}
 	if !strings.Contains(diagnostic, "ambiguous") {
 		t.Fatalf("resolveStoredSessionLogSource() diagnostic = %q, want ambiguous", diagnostic)
+	}
+}
+
+func TestResolveStoredSessionLogSource_CodexAmbiguousWorkDirUsesStartOrder(t *testing.T) {
+	workDir := t.TempDir()
+	firstStarted := time.Date(2026, 5, 4, 12, 0, 0, 0, time.UTC)
+	secondStarted := firstStarted.Add(2 * time.Minute)
+	store := beads.NewMemStoreFrom(2, []beads.Bead{
+		{
+			ID:        "gc-1",
+			Type:      session.BeadType,
+			Status:    "open",
+			Labels:    []string{session.LabelSession},
+			CreatedAt: firstStarted.Add(-time.Hour),
+			UpdatedAt: firstStarted,
+			Metadata: map[string]string{
+				"alias":         "workflows__codex-max-mc-one",
+				"provider":      "codex",
+				"provider_kind": "codex",
+				"session_name":  "workflows__codex-max-mc-one",
+				"state":         "awake",
+				"last_woke_at":  firstStarted.Format(time.RFC3339),
+				"work_dir":      workDir,
+			},
+		},
+		{
+			ID:        "gc-2",
+			Type:      session.BeadType,
+			Status:    "open",
+			Labels:    []string{session.LabelSession},
+			CreatedAt: secondStarted.Add(-time.Hour),
+			UpdatedAt: secondStarted,
+			Metadata: map[string]string{
+				"alias":         "workflows__codex-max-mc-two",
+				"provider":      "codex",
+				"provider_kind": "codex",
+				"session_name":  "workflows__codex-max-mc-two",
+				"state":         "awake",
+				"last_woke_at":  secondStarted.Format(time.RFC3339),
+				"work_dir":      workDir,
+			},
+		},
+	}, nil)
+
+	searchBase := t.TempDir()
+	dayDir := filepath.Join(searchBase, "2026", "05", "04")
+	if err := os.MkdirAll(dayDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	firstPath := filepath.Join(dayDir, "rollout-first.jsonl")
+	if err := os.WriteFile(firstPath, []byte(fmt.Sprintf(`{"timestamp":%q,"type":"session_meta","payload":{"cwd":%q}}`+"\n", firstStarted.Format(time.RFC3339), workDir)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	secondPath := filepath.Join(dayDir, "rollout-second.jsonl")
+	if err := os.WriteFile(secondPath, []byte(fmt.Sprintf(`{"timestamp":%q,"type":"session_meta","payload":{"cwd":%q}}`+"\n", secondStarted.Format(time.RFC3339), workDir)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, provider, ok, diagnostic := resolveStoredSessionLogSource("", nil, sessionFrontDoor(store), "workflows__codex-max-mc-two", []string{searchBase})
+	if !ok {
+		t.Fatal("resolveStoredSessionLogSource() = not found, want found")
+	}
+	if diagnostic != "" {
+		t.Fatalf("resolveStoredSessionLogSource() diagnostic = %q, want empty", diagnostic)
+	}
+	if provider != "codex" {
+		t.Fatalf("resolveStoredSessionLogSource() provider = %q, want codex", provider)
+	}
+	if got != secondPath {
+		t.Fatalf("resolveStoredSessionLogSource() path = %q, want %q", got, secondPath)
 	}
 }
 
@@ -468,7 +591,7 @@ func TestCanFallbackStoredSessionLogByWorkDirUsesTargetedLookup(t *testing.T) {
 		},
 	})
 
-	ok := canFallbackStoredSessionLogByWorkDir(store, sessionLogContext{
+	ok := canFallbackStoredSessionLogByWorkDir(sessionFrontDoor(store), sessionLogContext{
 		sessionID: b.ID,
 		workDir:   workDir,
 		provider:  "codex",
@@ -504,7 +627,7 @@ func TestCanFallbackStoredSessionLogByWorkDirIgnoresAsleepPeersForLiveTarget(t *
 		},
 	})
 
-	ok := canFallbackStoredSessionLogByWorkDir(store, sessionLogContext{
+	ok := canFallbackStoredSessionLogByWorkDir(sessionFrontDoor(store), sessionLogContext{
 		sessionID: target.ID,
 		workDir:   workDir,
 		provider:  "codex",
@@ -620,6 +743,155 @@ func TestDoSessionLogsFollowTailShowsOnlyNewMessagesOnReadErrorExit(t *testing.T
 	}
 }
 
+func TestCmdSessionLogsJSONSuccessIsJSONOnly(t *testing.T) {
+	clearGCEnv(t)
+	clearInheritedCityRoutingEnv(t)
+	t.Setenv("GC_BEADS", "file")
+	t.Setenv("GC_SESSION", "fake")
+
+	cityDir := t.TempDir()
+	searchBase := t.TempDir()
+	workDir := t.TempDir()
+	t.Setenv("GC_CITY", cityDir)
+	if err := os.WriteFile(filepath.Join(cityDir, "city.toml"), []byte(fmt.Sprintf(`[workspace]
+
+[daemon]
+observe_paths = [%q]
+`, searchBase)), 0o644); err != nil {
+		t.Fatalf("write city.toml: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(cityDir, ".gc"), 0o755); err != nil {
+		t.Fatalf("MkdirAll(.gc): %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cityDir, ".gc", "site.toml"), []byte("workspace_name = \"test\"\n"), 0o644); err != nil {
+		t.Fatalf("write site.toml: %v", err)
+	}
+	writeBuiltinImportsFixture(t, cityDir, "core")
+
+	store, err := openCityStoreAt(cityDir)
+	if err != nil {
+		t.Fatalf("openCityStoreAt(%q): %v", cityDir, err)
+	}
+	b, err := store.Create(beads.Bead{
+		Title:  "json logs session",
+		Type:   session.BeadType,
+		Labels: []string{session.LabelSession},
+		Metadata: map[string]string{
+			"session_name": "runtime-session",
+			"session_key":  "known-session",
+			"provider":     "claude",
+			"template":     "worker",
+			"state":        "asleep",
+			"work_dir":     workDir,
+		},
+	})
+	if err != nil {
+		t.Fatalf("store.Create(session): %v", err)
+	}
+	writeNamedTestSession(t, searchBase, workDir, "known-session.jsonl",
+		`{"uuid":"1","parentUuid":"","type":"user","message":{"role":"user","content":"older"},"timestamp":"2025-01-01T00:00:00Z"}`,
+		`{"uuid":"2","parentUuid":"1","type":"assistant","message":{"role":"assistant","content":"newer"},"timestamp":"2025-01-01T00:00:01Z"}`,
+	)
+
+	var stdout, stderr bytes.Buffer
+	if code := cmdSessionLogs([]string{b.ID}, false, 1, true, &stdout, &stderr); code != 0 {
+		t.Fatalf("cmdSessionLogs(--json) = %d, want 0; stderr=%s", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	lines := strings.Split(strings.TrimSuffix(stdout.String(), "\n"), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("stdout lines = %d, want 1 JSONL record: %q", len(lines), stdout.String())
+	}
+	var got sessionLogsJSONResult
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("stdout is not parseable JSON: %v\n%s", err, stdout.String())
+	}
+	if got.SchemaVersion != "1" || got.Target != b.ID || got.Tail != 1 || got.EntryCount != 1 {
+		t.Fatalf("logs JSON metadata = %+v", got)
+	}
+	if len(got.Entries) != 1 || got.Entries[0].Text != "newer" || got.Entries[0].Role != "assistant" {
+		t.Fatalf("logs JSON entries = %+v", got.Entries)
+	}
+	validateJSONAgainstResultSchema(t, []string{"session", "logs"}, stdout.Bytes())
+}
+
+func TestCmdSessionLogsJSONBlocksValidateDeclaredSchema(t *testing.T) {
+	clearGCEnv(t)
+	clearInheritedCityRoutingEnv(t)
+	t.Setenv("GC_BEADS", "file")
+	t.Setenv("GC_SESSION", "fake")
+
+	cityDir := t.TempDir()
+	searchBase := t.TempDir()
+	workDir := t.TempDir()
+	t.Setenv("GC_CITY", cityDir)
+	if err := os.WriteFile(filepath.Join(cityDir, "city.toml"), []byte(fmt.Sprintf(`[workspace]
+name = "test"
+
+[daemon]
+observe_paths = [%q]
+`, searchBase)), 0o644); err != nil {
+		t.Fatalf("write city.toml: %v", err)
+	}
+
+	store, err := openCityStoreAt(cityDir)
+	if err != nil {
+		t.Fatalf("openCityStoreAt(%q): %v", cityDir, err)
+	}
+	b, err := store.Create(beads.Bead{
+		Title:  "json block logs session",
+		Type:   session.BeadType,
+		Labels: []string{session.LabelSession},
+		Metadata: map[string]string{
+			"session_name": "runtime-session",
+			"session_key":  "known-session",
+			"provider":     "claude",
+			"template":     "worker",
+			"state":        "asleep",
+			"work_dir":     workDir,
+		},
+	})
+	if err != nil {
+		t.Fatalf("store.Create(session): %v", err)
+	}
+	writeNamedTestSession(t, searchBase, workDir, "known-session.jsonl",
+		`{"uuid":"1","parentUuid":"","type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"tool-1","name":"shell","input":{"cmd":"date"}}]},"timestamp":"2025-01-01T00:00:00Z"}`,
+	)
+
+	var stdout, stderr bytes.Buffer
+	if code := cmdSessionLogs([]string{b.ID}, false, 1, true, &stdout, &stderr); code != 0 {
+		t.Fatalf("cmdSessionLogs(--json) = %d, want 0; stderr=%s", code, stderr.String())
+	}
+	var got sessionLogsJSONResult
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("stdout is not parseable JSON: %v\n%s", err, stdout.String())
+	}
+	if len(got.Entries) != 1 || len(got.Entries[0].Blocks) != 1 {
+		t.Fatalf("logs JSON blocks = %+v", got.Entries)
+	}
+	block := got.Entries[0].Blocks[0]
+	if block.Type != "tool_use" || block.ID != "tool-1" || block.Name != "shell" {
+		t.Fatalf("block = %+v, want tool_use shell block", block)
+	}
+	validateJSONAgainstResultSchema(t, []string{"session", "logs"}, stdout.Bytes())
+}
+
+func TestDoSessionLogsJSONRejectsFollow(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := doSessionLogsJSON("/ignored", "claude", "worker", true, 10, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("doSessionLogsJSON(follow) = %d, want 1", code)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "--json is only supported for bounded snapshots") {
+		t.Fatalf("stderr = %q, want bounded snapshot diagnostic", stderr.String())
+	}
+}
+
 func jsonMessage(t *testing.T, role, content string) []byte {
 	t.Helper()
 	return []byte(fmt.Sprintf(`{"role":%q,"content":%q}`, role, content))
@@ -662,7 +934,7 @@ func TestResolveSessionLogWorkDirByAlias(t *testing.T) {
 		},
 	})
 
-	got, ok := resolveSessionLogContext("", nil, store, "worker")
+	got, ok := resolveSessionLogContext("", nil, sessionFrontDoor(store), "worker")
 	if !ok {
 		t.Fatal("resolveSessionLogContext() = not found, want found")
 	}
@@ -683,7 +955,7 @@ func TestResolveSessionLogWorkDirBySessionName(t *testing.T) {
 		},
 	})
 
-	got, ok := resolveSessionLogContext("", nil, store, "s-gc-77")
+	got, ok := resolveSessionLogContext("", nil, sessionFrontDoor(store), "s-gc-77")
 	if !ok {
 		t.Fatal("resolveSessionLogContext() = not found, want found")
 	}
@@ -705,7 +977,7 @@ func TestResolveSessionLogWorkDirDoesNotUseClosedHistoricalAlias(t *testing.T) {
 	})
 	_ = store.Close(b.ID)
 
-	if got, ok := resolveSessionLogContext("", nil, store, "mayor"); ok {
+	if got, ok := resolveSessionLogContext("", nil, sessionFrontDoor(store), "mayor"); ok {
 		t.Fatalf("resolveSessionLogContext() = %+v, want not found for historical alias", got)
 	}
 }
@@ -780,7 +1052,7 @@ func TestResolveSessionLogContext_ReservedNamedTargetIgnoresClosedHistoricalBead
 	})
 	_ = store.Close(b.ID)
 
-	got, ok := resolveSessionLogContext(cityPath, cfg, store, "demo/witness")
+	got, ok := resolveSessionLogContext(cityPath, cfg, sessionFrontDoor(store), "demo/witness")
 	if ok {
 		t.Fatalf("resolveSessionLogContext() = %+v, want not found for reserved named target", got)
 	}

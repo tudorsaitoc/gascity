@@ -342,19 +342,27 @@ func ensureSessionNameAvailableForSelfAndOwner(store beads.Store, name, selfID, 
 		if b.ID == selfID {
 			continue
 		}
+		if failedCreateIdentityReleased(b) {
+			continue
+		}
 		// Explicit session names are permanent identities; once claimed by any
 		// session bead, including a closed one, they are never reused.
 		//
 		// Exception: closed beads that belong to a configured named session
-		// (configured_named_session=true) release their session_name so the
-		// reconciler can re-materialize a fresh canonical bead for the same
-		// identity. The design doc specifies: "Closed historical beads do not
-		// poison future canonical materialization of the reserved identity."
+		// release their session_name so the reconciler can re-materialize a
+		// fresh canonical bead for the same identity. The design doc specifies:
+		// "Closed historical beads do not poison future canonical
+		// materialization of the reserved identity." Recognition is by the
+		// boolean flag OR the recorded identity (wasConfiguredNamedSession) so a
+		// stale/legacy bead missing the flag still releases its name (ga-841) —
+		// independent of whether the caller passed a matching selfOwner, since
+		// the configured-named reservation is re-enforced by the cfg-aware check
+		// in ensureConfiguredSessionNameAvailable.
 		if strings.TrimSpace(b.Metadata["session_name"]) == name {
 			if continuityIneligibleConfiguredOwner(b, selfOwner) {
 				continue
 			}
-			if b.Status == "closed" && strings.TrimSpace(b.Metadata["configured_named_session"]) == "true" {
+			if b.Status == "closed" && wasConfiguredNamedSession(b) {
 				continue
 			}
 			return fmt.Errorf("%w: %q already belongs to %s", ErrSessionNameExists, name, b.ID)
@@ -389,7 +397,14 @@ func ensureSessionNameAvailableForSelfAndOwner(store beads.Store, name, selfID, 
 	return nil
 }
 
+func failedCreateIdentityReleased(b beads.Bead) bool {
+	return strings.TrimSpace(b.Metadata["state"]) == string(StateFailedCreate)
+}
+
 func continuityIneligibleConfiguredOwner(b beads.Bead, selfOwner string) bool {
+	if failedCreateIdentityReleased(b) {
+		return false
+	}
 	if selfOwner == "" || strings.TrimSpace(b.Metadata["configured_named_identity"]) != selfOwner {
 		return false
 	}
@@ -532,6 +547,9 @@ func noLiveSessionNameCollisions(store beads.Store, name, selfID, selfOwner stri
 		if !IsSessionBeadOrRepairable(b) || b.ID == selfID {
 			continue
 		}
+		if failedCreateIdentityReleased(b) {
+			continue
+		}
 		// A live bead holding the name as session_name blocks.
 		if strings.TrimSpace(b.Metadata["session_name"]) == name && b.Status != "closed" {
 			return false
@@ -581,6 +599,9 @@ func ensureSessionAliasAvailable(store beads.Store, cfg *config.City, alias, sel
 	}
 	for _, b := range all {
 		if !IsSessionBeadOrRepairable(b) || b.ID == selfID {
+			continue
+		}
+		if failedCreateIdentityReleased(b) {
 			continue
 		}
 		if b.Status == "closed" {

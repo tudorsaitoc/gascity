@@ -40,7 +40,13 @@ type ConvoyProgressResult struct {
 
 // ConvoyCreate creates a convoy bead, applies metadata, links child items,
 // and emits a ConvoyCreated event.
-func ConvoyCreate(deps ConvoyDeps, store beads.Store, input ConvoyCreateInput) (ConvoyCreateResult, error) {
+//
+// The convoy bead is created in store and its tracks edges are written to
+// store. The linked items may live in different per-class stores; memberStores
+// supplies the additional stores to probe when verifying each linked item
+// exists. On origin/main the one store collapses memberStores to its empty
+// default, reproducing today's single-store linking exactly.
+func ConvoyCreate(deps ConvoyDeps, store beads.Store, input ConvoyCreateInput, memberStores ...beads.Store) (ConvoyCreateResult, error) {
 	b := beads.Bead{
 		Title:  input.Title,
 		Type:   "convoy",
@@ -55,8 +61,7 @@ func ConvoyCreate(deps ConvoyDeps, store beads.Store, input ConvoyCreateInput) (
 
 	linked := 0
 	for _, itemID := range input.Items {
-		pid := convoy.ID
-		if err := store.Update(itemID, beads.UpdateOpts{ParentID: &pid}); err != nil {
+		if err := TrackItem(store, convoy.ID, itemID, memberStores...); err != nil {
 			return ConvoyCreateResult{Convoy: convoy, LinkedCount: linked},
 				fmt.Errorf("linking item %s: %w", itemID, err)
 		}
@@ -74,7 +79,12 @@ func ConvoyCreate(deps ConvoyDeps, store beads.Store, input ConvoyCreateInput) (
 }
 
 // ConvoyProgress returns the completion progress of a convoy.
-func ConvoyProgress(_ ConvoyDeps, store beads.Store, id string) (ConvoyProgressResult, error) {
+//
+// The convoy bead is read from store; its tracked members may live in different
+// per-class stores, so memberStores supplies the additional stores Members
+// probes. On origin/main the one store collapses memberStores to its empty
+// default and progress is computed over the single store exactly as today.
+func ConvoyProgress(_ ConvoyDeps, store beads.Store, id string, memberStores ...beads.Store) (ConvoyProgressResult, error) {
 	b, err := store.Get(id)
 	if err != nil {
 		return ConvoyProgressResult{}, fmt.Errorf("getting convoy %s: %w", id, err)
@@ -83,19 +93,15 @@ func ConvoyProgress(_ ConvoyDeps, store beads.Store, id string) (ConvoyProgressR
 		return ConvoyProgressResult{}, fmt.Errorf("bead %s is not a convoy (type: %s)", id, b.Type)
 	}
 
-	children, err := store.List(beads.ListQuery{
-		ParentID:      id,
-		IncludeClosed: true,
-		Sort:          beads.SortCreatedAsc,
-	})
+	children, err := Members(store, id, true, memberStores...)
 	if err != nil {
-		return ConvoyProgressResult{}, fmt.Errorf("listing children of %s: %w", id, err)
+		return ConvoyProgressResult{}, fmt.Errorf("listing tracked items of %s: %w", id, err)
 	}
 
 	total := len(children)
 	closed := 0
 	for _, c := range children {
-		if c.Status == "closed" {
+		if IsTerminalStatus(c.Status) {
 			closed++
 		}
 	}
@@ -109,7 +115,12 @@ func ConvoyProgress(_ ConvoyDeps, store beads.Store, id string) (ConvoyProgressR
 }
 
 // ConvoyAddItems links beads to an existing convoy.
-func ConvoyAddItems(_ ConvoyDeps, store beads.Store, convoyID string, items []string) error {
+//
+// The convoy bead and the new tracks edges are read from and written to store.
+// The linked items may live in different per-class stores; memberStores
+// supplies the additional stores to probe when verifying each item exists. On
+// origin/main the one store collapses memberStores to its empty default.
+func ConvoyAddItems(_ ConvoyDeps, store beads.Store, convoyID string, items []string, memberStores ...beads.Store) error {
 	b, err := store.Get(convoyID)
 	if err != nil {
 		return fmt.Errorf("getting convoy %s: %w", convoyID, err)
@@ -119,8 +130,7 @@ func ConvoyAddItems(_ ConvoyDeps, store beads.Store, convoyID string, items []st
 	}
 
 	for _, itemID := range items {
-		pid := convoyID
-		if err := store.Update(itemID, beads.UpdateOpts{ParentID: &pid}); err != nil {
+		if err := TrackItem(store, convoyID, itemID, memberStores...); err != nil {
 			return fmt.Errorf("linking item %s to convoy %s: %w", itemID, convoyID, err)
 		}
 	}

@@ -1,6 +1,0 @@
-[order]
-description = "Sync Dolt backups to configured remotes"
-formula = "mol-dog-backup"
-trigger = "cooldown"
-interval = "6h"
-pool = "dog"

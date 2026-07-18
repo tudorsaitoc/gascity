@@ -20,16 +20,16 @@ import (
 
 // Defines values for BindingStatus.
 const (
-	Active BindingStatus = "active"
-	Ended  BindingStatus = "ended"
+	BindingStatusActive BindingStatus = "active"
+	BindingStatusEnded  BindingStatus = "ended"
 )
 
 // Valid indicates whether the value is a known member of the BindingStatus enum.
 func (e BindingStatus) Valid() bool {
 	switch e {
-	case Active:
+	case BindingStatusActive:
 		return true
-	case Ended:
+	case BindingStatusEnded:
 		return true
 	default:
 		return false
@@ -81,6 +81,24 @@ func (e ConversationKind) Valid() bool {
 	}
 }
 
+// Defines values for EventRotateArchiveCompressionStatus.
+const (
+	EventRotateArchiveCompressionStatusComplete EventRotateArchiveCompressionStatus = "complete"
+	EventRotateArchiveCompressionStatusPending  EventRotateArchiveCompressionStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the EventRotateArchiveCompressionStatus enum.
+func (e EventRotateArchiveCompressionStatus) Valid() bool {
+	switch e {
+	case EventRotateArchiveCompressionStatusComplete:
+		return true
+	case EventRotateArchiveCompressionStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RequestFailedPayloadOperation.
 const (
 	CityCreate     RequestFailedPayloadOperation = "city.create"
@@ -108,6 +126,90 @@ func (e RequestFailedPayloadOperation) Valid() bool {
 	}
 }
 
+// Defines values for RunRefKind.
+const (
+	Order RunRefKind = "order"
+	Sling RunRefKind = "sling"
+)
+
+// Valid indicates whether the value is a known member of the RunRefKind enum.
+func (e RunRefKind) Valid() bool {
+	switch e {
+	case Order:
+		return true
+	case Sling:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunStatus.
+const (
+	RunStatusActive    RunStatus = "active"
+	RunStatusCanceled  RunStatus = "canceled"
+	RunStatusCanceling RunStatus = "canceling"
+	RunStatusCompleted RunStatus = "completed"
+	RunStatusFailed    RunStatus = "failed"
+	RunStatusPending   RunStatus = "pending"
+	RunStatusSkipped   RunStatus = "skipped"
+	RunStatusWaiting   RunStatus = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the RunStatus enum.
+func (e RunStatus) Valid() bool {
+	switch e {
+	case RunStatusActive:
+		return true
+	case RunStatusCanceled:
+		return true
+	case RunStatusCanceling:
+		return true
+	case RunStatusCompleted:
+		return true
+	case RunStatusFailed:
+		return true
+	case RunStatusPending:
+		return true
+	case RunStatusSkipped:
+		return true
+	case RunStatusWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunStepStatus.
+const (
+	RunStepStatusActive    RunStepStatus = "active"
+	RunStepStatusBlocked   RunStepStatus = "blocked"
+	RunStepStatusCompleted RunStepStatus = "completed"
+	RunStepStatusFailed    RunStepStatus = "failed"
+	RunStepStatusPending   RunStepStatus = "pending"
+	RunStepStatusSkipped   RunStepStatus = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the RunStepStatus enum.
+func (e RunStepStatus) Valid() bool {
+	switch e {
+	case RunStepStatusActive:
+		return true
+	case RunStepStatusBlocked:
+		return true
+	case RunStepStatusCompleted:
+		return true
+	case RunStepStatusFailed:
+		return true
+	case RunStepStatusPending:
+		return true
+	case RunStepStatusSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SubmitIntent.
 const (
 	Default      SubmitIntent = "default"
@@ -123,6 +225,108 @@ func (e SubmitIntent) Valid() bool {
 	case FollowUp:
 		return true
 	case InterruptNow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SupervisorRequestPayloadPhase.
+const (
+	Complete SupervisorRequestPayloadPhase = "complete"
+	Start    SupervisorRequestPayloadPhase = "start"
+)
+
+// Valid indicates whether the value is a known member of the SupervisorRequestPayloadPhase enum.
+func (e SupervisorRequestPayloadPhase) Valid() bool {
+	switch e {
+	case Complete:
+		return true
+	case Start:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SupervisorRequestPayloadRemoteAddrClass.
+const (
+	SupervisorRequestPayloadRemoteAddrClassLoopback SupervisorRequestPayloadRemoteAddrClass = "loopback"
+	SupervisorRequestPayloadRemoteAddrClassPrivate  SupervisorRequestPayloadRemoteAddrClass = "private"
+	SupervisorRequestPayloadRemoteAddrClassPublic   SupervisorRequestPayloadRemoteAddrClass = "public"
+	SupervisorRequestPayloadRemoteAddrClassUnknown  SupervisorRequestPayloadRemoteAddrClass = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the SupervisorRequestPayloadRemoteAddrClass enum.
+func (e SupervisorRequestPayloadRemoteAddrClass) Valid() bool {
+	switch e {
+	case SupervisorRequestPayloadRemoteAddrClassLoopback:
+		return true
+	case SupervisorRequestPayloadRemoteAddrClassPrivate:
+		return true
+	case SupervisorRequestPayloadRemoteAddrClassPublic:
+		return true
+	case SupervisorRequestPayloadRemoteAddrClassUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SupervisorShutdownPayloadMode.
+const (
+	SupervisorShutdownPayloadModeDestructive      SupervisorShutdownPayloadMode = "destructive"
+	SupervisorShutdownPayloadModePreserveSessions SupervisorShutdownPayloadMode = "preserve_sessions"
+	SupervisorShutdownPayloadModeUnknown          SupervisorShutdownPayloadMode = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the SupervisorShutdownPayloadMode enum.
+func (e SupervisorShutdownPayloadMode) Valid() bool {
+	switch e {
+	case SupervisorShutdownPayloadModeDestructive:
+		return true
+	case SupervisorShutdownPayloadModePreserveSessions:
+		return true
+	case SupervisorShutdownPayloadModeUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SupervisorShutdownPayloadSource.
+const (
+	Signal     SupervisorShutdownPayloadSource = "signal"
+	SocketStop SupervisorShutdownPayloadSource = "socket_stop"
+)
+
+// Valid indicates whether the value is a known member of the SupervisorShutdownPayloadSource enum.
+func (e SupervisorShutdownPayloadSource) Valid() bool {
+	switch e {
+	case Signal:
+		return true
+	case SocketStop:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SupervisorStartedPayloadPreviousExit.
+const (
+	Clean   SupervisorStartedPayloadPreviousExit = "clean"
+	Crash   SupervisorStartedPayloadPreviousExit = "crash"
+	Unknown SupervisorStartedPayloadPreviousExit = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the SupervisorStartedPayloadPreviousExit enum.
+func (e SupervisorStartedPayloadPreviousExit) Valid() bool {
+	switch e {
+	case Clean:
+		return true
+	case Crash:
+		return true
+	case Unknown:
 		return true
 	default:
 		return false
@@ -219,6 +423,45 @@ func (e GetV0CityByCityNameAgentsParamsRunning) Valid() bool {
 	}
 }
 
+// Defines values for GetV0CityByCityNameExtmsgTranscriptParamsOrder.
+const (
+	Asc  GetV0CityByCityNameExtmsgTranscriptParamsOrder = "asc"
+	Desc GetV0CityByCityNameExtmsgTranscriptParamsOrder = "desc"
+)
+
+// Valid indicates whether the value is a known member of the GetV0CityByCityNameExtmsgTranscriptParamsOrder enum.
+func (e GetV0CityByCityNameExtmsgTranscriptParamsOrder) Valid() bool {
+	switch e {
+	case Asc:
+		return true
+	case Desc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostV0CityByCityNameRigByNameByActionParamsAction.
+const (
+	Restart PostV0CityByCityNameRigByNameByActionParamsAction = "restart"
+	Resume  PostV0CityByCityNameRigByNameByActionParamsAction = "resume"
+	Suspend PostV0CityByCityNameRigByNameByActionParamsAction = "suspend"
+)
+
+// Valid indicates whether the value is a known member of the PostV0CityByCityNameRigByNameByActionParamsAction enum.
+func (e PostV0CityByCityNameRigByNameByActionParamsAction) Valid() bool {
+	switch e {
+	case Restart:
+		return true
+	case Resume:
+		return true
+	case Suspend:
+		return true
+	default:
+		return false
+	}
+}
+
 // AdapterCapabilities defines model for AdapterCapabilities.
 type AdapterCapabilities struct {
 	MaxMessageLength           int64 `json:"MaxMessageLength"`
@@ -273,6 +516,7 @@ type AgentOutputResponse struct {
 // AgentPatch defines model for AgentPatch.
 type AgentPatch struct {
 	AppendFragments         *[]string         `json:"AppendFragments"`
+	Args                    *[]string         `json:"Args"`
 	Attach                  *bool             `json:"Attach"`
 	DefaultSlingFormula     *string           `json:"DefaultSlingFormula"`
 	DependsOn               *[]string         `json:"DependsOn"`
@@ -286,10 +530,14 @@ type AgentPatch struct {
 	InjectFragmentsAppend   *[]string         `json:"InjectFragmentsAppend"`
 	InstallAgentHooks       *[]string         `json:"InstallAgentHooks"`
 	InstallAgentHooksAppend *[]string         `json:"InstallAgentHooksAppend"`
+	Lifecycle               *string           `json:"Lifecycle"`
 	MCP                     *[]string         `json:"MCP"`
 	MCPAppend               *[]string         `json:"MCPAppend"`
 	MaxActiveSessions       *int64            `json:"MaxActiveSessions"`
+	MaxSessionAge           *string           `json:"MaxSessionAge"`
+	MaxSessionAgeJitter     *string           `json:"MaxSessionAgeJitter"`
 	MinActiveSessions       *int64            `json:"MinActiveSessions"`
+	MouseMode               *string           `json:"MouseMode"`
 	Name                    string            `json:"Name"`
 	Nudge                   *string           `json:"Nudge"`
 	OptionDefaults          map[string]string `json:"OptionDefaults"`
@@ -313,6 +561,8 @@ type AgentPatch struct {
 	SleepAfterIdle          *string           `json:"SleepAfterIdle"`
 	StartCommand            *string           `json:"StartCommand"`
 	Suspended               *bool             `json:"Suspended"`
+	TmuxAlias               *string           `json:"TmuxAlias"`
+	Upstream                *string           `json:"Upstream"`
 	WakeMode                *string           `json:"WakeMode"`
 	WorkDir                 *string           `json:"WorkDir"`
 }
@@ -328,11 +578,17 @@ type AgentPatchSetInputBody struct {
 	// Name Agent name.
 	Name *string `json:"name,omitempty"`
 
+	// Provider Override the agent's provider.
+	Provider *string `json:"provider,omitempty"`
+
 	// Scope Override agent scope.
 	Scope *string `json:"scope,omitempty"`
 
 	// Suspended Override suspended state.
 	Suspended *bool `json:"suspended,omitempty"`
+
+	// TmuxAlias Override tmux session name template.
+	TmuxAlias *string `json:"tmux_alias,omitempty"`
 
 	// WorkDir Override session working directory.
 	WorkDir *string `json:"work_dir,omitempty"`
@@ -350,6 +606,8 @@ type AgentResponse struct {
 	LastOutput        *string      `json:"last_output,omitempty"`
 	Model             *string      `json:"model,omitempty"`
 	Name              string       `json:"name"`
+	Pack              *string      `json:"pack,omitempty"`
+	PackDerived       bool         `json:"pack_derived"`
 	Pool              *string      `json:"pool,omitempty"`
 	Provider          *string      `json:"provider,omitempty"`
 	Rig               *string      `json:"rig,omitempty"`
@@ -438,19 +696,24 @@ type AsyncAcceptedResponse struct {
 type Bead struct {
 	Assignee     *string            `json:"assignee,omitempty"`
 	CreatedAt    time.Time          `json:"created_at"`
+	DeferUntil   *time.Time         `json:"defer_until,omitempty"`
 	Dependencies *[]Dep             `json:"dependencies,omitempty"`
 	Description  *string            `json:"description,omitempty"`
+	Ephemeral    *bool              `json:"ephemeral,omitempty"`
 	From         *string            `json:"from,omitempty"`
 	Id           string             `json:"id"`
+	IsBlocked    *bool              `json:"is_blocked,omitempty"`
 	IssueType    string             `json:"issue_type"`
 	Labels       *[]string          `json:"labels,omitempty"`
 	Metadata     *map[string]string `json:"metadata,omitempty"`
 	Needs        *[]string          `json:"needs,omitempty"`
+	NoHistory    *bool              `json:"no_history,omitempty"`
 	Parent       *string            `json:"parent,omitempty"`
 	Priority     *int64             `json:"priority,omitempty"`
 	Ref          *string            `json:"ref,omitempty"`
 	Status       string             `json:"status"`
 	Title        string             `json:"title"`
+	UpdatedAt    *time.Time         `json:"updated_at,omitempty"`
 }
 
 // BeadAssignInputBody defines model for BeadAssignInputBody.
@@ -459,10 +722,20 @@ type BeadAssignInputBody struct {
 	Assignee *string `json:"assignee,omitempty"`
 }
 
+// BeadClaimRejectedPayload defines model for BeadClaimRejectedPayload.
+type BeadClaimRejectedPayload struct {
+	AttemptedClaimant string `json:"attempted_claimant"`
+	BeadId            string `json:"bead_id"`
+	ExistingClaimant  string `json:"existing_claimant"`
+}
+
 // BeadCreateInputBody defines model for BeadCreateInputBody.
 type BeadCreateInputBody struct {
 	// Assignee Assigned agent.
 	Assignee *string `json:"assignee,omitempty"`
+
+	// DeferUntil Hide the bead from ready views until this time.
+	DeferUntil *time.Time `json:"defer_until,omitempty"`
 
 	// Description Bead description.
 	Description *string `json:"description,omitempty"`
@@ -487,6 +760,18 @@ type BeadCreateInputBody struct {
 
 	// Type Bead type.
 	Type *string `json:"type,omitempty"`
+}
+
+// BeadDeadAssigneeReopenedPayload defines model for BeadDeadAssigneeReopenedPayload.
+type BeadDeadAssigneeReopenedPayload struct {
+	// BeadId ID of the reopened work bead (also the envelope Subject).
+	BeadId string `json:"bead_id"`
+
+	// DeadAssignee The assignee identity that resolved to no open session bead, cleared by the reopen.
+	DeadAssignee *string `json:"dead_assignee,omitempty"`
+
+	// RoutedTo The gc.routed_to target the bead stays routed to after the reopen, when set.
+	RoutedTo *string `json:"routed_to,omitempty"`
 }
 
 // BeadDepsResponse defines model for BeadDepsResponse.
@@ -539,14 +824,39 @@ type BeadUpdateBody struct {
 	Type *string `json:"type,omitempty"`
 }
 
+// BeadWorktreeReapSkippedPayload defines model for BeadWorktreeReapSkippedPayload.
+type BeadWorktreeReapSkippedPayload struct {
+	BeadId string `json:"bead_id"`
+	Path   string `json:"path"`
+	Reason string `json:"reason"`
+	Rig    string `json:"rig"`
+}
+
+// BeadWorktreeReapedPayload defines model for BeadWorktreeReapedPayload.
+type BeadWorktreeReapedPayload struct {
+	BeadId string `json:"bead_id"`
+	Branch string `json:"branch"`
+	Path   string `json:"path"`
+	Rig    string `json:"rig"`
+}
+
+// BeadsDiagnostic defines model for BeadsDiagnostic.
+type BeadsDiagnostic struct {
+	BeadsStore          string  `json:"beads_store"`
+	NativeStoreEligible bool    `json:"native_store_eligible"`
+	PreflightGate       *string `json:"preflight_gate,omitempty"`
+	PreflightReason     *string `json:"preflight_reason,omitempty"`
+}
+
 // BindingStatus Lifecycle state of a session binding.
 type BindingStatus string
 
 // BoundEventPayload defines model for BoundEventPayload.
 type BoundEventPayload struct {
-	ConversationId string `json:"conversation_id"`
-	Provider       string `json:"provider"`
-	SessionId      string `json:"session_id"`
+	AgentName      *string `json:"agent_name,omitempty"`
+	ConversationId string  `json:"conversation_id"`
+	Provider       string  `json:"provider"`
+	SessionId      string  `json:"session_id"`
 }
 
 // CityCreateRequest defines model for CityCreateRequest.
@@ -614,6 +924,18 @@ type CityPatchInputBody struct {
 	Suspended *bool `json:"suspended,omitempty"`
 }
 
+// CityPendingEntry defines model for CityPendingEntry.
+type CityPendingEntry struct {
+	// Kind Pending interaction kind (e.g. tool-approval, prompt-for-input).
+	Kind string `json:"kind"`
+
+	// RequestId Pending interaction request ID.
+	RequestId string `json:"request_id"`
+
+	// SessionId Session ID awaiting a human decision.
+	SessionId string `json:"session_id"`
+}
+
 // CityUnregisterSucceededPayload defines model for CityUnregisterSucceededPayload.
 type CityUnregisterSucceededPayload struct {
 	// Name City name that was unregistered.
@@ -659,11 +981,12 @@ type ConfigPatchesResponse struct {
 
 // ConfigResponse defines model for ConfigResponse.
 type ConfigResponse struct {
-	Agents    *[]ConfigAgentResponse       `json:"agents"`
-	Patches   *ConfigPatchesResponse       `json:"patches,omitempty"`
-	Providers *map[string]ProviderSpecJSON `json:"providers,omitempty"`
-	Rigs      *[]ConfigRigResponse         `json:"rigs"`
-	Workspace WorkspaceResponse            `json:"workspace"`
+	Agents          *[]ConfigAgentResponse       `json:"agents"`
+	EffectiveApiUrl *string                      `json:"effective_api_url,omitempty"`
+	Patches         *ConfigPatchesResponse       `json:"patches,omitempty"`
+	Providers       *map[string]ProviderSpecJSON `json:"providers,omitempty"`
+	Rigs            *[]ConfigRigResponse         `json:"rigs"`
+	Workspace       WorkspaceResponse            `json:"workspace"`
 }
 
 // ConfigRigResponse defines model for ConfigRigResponse.
@@ -688,12 +1011,13 @@ type ConfigValidateOutputBody struct {
 
 // ConversationGroupParticipant defines model for ConversationGroupParticipant.
 type ConversationGroupParticipant struct {
-	GroupID   string            `json:"GroupID"`
-	Handle    string            `json:"Handle"`
-	ID        string            `json:"ID"`
-	Metadata  map[string]string `json:"Metadata"`
-	Public    bool              `json:"Public"`
-	SessionID string            `json:"SessionID"`
+	GroupID     string            `json:"GroupID"`
+	Handle      string            `json:"Handle"`
+	ID          string            `json:"ID"`
+	Metadata    map[string]string `json:"Metadata"`
+	Public      bool              `json:"Public"`
+	SessionID   string            `json:"SessionID"`
+	SessionName string            `json:"SessionName"`
 }
 
 // ConversationGroupRecord defines model for ConversationGroupRecord.
@@ -836,6 +1160,9 @@ type ErrorDetail struct {
 
 // ErrorModel defines model for ErrorModel.
 type ErrorModel struct {
+	// Code Stable machine-readable error code (the final segment of the type URN).
+	Code *string `json:"code,omitempty"`
+
 	// Detail A human-readable explanation specific to this occurrence of the problem.
 	Detail *string `json:"detail,omitempty"`
 
@@ -881,16 +1208,61 @@ type EventPayload struct {
 	union json.RawMessage
 }
 
+// EventRotateAnchor defines model for EventRotateAnchor.
+type EventRotateAnchor struct {
+	// Seq Anchor event sequence.
+	Seq int64 `json:"seq"`
+
+	// Ts Anchor event timestamp.
+	Ts time.Time `json:"ts"`
+
+	// Type Anchor event type.
+	Type string `json:"type"`
+}
+
+// EventRotateArchive defines model for EventRotateArchive.
+type EventRotateArchive struct {
+	// CompressionStatus Archive compression status.
+	CompressionStatus EventRotateArchiveCompressionStatus `json:"compression_status"`
+
+	// FirstSeq First event sequence included in the archive.
+	FirstSeq int64 `json:"first_seq"`
+
+	// LastSeq Last event sequence included in the archive.
+	LastSeq int64 `json:"last_seq"`
+
+	// Path Absolute path to the archive.
+	Path string `json:"path"`
+}
+
+// EventRotateArchiveCompressionStatus Archive compression status.
+type EventRotateArchiveCompressionStatus string
+
+// EventRotateResponse defines model for EventRotateResponse.
+type EventRotateResponse struct {
+	AnchorEvent *EventRotateAnchor  `json:"anchor_event,omitempty"`
+	Archive     *EventRotateArchive `json:"archive,omitempty"`
+
+	// Reason No-op reason when rotated is false.
+	Reason *string `json:"reason,omitempty"`
+
+	// Rotated Whether an archive was produced.
+	Rotated bool `json:"rotated"`
+}
+
 // EventStreamEnvelope defines model for EventStreamEnvelope.
 type EventStreamEnvelope struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  *EventPayload            `json:"payload,omitempty"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   *EventPayload            `json:"payload,omitempty"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // ExtMsgAdapterRegisterInputBody defines model for ExtMsgAdapterRegisterInputBody.
@@ -935,13 +1307,18 @@ type ExtMsgAdapterUnregisterInputBody struct {
 
 // ExtMsgBindInputBody defines model for ExtMsgBindInputBody.
 type ExtMsgBindInputBody struct {
+	// AgentName Configured agent identity to bind; its live session is resolved at delivery time, cold-waking one when none is live (mutually exclusive with session_id).
+	AgentName    *string          `json:"agent_name,omitempty"`
 	Conversation *ConversationRef `json:"conversation,omitempty"`
 
 	// Metadata Optional binding metadata.
 	Metadata *map[string]string `json:"metadata,omitempty"`
 
-	// SessionId Session ID to bind.
-	SessionId string `json:"session_id"`
+	// Replace Rebind (handoff) a conversation whose active binding targets someone else instead of returning a conflict.
+	Replace *bool `json:"replace,omitempty"`
+
+	// SessionId Session ID to bind (mutually exclusive with agent_name).
+	SessionId *string `json:"session_id,omitempty"`
 }
 
 // ExtMsgGroupEnsureInputBody defines model for ExtMsgGroupEnsureInputBody.
@@ -1033,10 +1410,12 @@ type ExtMsgUnbindBody struct {
 
 // ExtMsgUnbindInputBody defines model for ExtMsgUnbindInputBody.
 type ExtMsgUnbindInputBody struct {
+	// AgentName Configured agent identity to unbind.
+	AgentName    *string          `json:"agent_name,omitempty"`
 	Conversation *ConversationRef `json:"conversation,omitempty"`
 
 	// SessionId Session ID to unbind.
-	SessionId string `json:"session_id"`
+	SessionId *string `json:"session_id,omitempty"`
 }
 
 // ExternalActor defines model for ExternalActor.
@@ -1094,7 +1473,6 @@ type FormulaDetailResponse struct {
 	Preview     FormulaPreviewResponse        `json:"preview"`
 	Steps       *[]FormulaStepResponse        `json:"steps"`
 	VarDefs     *[]FormulaVarDefResponse      `json:"var_defs"`
-	Version     string                        `json:"version"`
 }
 
 // FormulaFeedBody defines model for FormulaFeedBody.
@@ -1124,7 +1502,7 @@ type FormulaPreviewBody struct {
 	// ScopeRef Scope reference.
 	ScopeRef *string `json:"scope_ref,omitempty"`
 
-	// Target Target agent for preview compilation.
+	// Target Preview target: a bead or convoy ID, or a configured agent identity (for example a workflow root's gc.routed_to value).
 	Target string `json:"target"`
 
 	// Vars Variable name-to-value overrides applied to the compiled preview.
@@ -1170,6 +1548,15 @@ type FormulaRunsResponse struct {
 	RunCount      int64                       `json:"run_count"`
 }
 
+// FormulaSourceOutputBody defines model for FormulaSourceOutputBody.
+type FormulaSourceOutputBody struct {
+	// Name Formula name.
+	Name string `json:"name"`
+
+	// Source Raw formula TOML source.
+	Source string `json:"source"`
+}
+
 // FormulaStepResponse defines model for FormulaStepResponse.
 type FormulaStepResponse struct {
 	Assignee *string            `json:"assignee,omitempty"`
@@ -1188,7 +1575,15 @@ type FormulaSummaryResponse struct {
 	RecentRuns  *[]FormulaRecentRunResponse `json:"recent_runs"`
 	RunCount    int64                       `json:"run_count"`
 	VarDefs     *[]FormulaVarDefResponse    `json:"var_defs"`
-	Version     string                      `json:"version"`
+}
+
+// FormulaValidateOutputBody defines model for FormulaValidateOutputBody.
+type FormulaValidateOutputBody struct {
+	// Errors Validation errors, if any.
+	Errors *[]string `json:"errors,omitempty"`
+
+	// Valid Whether the formula source is valid.
+	Valid bool `json:"valid"`
 }
 
 // FormulaVarDefResponse defines model for FormulaVarDefResponse.
@@ -1248,10 +1643,11 @@ type HeartbeatEvent struct {
 
 // InboundEventPayload defines model for InboundEventPayload.
 type InboundEventPayload struct {
-	Actor          string `json:"actor"`
-	ConversationId string `json:"conversation_id"`
-	Provider       string `json:"provider"`
-	TargetSession  string `json:"target_session"`
+	Actor          string  `json:"actor"`
+	ConversationId string  `json:"conversation_id"`
+	Provider       string  `json:"provider"`
+	TargetAgent    *string `json:"target_agent,omitempty"`
+	TargetSession  string  `json:"target_session"`
 }
 
 // InboundResult defines model for InboundResult.
@@ -1259,6 +1655,7 @@ type InboundResult struct {
 	Binding         SessionBindingRecord         `json:"Binding"`
 	GroupRoute      GroupRouteDecision           `json:"GroupRoute"`
 	Message         ExternalInboundMessage       `json:"Message"`
+	TargetAgentName string                       `json:"TargetAgentName"`
 	TargetSessionID string                       `json:"TargetSessionID"`
 	TranscriptEntry ConversationTranscriptRecord `json:"TranscriptEntry"`
 }
@@ -1303,6 +1700,24 @@ type ListBodyAgentResponse struct {
 type ListBodyBead struct {
 	// Items The list of items.
 	Items *[]Bead `json:"items"`
+
+	// NextCursor Cursor for the next page of results.
+	NextCursor *string `json:"next_cursor,omitempty"`
+
+	// Partial True when one or more backends failed and the list is incomplete.
+	Partial *bool `json:"partial,omitempty"`
+
+	// PartialErrors Human-readable errors from backends that failed during aggregation.
+	PartialErrors *[]string `json:"partial_errors,omitempty"`
+
+	// Total Total number of items matching the query.
+	Total int64 `json:"total"`
+}
+
+// ListBodyCityPendingEntry defines model for ListBodyCityPendingEntry.
+type ListBodyCityPendingEntry struct {
+	// Items The list of items.
+	Items *[]CityPendingEntry `json:"items"`
 
 	// NextCursor Cursor for the next page of results.
 	NextCursor *string `json:"next_cursor,omitempty"`
@@ -1569,6 +1984,65 @@ type MailSendInputBody struct {
 	To string `json:"to"`
 }
 
+// MaintenanceRunBody defines model for MaintenanceRunBody.
+type MaintenanceRunBody struct {
+	// AfterBytes Store size in bytes after the run (0 when not measured).
+	AfterBytes int64 `json:"after_bytes"`
+
+	// BeforeBytes Store size in bytes before the run (0 when not measured).
+	BeforeBytes int64 `json:"before_bytes"`
+
+	// DurationS Elapsed wall-clock seconds between started_at and finished_at.
+	DurationS float64 `json:"duration_s"`
+
+	// Err Error message when Stage names a failing phase; empty on success.
+	Err *string `json:"err,omitempty"`
+
+	// FinishedAt RFC3339 timestamp when the run completed.
+	FinishedAt string `json:"finished_at"`
+
+	// SnapshotPath Absolute path to the snapshot directory created for this run.
+	SnapshotPath *string `json:"snapshot_path,omitempty"`
+
+	// Stage Outcome stage: 'done' on success or 'backup'/'gc'/'smoke-test'/'prune' on failure.
+	Stage string `json:"stage"`
+
+	// StartedAt RFC3339 timestamp when the run began.
+	StartedAt string `json:"started_at"`
+}
+
+// MaintenanceStatusBody defines model for MaintenanceStatusBody.
+type MaintenanceStatusBody struct {
+	// Enabled Whether [maintenance.dolt] enabled=true in city.toml.
+	Enabled bool `json:"enabled"`
+
+	// History Bounded ring of recent run outcomes (oldest first).
+	History *[]MaintenanceRunBody `json:"history"`
+
+	// InFlight True when a maintenance cycle is currently running.
+	InFlight bool `json:"in_flight"`
+
+	// InFlightStart RFC3339 start time of the in-flight run.
+	InFlightStart *string `json:"in_flight_start,omitempty"`
+
+	// IntervalSeconds Configured scheduling interval in seconds (0 when disabled).
+	IntervalSeconds int64               `json:"interval_seconds"`
+	LastRun         *MaintenanceRunBody `json:"last_run,omitempty"`
+
+	// NextScheduled RFC3339 approximate next scheduled run time.
+	NextScheduled *string `json:"next_scheduled,omitempty"`
+}
+
+// MaintenanceTriggerBody defines model for MaintenanceTriggerBody.
+type MaintenanceTriggerBody struct {
+	// Accepted True when the supervisor accepted the trigger (202) or completed it (200).
+	Accepted bool                `json:"accepted"`
+	Run      *MaintenanceRunBody `json:"run,omitempty"`
+
+	// StartedAt RFC3339 start time of the triggered run; doubles as a run identifier for async callers.
+	StartedAt *string `json:"started_at,omitempty"`
+}
+
 // Message defines model for Message.
 type Message struct {
 	Body      string    `json:"body"`
@@ -1583,6 +2057,36 @@ type Message struct {
 	Subject   string    `json:"subject"`
 	ThreadId  *string   `json:"thread_id,omitempty"`
 	To        string    `json:"to"`
+}
+
+// MoleculeResolvedPayload defines model for MoleculeResolvedPayload.
+type MoleculeResolvedPayload struct {
+	// Actor Identity that triggered the close (eventActor).
+	Actor string `json:"actor"`
+
+	// CloseReason close_reason stamped on the root.
+	CloseReason *string `json:"close_reason,omitempty"`
+
+	// FromStatus Root status captured before the close mutated it.
+	FromStatus string `json:"from_status"`
+
+	// IssueId Molecule root bead ID that resolved.
+	IssueId string `json:"issue_id"`
+
+	// SessionId Resolving session ID from gc.session_id. Empty if unstamped.
+	SessionId *string `json:"session_id,omitempty"`
+
+	// SessionName Resolving session name from gc.session_name. Empty if unstamped.
+	SessionName *string `json:"session_name,omitempty"`
+
+	// ToStatus Terminal status after resolution. Always "closed".
+	ToStatus string `json:"to_status"`
+
+	// Ts Resolution timestamp (UTC).
+	Ts time.Time `json:"ts"`
+
+	// WorkDir Resolving session work dir from gc.work_dir. Empty if unstamped.
+	WorkDir *string `json:"work_dir,omitempty"`
 }
 
 // MonitorFeedItemResponse defines model for MonitorFeedItemResponse.
@@ -1689,12 +2193,13 @@ type OrderListBody struct {
 
 // OrderResponse defines model for OrderResponse.
 type OrderResponse struct {
-	CaptureOutput bool    `json:"capture_output"`
-	Check         *string `json:"check,omitempty"`
-	Description   *string `json:"description,omitempty"`
-	Enabled       bool    `json:"enabled"`
-	Exec          *string `json:"exec,omitempty"`
-	Formula       *string `json:"formula,omitempty"`
+	CaptureOutput bool               `json:"capture_output"`
+	Check         *string            `json:"check,omitempty"`
+	Description   *string            `json:"description,omitempty"`
+	Enabled       bool               `json:"enabled"`
+	Env           *map[string]string `json:"env,omitempty"`
+	Exec          *string            `json:"exec,omitempty"`
+	Formula       *string            `json:"formula,omitempty"`
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Gate       *string `json:"gate,omitempty"`
 	Interval   *string `json:"interval,omitempty"`
@@ -1710,11 +2215,37 @@ type OrderResponse struct {
 	Type       string  `json:"type"`
 }
 
+// OrderRunInputBody defines model for OrderRunInputBody.
+type OrderRunInputBody struct {
+	// Vars Declared [order.params] as key/value dispatch args (parity with 'gc order run --var'). Namespaced into the exec env under GC_WEBHOOK_ARG_ before overlay (R4).
+	Vars *map[string]string `json:"vars,omitempty"`
+}
+
+// OrderRunOutputBody defines model for OrderRunOutputBody.
+type OrderRunOutputBody struct {
+	// ScopedName Rig-qualified name of the fired order.
+	ScopedName *string `json:"scoped_name,omitempty"`
+
+	// Status "dispatched" when the order fired.
+	Status string `json:"status"`
+
+	// TrackingId Tracking bead id for the dispatch.
+	TrackingId *string `json:"tracking_id,omitempty"`
+}
+
 // OrdersFeedBody defines model for OrdersFeedBody.
 type OrdersFeedBody struct {
 	Items         *[]MonitorFeedItemResponse `json:"items"`
 	Partial       bool                       `json:"partial"`
 	PartialErrors *[]string                  `json:"partial_errors,omitempty"`
+}
+
+// OutboundChannelMismatchPayload defines model for OutboundChannelMismatchPayload.
+type OutboundChannelMismatchPayload struct {
+	ConversationId string `json:"conversation_id"`
+	OwnerSession   string `json:"owner_session"`
+	PostingSession string `json:"posting_session"`
+	Provider       string `json:"provider"`
 }
 
 // OutboundEventPayload defines model for OutboundEventPayload.
@@ -1739,18 +2270,50 @@ type OutputTurn struct {
 	Timestamp *string `json:"timestamp,omitempty"`
 }
 
+// PackAddInputBody defines model for PackAddInputBody.
+type PackAddInputBody struct {
+	// Name Optional local binding name override; derived from the source when omitted.
+	Name *string `json:"name,omitempty"`
+
+	// Source Pack source: a remote git URL or registry ref (a sub-path of a repo is allowed).
+	Source string `json:"source"`
+
+	// Version Optional semver constraint for a git-backed pack.
+	Version *string `json:"version,omitempty"`
+}
+
+// PackAddedOutputBody defines model for PackAddedOutputBody.
+type PackAddedOutputBody struct {
+	// GitBacked Whether the resolved source is git-backed (has a lock entry).
+	GitBacked bool `json:"git_backed"`
+
+	// Name The local binding name written to [imports.<name>].
+	Name string `json:"name"`
+
+	// Source The canonical source string written to the manifest.
+	Source string `json:"source"`
+
+	// Version The version constraint written, if any.
+	Version *string `json:"version,omitempty"`
+}
+
 // PackListBody defines model for PackListBody.
 type PackListBody struct {
 	// Packs Registered packs.
 	Packs *[]PackResponse `json:"packs"`
 }
 
+// PackRemovedOutputBody defines model for PackRemovedOutputBody.
+type PackRemovedOutputBody struct {
+	// Name The binding name removed.
+	Name string `json:"name"`
+}
+
 // PackResponse defines model for PackResponse.
 type PackResponse struct {
-	Name   string  `json:"name"`
-	Path   *string `json:"path,omitempty"`
-	Ref    *string `json:"ref,omitempty"`
-	Source *string `json:"source,omitempty"`
+	Name    string  `json:"name"`
+	Source  *string `json:"source,omitempty"`
+	Version *string `json:"version,omitempty"`
 }
 
 // PaginationInfo defines model for PaginationInfo.
@@ -1811,6 +2374,25 @@ type PoolOverride struct {
 	OnDeath      *string `json:"OnDeath"`
 }
 
+// PostgresCredentialResolvedPayload defines model for PostgresCredentialResolvedPayload.
+type PostgresCredentialResolvedPayload struct {
+	Host      string `json:"host"`
+	Port      string `json:"port"`
+	ScopeKind string `json:"scope_kind"`
+	ScopeName string `json:"scope_name"`
+	Source    string `json:"source"`
+	User      string `json:"user"`
+}
+
+// ProjectIdentityStampedPayload defines model for ProjectIdentityStampedPayload.
+type ProjectIdentityStampedPayload struct {
+	Layer     string  `json:"layer"`
+	NewId     string  `json:"new_id"`
+	OldId     *string `json:"old_id,omitempty"`
+	ScopeRoot string  `json:"scope_root"`
+	Source    string  `json:"source"`
+}
+
 // ProviderCreateInputBody defines model for ProviderCreateInputBody.
 type ProviderCreateInputBody struct {
 	// AcpArgs ACP transport command arguments override.
@@ -1839,6 +2421,9 @@ type ProviderCreateInputBody struct {
 
 	// Name Provider name.
 	Name string `json:"name"`
+
+	// OptionDefaults Provider option defaults (e.g. model). Keys are merged on update.
+	OptionDefaults *map[string]string `json:"option_defaults,omitempty"`
 
 	// OptionsSchemaMerge Options schema merge mode across inheritance chain.
 	OptionsSchemaMerge *string `json:"options_schema_merge,omitempty"`
@@ -1873,24 +2458,28 @@ type ProviderOptionDTO struct {
 
 // ProviderPatch defines model for ProviderPatch.
 type ProviderPatch struct {
-	ACPArgs            *[]string         `json:"ACPArgs"`
-	ACPCommand         *string           `json:"ACPCommand"`
-	Args               *[]string         `json:"Args"`
-	ArgsAppend         *[]string         `json:"ArgsAppend"`
-	Base               *string           `json:"Base"`
-	Command            *string           `json:"Command"`
-	Env                map[string]string `json:"Env"`
-	EnvRemove          *[]string         `json:"EnvRemove"`
-	Name               string            `json:"Name"`
-	OptionsSchemaMerge *string           `json:"OptionsSchemaMerge"`
-	PromptFlag         *string           `json:"PromptFlag"`
-	PromptMode         *string           `json:"PromptMode"`
-	ReadyDelayMs       *int64            `json:"ReadyDelayMs"`
-	Replace            bool              `json:"Replace"`
+	ACPArgs              *[]string         `json:"ACPArgs"`
+	ACPCommand           *string           `json:"ACPCommand"`
+	AcceptStartupDialogs *bool             `json:"AcceptStartupDialogs"`
+	Args                 *[]string         `json:"Args"`
+	ArgsAppend           *[]string         `json:"ArgsAppend"`
+	Base                 *string           `json:"Base"`
+	Command              *string           `json:"Command"`
+	Env                  map[string]string `json:"Env"`
+	EnvRemove            *[]string         `json:"EnvRemove"`
+	Name                 string            `json:"Name"`
+	OptionsSchemaMerge   *string           `json:"OptionsSchemaMerge"`
+	PromptFlag           *string           `json:"PromptFlag"`
+	PromptMode           *string           `json:"PromptMode"`
+	ReadyDelayMs         *int64            `json:"ReadyDelayMs"`
+	Replace              bool              `json:"Replace"`
 }
 
 // ProviderPatchSetInputBody defines model for ProviderPatchSetInputBody.
 type ProviderPatchSetInputBody struct {
+	// AcceptStartupDialogs Override startup dialog acceptance behavior.
+	AcceptStartupDialogs *bool `json:"accept_startup_dialogs,omitempty"`
+
 	// AcpArgs Override ACP transport command arguments.
 	AcpArgs *[]string `json:"acp_args,omitempty"`
 
@@ -2008,6 +2597,9 @@ type ProviderUpdateInputBody struct {
 	// Env Environment variables.
 	Env *map[string]string `json:"env,omitempty"`
 
+	// OptionDefaults Provider option defaults (e.g. model). Keys are merged on update.
+	OptionDefaults *map[string]string `json:"option_defaults,omitempty"`
+
 	// OptionsSchemaMerge Options schema merge mode across inheritance chain.
 	OptionsSchemaMerge *string `json:"options_schema_merge,omitempty"`
 
@@ -2043,6 +2635,20 @@ type ReadinessItem struct {
 // ReadinessResponse defines model for ReadinessResponse.
 type ReadinessResponse struct {
 	Items map[string]ReadinessItem `json:"items"`
+}
+
+// Record defines model for Record.
+type Record struct {
+	Actor      string             `json:"actor"`
+	CreatedAt  time.Time          `json:"created_at"`
+	Hostname   *string            `json:"hostname,omitempty"`
+	Id         string             `json:"id"`
+	Message    string             `json:"message"`
+	Metadata   *map[string]string `json:"metadata,omitempty"`
+	RefBead    *string            `json:"ref_bead,omitempty"`
+	Severity   string             `json:"severity"`
+	SourcePath *string            `json:"source_path,omitempty"`
+	SourcePid  *int64             `json:"source_pid,omitempty"`
 }
 
 // RequestFailedPayload defines model for RequestFailedPayload.
@@ -2083,6 +2689,9 @@ type RigActionBody struct {
 
 // RigCreateInputBody defines model for RigCreateInputBody.
 type RigCreateInputBody struct {
+	// DefaultBranch Mainline branch (e.g. main, master). Auto-detected when omitted.
+	DefaultBranch *string `json:"default_branch,omitempty"`
+
 	// Name Rig name.
 	Name string `json:"name"`
 
@@ -2104,14 +2713,20 @@ type RigCreatedOutputBody struct {
 
 // RigPatch defines model for RigPatch.
 type RigPatch struct {
-	Name      string  `json:"Name"`
-	Path      *string `json:"Path"`
-	Prefix    *string `json:"Prefix"`
-	Suspended *bool   `json:"Suspended"`
+	DefaultBranch    *string           `json:"DefaultBranch"`
+	FormulaVars      map[string]string `json:"FormulaVars"`
+	Name             string            `json:"Name"`
+	Path             *string           `json:"Path"`
+	Prefix           *string           `json:"Prefix"`
+	Suspended        *bool             `json:"Suspended"`
+	SuspendedOnStart *bool             `json:"SuspendedOnStart"`
 }
 
 // RigPatchSetInputBody defines model for RigPatchSetInputBody.
 type RigPatchSetInputBody struct {
+	// DefaultBranch Override mainline branch.
+	DefaultBranch *string `json:"default_branch,omitempty"`
+
 	// Name Rig name.
 	Name *string `json:"name,omitempty"`
 
@@ -2127,18 +2742,22 @@ type RigPatchSetInputBody struct {
 
 // RigResponse defines model for RigResponse.
 type RigResponse struct {
-	AgentCount   int64      `json:"agent_count"`
-	Git          *GitStatus `json:"git,omitempty"`
-	LastActivity *time.Time `json:"last_activity,omitempty"`
-	Name         string     `json:"name"`
-	Path         string     `json:"path"`
-	Prefix       *string    `json:"prefix,omitempty"`
-	RunningCount int64      `json:"running_count"`
-	Suspended    bool       `json:"suspended"`
+	AgentCount    int64      `json:"agent_count"`
+	DefaultBranch *string    `json:"default_branch,omitempty"`
+	Git           *GitStatus `json:"git,omitempty"`
+	LastActivity  *time.Time `json:"last_activity,omitempty"`
+	Name          string     `json:"name"`
+	Path          string     `json:"path"`
+	Prefix        *string    `json:"prefix,omitempty"`
+	RunningCount  int64      `json:"running_count"`
+	Suspended     bool       `json:"suspended"`
 }
 
 // RigUpdateInputBody defines model for RigUpdateInputBody.
 type RigUpdateInputBody struct {
+	// DefaultBranch Mainline branch (e.g. main, master).
+	DefaultBranch *string `json:"default_branch,omitempty"`
+
 	// Path Filesystem path.
 	Path *string `json:"path,omitempty"`
 
@@ -2147,6 +2766,117 @@ type RigUpdateInputBody struct {
 
 	// Suspended Whether rig is suspended.
 	Suspended *bool `json:"suspended,omitempty"`
+}
+
+// RotatedPayload defines model for RotatedPayload.
+type RotatedPayload struct {
+	PriorArchive  string `json:"prior_archive"`
+	PriorFirstSeq int64  `json:"prior_first_seq"`
+	PriorLastSeq  int64  `json:"prior_last_seq"`
+}
+
+// Run defines model for Run.
+type Run struct {
+	// Formula Formula name driving the run, when known.
+	Formula   *string       `json:"formula,omitempty"`
+	LastError *RunLastError `json:"last_error,omitempty"`
+
+	// RunId Stable run identifier (the run root bead id).
+	RunId string   `json:"run_id"`
+	Scope RunScope `json:"scope"`
+
+	// StartedAt RFC3339 run start time (root creation).
+	StartedAt *string `json:"started_at,omitempty"`
+
+	// Status Closed lifecycle state of a run.
+	Status RunStatus `json:"status"`
+
+	// Target Where the run is routed (rig/target), when known.
+	Target *string `json:"target,omitempty"`
+
+	// Title Human-readable run title.
+	Title string `json:"title"`
+
+	// UpdatedAt RFC3339 time of the run's most recent activity.
+	UpdatedAt *string `json:"updated_at,omitempty"`
+}
+
+// RunLastError defines model for RunLastError.
+type RunLastError struct {
+	// Code Machine-readable outcome code (e.g. fail, skipped, canceled).
+	Code string `json:"code"`
+
+	// Message Human-readable failure detail, when available.
+	Message *string `json:"message,omitempty"`
+}
+
+// RunRef defines model for RunRef.
+type RunRef struct {
+	// Kind Launch mechanism that produced the run.
+	Kind RunRefKind `json:"kind"`
+
+	// RunId Run identifier; GET /v0/city/{cityName}/runs/{run_id} for detail.
+	RunId string `json:"run_id"`
+
+	// Status Closed lifecycle state of a run.
+	Status RunStatus `json:"status"`
+}
+
+// RunRefKind Launch mechanism that produced the run.
+type RunRefKind string
+
+// RunScope defines model for RunScope.
+type RunScope struct {
+	// Kind Scope kind (city or rig), when resolved.
+	Kind *string `json:"kind,omitempty"`
+
+	// Ref Scope reference within the kind, when resolved.
+	Ref *string `json:"ref,omitempty"`
+}
+
+// RunStatus Closed lifecycle state of a run.
+type RunStatus string
+
+// RunStep defines model for RunStep.
+type RunStep struct {
+	// Assignee Current assignee, when set.
+	Assignee *string `json:"assignee,omitempty"`
+
+	// Id Step (child bead) identifier.
+	Id string `json:"id"`
+
+	// Kind Step kind (bead type).
+	Kind *string `json:"kind,omitempty"`
+
+	// Status Closed lifecycle state of a run step.
+	Status RunStepStatus `json:"status"`
+
+	// Title Step title.
+	Title string `json:"title"`
+}
+
+// RunStepStatus Closed lifecycle state of a run step.
+type RunStepStatus string
+
+// RunStepsOutputBody defines model for RunStepsOutputBody.
+type RunStepsOutputBody struct {
+	// RunId Run identifier the steps belong to.
+	RunId string `json:"run_id"`
+
+	// Steps Steps of the run.
+	Steps *[]RunStep `json:"steps"`
+}
+
+// RunsListOutputBody defines model for RunsListOutputBody.
+type RunsListOutputBody struct {
+	// Partial True when some runs could not be fully projected.
+	Partial *bool `json:"partial,omitempty"`
+
+	// PartialErrors Reasons the projection was partial.
+	PartialErrors *[]string `json:"partial_errors,omitempty"`
+
+	// Runs Runs in the city, newest activity first.
+	Runs *[]Run `json:"runs"`
 }
 
 // ScopeGroup defines model for ScopeGroup.
@@ -2183,6 +2913,7 @@ type SessionAgentListResponse struct {
 
 // SessionBindingRecord defines model for SessionBindingRecord.
 type SessionBindingRecord struct {
+	AgentName         string            `json:"AgentName"`
 	BindingGeneration int64             `json:"BindingGeneration"`
 	BoundAt           time.Time         `json:"BoundAt"`
 	Conversation      ConversationRef   `json:"Conversation"`
@@ -2191,6 +2922,7 @@ type SessionBindingRecord struct {
 	Metadata          map[string]string `json:"Metadata"`
 	SchemaVersion     int64             `json:"SchemaVersion"`
 	SessionID         string            `json:"SessionID"`
+	SessionName       string            `json:"SessionName"`
 
 	// Status Lifecycle state of a session binding.
 	Status BindingStatus `json:"Status"`
@@ -2233,11 +2965,41 @@ type SessionCreateSucceededPayload struct {
 	Session   SessionResponse `json:"session"`
 }
 
+// SessionDrainAckedWithAssignedWorkPayload defines model for SessionDrainAckedWithAssignedWorkPayload.
+type SessionDrainAckedWithAssignedWorkPayload struct {
+	// BeadId ID of the work bead still holding this session as its assignee.
+	BeadId string `json:"bead_id"`
+
+	// BeadStatus Status of the stranded bead at emission time (typically 'in_progress' for cap-hit, 'open' if recovery races claim).
+	BeadStatus *string `json:"bead_status,omitempty"`
+
+	// Reason Short diagnostic context. Today both emission sites pass 'drain_acked_with_assigned_work'; reserved for finer-grained shape discriminators if later Shape-N variants land.
+	Reason *string `json:"reason,omitempty"`
+
+	// SessionId Canonical session bead ID for the session that drain-acked.
+	SessionId string `json:"session_id"`
+
+	// Template Pool template name when known at the emission site.
+	Template *string `json:"template,omitempty"`
+}
+
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {
 	Attached     bool       `json:"attached"`
 	LastActivity *time.Time `json:"last_activity,omitempty"`
 	Name         string     `json:"name"`
+}
+
+// SessionLifecyclePayload defines model for SessionLifecyclePayload.
+type SessionLifecyclePayload struct {
+	// Reason Short human-readable reason.
+	Reason *string `json:"reason,omitempty"`
+
+	// SessionId Canonical session bead ID. Always present.
+	SessionId string `json:"session_id"`
+
+	// Template Session template name when known at the emission site.
+	Template *string `json:"template,omitempty"`
 }
 
 // SessionMessageInputBody defines model for SessionMessageInputBody.
@@ -2270,6 +3032,12 @@ type SessionPendingResponse struct {
 	Supported bool                `json:"supported"`
 }
 
+// SessionPermissionModeBody defines model for SessionPermissionModeBody.
+type SessionPermissionModeBody struct {
+	// PermissionMode Provider schema value for the permission_mode option.
+	PermissionMode string `json:"permission_mode"`
+}
+
 // SessionRawMessageFrame Provider-native transcript frame. Gas City forwards the exact JSON the provider wrote to its session log, so the shape is provider-specific and can be any JSON value. The producing provider is identified by the Provider field on the enclosing envelope; consumers dispatch per-provider frame parsing keyed by that identifier.
 type SessionRawMessageFrame = interface{}
 
@@ -2277,6 +3045,14 @@ type SessionRawMessageFrame = interface{}
 type SessionRenameInputBody struct {
 	// Title New session title.
 	Title string `json:"title"`
+}
+
+// SessionResetStalledPayload defines model for SessionResetStalledPayload.
+type SessionResetStalledPayload struct {
+	ElapsedS         int64  `json:"elapsed_s"`
+	ResetCommittedAt string `json:"reset_committed_at"`
+	SessionName      string `json:"session_name"`
+	Template         string `json:"template"`
 }
 
 // SessionRespondInputBody defines model for SessionRespondInputBody.
@@ -2307,6 +3083,7 @@ type SessionRespondOutputBody struct {
 type SessionResponse struct {
 	ActiveBead             *string                 `json:"active_bead,omitempty"`
 	Activity               *string                 `json:"activity,omitempty"`
+	AgentKind              *string                 `json:"agent_kind,omitempty"`
 	Alias                  *string                 `json:"alias,omitempty"`
 	Attached               bool                    `json:"attached"`
 	ConfiguredNamedSession *bool                   `json:"configured_named_session,omitempty"`
@@ -2317,6 +3094,7 @@ type SessionResponse struct {
 	Id                     string                  `json:"id"`
 	Kind                   *string                 `json:"kind,omitempty"`
 	LastActive             *string                 `json:"last_active,omitempty"`
+	LastNudgeDeliveredAt   *string                 `json:"last_nudge_delivered_at,omitempty"`
 	LastOutput             *string                 `json:"last_output,omitempty"`
 	Metadata               *map[string]string      `json:"metadata,omitempty"`
 	Model                  *string                 `json:"model,omitempty"`
@@ -2331,6 +3109,22 @@ type SessionResponse struct {
 	SubmissionCapabilities *SubmissionCapabilities `json:"submission_capabilities,omitempty"`
 	Template               string                  `json:"template"`
 	Title                  string                  `json:"title"`
+	WorkDir                *string                 `json:"work_dir,omitempty"`
+}
+
+// SessionStrandedPayload defines model for SessionStrandedPayload.
+type SessionStrandedPayload struct {
+	// SessionId Canonical session bead ID for the stranded pool session (also the envelope Subject).
+	SessionId string `json:"session_id"`
+
+	// SessionName Runtime session name from the session bead metadata, when set.
+	SessionName *string `json:"session_name,omitempty"`
+
+	// Template Pool template name when known at the emission site.
+	Template *string `json:"template,omitempty"`
+
+	// WorkBeadIds IDs of the open/in-progress work beads still assigned to the session. Never truncated, unlike the envelope Message. Empty when the work-collection query failed at emission time.
+	WorkBeadIds *[]string `json:"work_bead_ids,omitempty"`
 }
 
 // SessionStreamCommonEvent Non-message events emitted on the session SSE stream: activity transitions, pending interactions, and keepalive heartbeats. The concrete variant is identified by the SSE event name.
@@ -2406,6 +3200,24 @@ type SessionTranscriptGetResponse struct {
 	Turns *[]OutputTurn `json:"turns,omitempty"`
 }
 
+// SessionUnknownStatePayload defines model for SessionUnknownStatePayload.
+type SessionUnknownStatePayload struct {
+	// Escalated False on the first-sight emission; true when re-emitted after the bead has sat unrecognized past the escalation threshold.
+	Escalated bool `json:"escalated"`
+
+	// FirstSeen RFC3339 timestamp the reconciler first observed this unrecognized state; the escalation clock counts from here.
+	FirstSeen *string `json:"first_seen,omitempty"`
+
+	// SessionId Canonical session bead ID for the unrecognized-state session (also the envelope Subject).
+	SessionId string `json:"session_id"`
+
+	// SessionName Runtime session name from the session bead metadata, when set.
+	SessionName *string `json:"session_name,omitempty"`
+
+	// State The raw, unrecognized metadata state value the reconciler skipped.
+	State string `json:"state"`
+}
+
 // SlingInputBody defines model for SlingInputBody.
 type SlingInputBody struct {
 	// AttachedBeadId Bead ID to attach a formula to.
@@ -2441,15 +3253,19 @@ type SlingInputBody struct {
 
 // SlingResponse defines model for SlingResponse.
 type SlingResponse struct {
-	AttachedBeadId *string   `json:"attached_bead_id,omitempty"`
-	Bead           *string   `json:"bead,omitempty"`
-	Formula        *string   `json:"formula,omitempty"`
-	Mode           *string   `json:"mode,omitempty"`
-	RootBeadId     *string   `json:"root_bead_id,omitempty"`
-	Status         string    `json:"status"`
-	Target         string    `json:"target"`
-	Warnings       *[]string `json:"warnings,omitempty"`
-	WorkflowId     *string   `json:"workflow_id,omitempty"`
+	AttachedBeadId *string `json:"attached_bead_id,omitempty"`
+	Bead           *string `json:"bead,omitempty"`
+
+	// DashboardUrl Absolute dashboard deep link for the slung work: the run detail view when a graph workflow was launched, otherwise the runs list. Present only when the serving process also hosts the dashboard (the supervisor listener); the standalone controller API omits it.
+	DashboardUrl *string   `json:"dashboard_url,omitempty"`
+	Formula      *string   `json:"formula,omitempty"`
+	Mode         *string   `json:"mode,omitempty"`
+	RootBeadId   *string   `json:"root_bead_id,omitempty"`
+	Run          *RunRef   `json:"run,omitempty"`
+	Status       string    `json:"status"`
+	Target       string    `json:"target"`
+	Warnings     *[]string `json:"warnings,omitempty"`
+	WorkflowId   *string   `json:"workflow_id,omitempty"`
 }
 
 // Status defines model for Status.
@@ -2486,15 +3302,61 @@ type StatusAgentCounts struct {
 	Total int64 `json:"total"`
 }
 
+// StatusAgentDetail defines model for StatusAgentDetail.
+type StatusAgentDetail struct {
+	// Draining True when the pool is draining this instance.
+	Draining *bool `json:"draining,omitempty"`
+
+	// Expanded True when this row is a pool-expanded instance (renderer indents differently).
+	Expanded *bool `json:"expanded,omitempty"`
+
+	// GroupName Pool group label for expanded rows; same as QualifiedName for singletons.
+	GroupName *string `json:"group_name,omitempty"`
+
+	// Name Unqualified agent name (for pool instances, the per-instance short name like 'polecat-1').
+	Name string `json:"name"`
+
+	// QualifiedName Rig-qualified name when applicable, else the bare agent name.
+	QualifiedName string `json:"qualified_name"`
+
+	// Running Observed running state of the agent's session.
+	Running bool `json:"running"`
+
+	// ScaleLabel 'scaled (min=N, max=M)' header emitted once per pool group.
+	ScaleLabel *string `json:"scale_label,omitempty"`
+
+	// Scope city or rig.
+	Scope string `json:"scope"`
+
+	// SessionName tmux session name CLI drain-ops key on.
+	SessionName *string `json:"session_name,omitempty"`
+
+	// Suspended Whether the agent (or its rig) is suspended.
+	Suspended bool `json:"suspended"`
+}
+
 // StatusBody defines model for StatusBody.
 type StatusBody struct {
 	// AgentCount Total agent count (deprecated, use agents.total).
-	AgentCount int64             `json:"agent_count"`
-	Agents     StatusAgentCounts `json:"agents"`
-	Mail       StatusMailCounts  `json:"mail"`
+	AgentCount int64 `json:"agent_count"`
+
+	// AgentDetails Per-agent state (for CLI status views). Empty when none.
+	AgentDetails *[]StatusAgentDetail `json:"agent_details,omitempty"`
+	Agents       StatusAgentCounts    `json:"agents"`
+	Beads        *BeadsDiagnostic     `json:"beads,omitempty"`
+
+	// BeadsVersion Version of the bd (beads) CLI the supervisor drives. Omitted when the probe failed or the binary is unavailable.
+	BeadsVersion *string `json:"beads_version,omitempty"`
+
+	// DoltVersion Version of the dolt engine binary the supervisor drives. Omitted when the probe failed or the binary is unavailable.
+	DoltVersion *string          `json:"dolt_version,omitempty"`
+	Mail        StatusMailCounts `json:"mail"`
 
 	// Name City name.
 	Name string `json:"name"`
+
+	// NamedSessionDetails Per-named-session detail. Empty when none configured.
+	NamedSessionDetails *[]StatusNamedSessionDetail `json:"named_session_details,omitempty"`
 
 	// Partial True when one or more status backing reads returned incomplete data.
 	Partial *bool `json:"partial,omitempty"`
@@ -2506,11 +3368,16 @@ type StatusBody struct {
 	Path string `json:"path"`
 
 	// RigCount Total rig count (deprecated, use rigs.total).
-	RigCount int64           `json:"rig_count"`
-	Rigs     StatusRigCounts `json:"rigs"`
+	RigCount int64 `json:"rig_count"`
+
+	// RigDetails Per-rig detail (for CLI status views). Empty when none.
+	RigDetails *[]StatusRigDetail `json:"rig_details,omitempty"`
+	Rigs       StatusRigCounts    `json:"rigs"`
 
 	// Running Number of running agent processes.
-	Running int64 `json:"running"`
+	Running             int64                      `json:"running"`
+	SessionCountsDetail *StatusSessionCountsDetail `json:"session_counts_detail,omitempty"`
+	StoreHealth         *StatusStoreHealth         `json:"store_health,omitempty"`
 
 	// Suspended Whether the city is suspended.
 	Suspended bool `json:"suspended"`
@@ -2532,6 +3399,18 @@ type StatusMailCounts struct {
 	Unread int64 `json:"unread"`
 }
 
+// StatusNamedSessionDetail defines model for StatusNamedSessionDetail.
+type StatusNamedSessionDetail struct {
+	// Identity Qualified named-session identity.
+	Identity string `json:"identity"`
+
+	// Mode Named-session mode (on-demand, always, etc.).
+	Mode string `json:"mode"`
+
+	// Status Lifecycle status string (materialized, reserved-unmaterialized, etc.).
+	Status string `json:"status"`
+}
+
 // StatusRigCounts defines model for StatusRigCounts.
 type StatusRigCounts struct {
 	// Suspended Number of suspended rigs.
@@ -2539,6 +3418,54 @@ type StatusRigCounts struct {
 
 	// Total Total number of rigs.
 	Total int64 `json:"total"`
+}
+
+// StatusRigDetail defines model for StatusRigDetail.
+type StatusRigDetail struct {
+	// Name Rig name.
+	Name string `json:"name"`
+
+	// Path Rig directory path.
+	Path string `json:"path"`
+
+	// Suspended Whether the rig is suspended (either explicitly or because all its agents are suspended).
+	Suspended bool `json:"suspended"`
+}
+
+// StatusSessionCountsDetail defines model for StatusSessionCountsDetail.
+type StatusSessionCountsDetail struct {
+	// Active Number of active sessions.
+	Active int64 `json:"active"`
+
+	// Suspended Number of suspended sessions.
+	Suspended int64 `json:"suspended"`
+}
+
+// StatusStoreHealth defines model for StatusStoreHealth.
+type StatusStoreHealth struct {
+	// LastGcAt RFC3339 timestamp of last maintenance run.
+	LastGcAt *string `json:"last_gc_at,omitempty"`
+
+	// LastGcStatus Status of last maintenance run ('success' or 'failed').
+	LastGcStatus *string `json:"last_gc_status,omitempty"`
+
+	// LiveRows Live bead row count.
+	LiveRows int64 `json:"live_rows"`
+
+	// Path On-disk path of the Dolt store.
+	Path string `json:"path"`
+
+	// RatioMbPerRow Derived megabytes per row.
+	RatioMbPerRow float64 `json:"ratio_mb_per_row"`
+
+	// SizeBytes Total bytes of the store directory.
+	SizeBytes int64 `json:"size_bytes"`
+
+	// ThresholdMbPerRow Ratio threshold; a ratio above this trips warning.
+	ThresholdMbPerRow float64 `json:"threshold_mb_per_row"`
+
+	// Warning True when maintenance is overdue.
+	Warning bool `json:"warning"`
 }
 
 // StatusWorkCounts defines model for StatusWorkCounts.
@@ -2551,6 +3478,37 @@ type StatusWorkCounts struct {
 
 	// Ready Number of ready work items.
 	Ready int64 `json:"ready"`
+}
+
+// StoreDiskCriticalPayload defines model for StoreDiskCriticalPayload.
+type StoreDiskCriticalPayload struct {
+	DataDir    string `json:"data_dir"`
+	FloorBytes int64  `json:"floor_bytes"`
+	FreeBytes  int64  `json:"free_bytes"`
+}
+
+// StoreDiskWarnPayload defines model for StoreDiskWarnPayload.
+type StoreDiskWarnPayload struct {
+	DataDir    string `json:"data_dir"`
+	FloorBytes int64  `json:"floor_bytes"`
+	FreeBytes  int64  `json:"free_bytes"`
+	WarnBytes  int64  `json:"warn_bytes"`
+}
+
+// StoreMaintenanceDonePayload defines model for StoreMaintenanceDonePayload.
+type StoreMaintenanceDonePayload struct {
+	AfterBytes   int64   `json:"after_bytes"`
+	BeforeBytes  int64   `json:"before_bytes"`
+	DurationS    float64 `json:"duration_s"`
+	SnapshotPath string  `json:"snapshot_path"`
+}
+
+// StoreMaintenanceFailedPayload defines model for StoreMaintenanceFailedPayload.
+type StoreMaintenanceFailedPayload struct {
+	DurationS    float64 `json:"duration_s"`
+	ErrorMsg     string  `json:"error_msg"`
+	SnapshotPath *string `json:"snapshot_path,omitempty"`
+	Stage        string  `json:"stage"`
 }
 
 // SubmissionCapabilities defines model for SubmissionCapabilities.
@@ -2579,14 +3537,41 @@ type SupervisorEventListOutputBody struct {
 	Total       int64                             `json:"total"`
 }
 
+// SupervisorFSPressureSkippedTickPayload defines model for SupervisorFSPressureSkippedTickPayload.
+type SupervisorFSPressureSkippedTickPayload struct {
+	// Avg60 The Linux PSI some avg60 value observed for filesystem IO pressure.
+	Avg60 float64 `json:"avg60"`
+
+	// ConsecutiveSkips Number of consecutive pressure skips including this tick.
+	ConsecutiveSkips int64 `json:"consecutive_skips"`
+
+	// MaxConsecutiveSkips Maximum consecutive skips before the supervisor forces one reconciliation tick.
+	MaxConsecutiveSkips int64 `json:"max_consecutive_skips"`
+
+	// Outcome The pressure decision outcome: skipped for a shed tick or forced for the bounded liveness tick.
+	Outcome string `json:"outcome"`
+
+	// Threshold The configured avg60 threshold that triggered the skip.
+	Threshold float64 `json:"threshold"`
+
+	// Trigger The daemon tick trigger, such as patrol or poke.
+	Trigger *string `json:"trigger,omitempty"`
+}
+
 // SupervisorHealthOutputBody defines model for SupervisorHealthOutputBody.
 type SupervisorHealthOutputBody struct {
+	// BuildId Build identity (typically a short git commit hash, with "-dirty" suffix when built from an unclean tree). Empty when unavailable.
+	BuildId *string `json:"build_id,omitempty"`
+
 	// CitiesRunning Cities currently running.
 	CitiesRunning int64 `json:"cities_running"`
 
 	// CitiesTotal Total managed cities.
-	CitiesTotal int64              `json:"cities_total"`
-	Startup     *SupervisorStartup `json:"startup,omitempty"`
+	CitiesTotal int64 `json:"cities_total"`
+
+	// PacksLockSha256 SHA-256 hex digest of the first managed city's packs.lock contents, for single-city deployments (mirrors the startup field's first-city semantics). Drift checkers compare this against the committed lockfile copy. Omitted when no city is registered, the city has no packs.lock, or the lockfile is unreadable (read error logged server-side) — treat absence as unknown, not as proof there is no lockfile.
+	PacksLockSha256 *string            `json:"packs_lock_sha256,omitempty"`
+	Startup         *SupervisorStartup `json:"startup,omitempty"`
 
 	// Status Health status ("ok").
 	Status string `json:"status"`
@@ -2597,6 +3582,69 @@ type SupervisorHealthOutputBody struct {
 	// Version Supervisor version.
 	Version string `json:"version"`
 }
+
+// SupervisorRequestPayload defines model for SupervisorRequestPayload.
+type SupervisorRequestPayload struct {
+	// DurationMs Handler duration in milliseconds.
+	DurationMs int64 `json:"duration_ms"`
+
+	// Host Canonical Host header without port.
+	Host *string `json:"host,omitempty"`
+
+	// Method HTTP method.
+	Method string `json:"method"`
+
+	// OriginAllowed Whether the Origin header, if present, matched CORS policy.
+	OriginAllowed bool `json:"origin_allowed"`
+
+	// Path Request path with query string omitted and length bounded.
+	Path string `json:"path"`
+
+	// Phase Audit phase. Long-lived event streams emit a start record immediately after Host validation, then a complete record when the handler returns. Non-stream requests emit complete only.
+	Phase SupervisorRequestPayloadPhase `json:"phase"`
+
+	// RemoteAddrClass Network class of the remote address, not the raw address.
+	RemoteAddrClass SupervisorRequestPayloadRemoteAddrClass `json:"remote_addr_class"`
+
+	// Status HTTP response status code. Start-phase records use 0 before the final response status is known.
+	Status int64 `json:"status"`
+}
+
+// SupervisorRequestPayloadPhase Audit phase. Long-lived event streams emit a start record immediately after Host validation, then a complete record when the handler returns. Non-stream requests emit complete only.
+type SupervisorRequestPayloadPhase string
+
+// SupervisorRequestPayloadRemoteAddrClass Network class of the remote address, not the raw address.
+type SupervisorRequestPayloadRemoteAddrClass string
+
+// SupervisorShutdownPayload defines model for SupervisorShutdownPayload.
+type SupervisorShutdownPayload struct {
+	// ClientAddr For source=socket_stop, the address reported by the connecting client. Typically empty for unix-socket peers.
+	ClientAddr *string `json:"client_addr,omitempty"`
+
+	// Mode Resulting shutdown mode.
+	Mode SupervisorShutdownPayloadMode `json:"mode"`
+
+	// Signal For source=signal, the human-readable signal name (e.g. "terminated", "interrupt"). Empty for socket_stop.
+	Signal *string `json:"signal,omitempty"`
+
+	// Source Which path triggered the shutdown.
+	Source SupervisorShutdownPayloadSource `json:"source"`
+}
+
+// SupervisorShutdownPayloadMode Resulting shutdown mode.
+type SupervisorShutdownPayloadMode string
+
+// SupervisorShutdownPayloadSource Which path triggered the shutdown.
+type SupervisorShutdownPayloadSource string
+
+// SupervisorStartedPayload defines model for SupervisorStartedPayload.
+type SupervisorStartedPayload struct {
+	// PreviousExit How the previous supervisor instance exited: clean (it completed its STOPPING path and left the shutdown handoff token), crash (a prior instance ran but left no token), or unknown (no evidence of a prior instance).
+	PreviousExit SupervisorStartedPayloadPreviousExit `json:"previous_exit"`
+}
+
+// SupervisorStartedPayloadPreviousExit How the previous supervisor instance exited: clean (it completed its STOPPING path and left the shutdown handoff token), crash (a prior instance ran but left no token), or unknown (no evidence of a prior instance).
+type SupervisorStartedPayloadPreviousExit string
 
 // SupervisorStartup defines model for SupervisorStartup.
 type SupervisorStartup struct {
@@ -2612,15 +3660,18 @@ type SupervisorStartup struct {
 
 // TaggedEventStreamEnvelope defines model for TaggedEventStreamEnvelope.
 type TaggedEventStreamEnvelope struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  *EventPayload            `json:"payload,omitempty"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   *EventPayload            `json:"payload,omitempty"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TranscriptMessageKind Direction of a transcript entry.
@@ -2634,556 +3685,1129 @@ type TypedEventStreamEnvelope struct {
 	union json.RawMessage
 }
 
+// TypedEventStreamEnvelopeBeadClaimRejected defines model for TypedEventStreamEnvelopeBeadClaimRejected.
+type TypedEventStreamEnvelopeBeadClaimRejected struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   BeadClaimRejectedPayload `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
 // TypedEventStreamEnvelopeBeadClosed defines model for TypedEventStreamEnvelopeBeadClosed.
 type TypedEventStreamEnvelopeBeadClosed struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  BeadEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   BeadEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeBeadCreated defines model for TypedEventStreamEnvelopeBeadCreated.
 type TypedEventStreamEnvelopeBeadCreated struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  BeadEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   BeadEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeBeadDeadAssigneeReopened defines model for TypedEventStreamEnvelopeBeadDeadAssigneeReopened.
+type TypedEventStreamEnvelopeBeadDeadAssigneeReopened struct {
+	Actor     string                          `json:"actor"`
+	Message   *string                         `json:"message,omitempty"`
+	Payload   BeadDeadAssigneeReopenedPayload `json:"payload"`
+	RunId     *string                         `json:"run_id,omitempty"`
+	Seq       int64                           `json:"seq"`
+	SessionId *string                         `json:"session_id,omitempty"`
+	StepId    *string                         `json:"step_id,omitempty"`
+	Subject   *string                         `json:"subject,omitempty"`
+	Ts        time.Time                       `json:"ts"`
+	Type      string                          `json:"type"`
+	Workflow  *WorkflowEventProjection        `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeBeadDeleted defines model for TypedEventStreamEnvelopeBeadDeleted.
+type TypedEventStreamEnvelopeBeadDeleted struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   BeadEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeBeadUpdated defines model for TypedEventStreamEnvelopeBeadUpdated.
 type TypedEventStreamEnvelopeBeadUpdated struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  BeadEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   BeadEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeBeadWorktreeReapSkipped defines model for TypedEventStreamEnvelopeBeadWorktreeReapSkipped.
+type TypedEventStreamEnvelopeBeadWorktreeReapSkipped struct {
+	Actor     string                         `json:"actor"`
+	Message   *string                        `json:"message,omitempty"`
+	Payload   BeadWorktreeReapSkippedPayload `json:"payload"`
+	RunId     *string                        `json:"run_id,omitempty"`
+	Seq       int64                          `json:"seq"`
+	SessionId *string                        `json:"session_id,omitempty"`
+	StepId    *string                        `json:"step_id,omitempty"`
+	Subject   *string                        `json:"subject,omitempty"`
+	Ts        time.Time                      `json:"ts"`
+	Type      string                         `json:"type"`
+	Workflow  *WorkflowEventProjection       `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeBeadWorktreeReaped defines model for TypedEventStreamEnvelopeBeadWorktreeReaped.
+type TypedEventStreamEnvelopeBeadWorktreeReaped struct {
+	Actor     string                    `json:"actor"`
+	Message   *string                   `json:"message,omitempty"`
+	Payload   BeadWorktreeReapedPayload `json:"payload"`
+	RunId     *string                   `json:"run_id,omitempty"`
+	Seq       int64                     `json:"seq"`
+	SessionId *string                   `json:"session_id,omitempty"`
+	StepId    *string                   `json:"step_id,omitempty"`
+	Subject   *string                   `json:"subject,omitempty"`
+	Ts        time.Time                 `json:"ts"`
+	Type      string                    `json:"type"`
+	Workflow  *WorkflowEventProjection  `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeCityCreated defines model for TypedEventStreamEnvelopeCityCreated.
 type TypedEventStreamEnvelopeCityCreated struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  CityLifecyclePayload     `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   CityLifecyclePayload     `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeCityResumed defines model for TypedEventStreamEnvelopeCityResumed.
 type TypedEventStreamEnvelopeCityResumed struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeCitySuspended defines model for TypedEventStreamEnvelopeCitySuspended.
 type TypedEventStreamEnvelopeCitySuspended struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeCityUnregisterRequested defines model for TypedEventStreamEnvelopeCityUnregisterRequested.
 type TypedEventStreamEnvelopeCityUnregisterRequested struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  CityLifecyclePayload     `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   CityLifecyclePayload     `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeControllerStarted defines model for TypedEventStreamEnvelopeControllerStarted.
 type TypedEventStreamEnvelopeControllerStarted struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeControllerStopped defines model for TypedEventStreamEnvelopeControllerStopped.
 type TypedEventStreamEnvelopeControllerStopped struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeConvoyClosed defines model for TypedEventStreamEnvelopeConvoyClosed.
 type TypedEventStreamEnvelopeConvoyClosed struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeConvoyCreated defines model for TypedEventStreamEnvelopeConvoyCreated.
 type TypedEventStreamEnvelopeConvoyCreated struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeCustom defines model for TypedEventStreamEnvelopeCustom.
 type TypedEventStreamEnvelopeCustom struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  interface{}              `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   interface{}              `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeEmergencyAcked defines model for TypedEventStreamEnvelopeEmergencyAcked.
+type TypedEventStreamEnvelopeEmergencyAcked struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   Record                   `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeEmergencySignaled defines model for TypedEventStreamEnvelopeEmergencySignaled.
+type TypedEventStreamEnvelopeEmergencySignaled struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   Record                   `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeEventsRotated defines model for TypedEventStreamEnvelopeEventsRotated.
+type TypedEventStreamEnvelopeEventsRotated struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   RotatedPayload           `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeExtmsgAdapterAdded defines model for TypedEventStreamEnvelopeExtmsgAdapterAdded.
 type TypedEventStreamEnvelopeExtmsgAdapterAdded struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  AdapterEventPayload      `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   AdapterEventPayload      `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeExtmsgAdapterRemoved defines model for TypedEventStreamEnvelopeExtmsgAdapterRemoved.
 type TypedEventStreamEnvelopeExtmsgAdapterRemoved struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  AdapterEventPayload      `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   AdapterEventPayload      `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeExtmsgBound defines model for TypedEventStreamEnvelopeExtmsgBound.
 type TypedEventStreamEnvelopeExtmsgBound struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  BoundEventPayload        `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   BoundEventPayload        `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeExtmsgGroupCreated defines model for TypedEventStreamEnvelopeExtmsgGroupCreated.
 type TypedEventStreamEnvelopeExtmsgGroupCreated struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  GroupCreatedEventPayload `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   GroupCreatedEventPayload `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeExtmsgInbound defines model for TypedEventStreamEnvelopeExtmsgInbound.
 type TypedEventStreamEnvelopeExtmsgInbound struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  InboundEventPayload      `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   InboundEventPayload      `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeExtmsgOutbound defines model for TypedEventStreamEnvelopeExtmsgOutbound.
 type TypedEventStreamEnvelopeExtmsgOutbound struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  OutboundEventPayload     `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   OutboundEventPayload     `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeExtmsgOutboundChannelMismatch defines model for TypedEventStreamEnvelopeExtmsgOutboundChannelMismatch.
+type TypedEventStreamEnvelopeExtmsgOutboundChannelMismatch struct {
+	Actor     string                         `json:"actor"`
+	Message   *string                        `json:"message,omitempty"`
+	Payload   OutboundChannelMismatchPayload `json:"payload"`
+	RunId     *string                        `json:"run_id,omitempty"`
+	Seq       int64                          `json:"seq"`
+	SessionId *string                        `json:"session_id,omitempty"`
+	StepId    *string                        `json:"step_id,omitempty"`
+	Subject   *string                        `json:"subject,omitempty"`
+	Ts        time.Time                      `json:"ts"`
+	Type      string                         `json:"type"`
+	Workflow  *WorkflowEventProjection       `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeExtmsgUnbound defines model for TypedEventStreamEnvelopeExtmsgUnbound.
 type TypedEventStreamEnvelopeExtmsgUnbound struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  UnboundEventPayload      `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   UnboundEventPayload      `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeGcStoreDiskCritical defines model for TypedEventStreamEnvelopeGcStoreDiskCritical.
+type TypedEventStreamEnvelopeGcStoreDiskCritical struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   StoreDiskCriticalPayload `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeGcStoreDiskWarn defines model for TypedEventStreamEnvelopeGcStoreDiskWarn.
+type TypedEventStreamEnvelopeGcStoreDiskWarn struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   StoreDiskWarnPayload     `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeGcStoreMaintenanceDone defines model for TypedEventStreamEnvelopeGcStoreMaintenanceDone.
+type TypedEventStreamEnvelopeGcStoreMaintenanceDone struct {
+	Actor     string                      `json:"actor"`
+	Message   *string                     `json:"message,omitempty"`
+	Payload   StoreMaintenanceDonePayload `json:"payload"`
+	RunId     *string                     `json:"run_id,omitempty"`
+	Seq       int64                       `json:"seq"`
+	SessionId *string                     `json:"session_id,omitempty"`
+	StepId    *string                     `json:"step_id,omitempty"`
+	Subject   *string                     `json:"subject,omitempty"`
+	Ts        time.Time                   `json:"ts"`
+	Type      string                      `json:"type"`
+	Workflow  *WorkflowEventProjection    `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeGcStoreMaintenanceFailed defines model for TypedEventStreamEnvelopeGcStoreMaintenanceFailed.
+type TypedEventStreamEnvelopeGcStoreMaintenanceFailed struct {
+	Actor     string                        `json:"actor"`
+	Message   *string                       `json:"message,omitempty"`
+	Payload   StoreMaintenanceFailedPayload `json:"payload"`
+	RunId     *string                       `json:"run_id,omitempty"`
+	Seq       int64                         `json:"seq"`
+	SessionId *string                       `json:"session_id,omitempty"`
+	StepId    *string                       `json:"step_id,omitempty"`
+	Subject   *string                       `json:"subject,omitempty"`
+	Ts        time.Time                     `json:"ts"`
+	Type      string                        `json:"type"`
+	Workflow  *WorkflowEventProjection      `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeMailArchived defines model for TypedEventStreamEnvelopeMailArchived.
 type TypedEventStreamEnvelopeMailArchived struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeMailDeleted defines model for TypedEventStreamEnvelopeMailDeleted.
 type TypedEventStreamEnvelopeMailDeleted struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeMailMarkedRead defines model for TypedEventStreamEnvelopeMailMarkedRead.
 type TypedEventStreamEnvelopeMailMarkedRead struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeMailMarkedUnread defines model for TypedEventStreamEnvelopeMailMarkedUnread.
 type TypedEventStreamEnvelopeMailMarkedUnread struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeMailRead defines model for TypedEventStreamEnvelopeMailRead.
 type TypedEventStreamEnvelopeMailRead struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeMailReplied defines model for TypedEventStreamEnvelopeMailReplied.
 type TypedEventStreamEnvelopeMailReplied struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeMailSent defines model for TypedEventStreamEnvelopeMailSent.
 type TypedEventStreamEnvelopeMailSent struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeMoleculeResolved defines model for TypedEventStreamEnvelopeMoleculeResolved.
+type TypedEventStreamEnvelopeMoleculeResolved struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MoleculeResolvedPayload  `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeOrderCompleted defines model for TypedEventStreamEnvelopeOrderCompleted.
 type TypedEventStreamEnvelopeOrderCompleted struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeOrderFailed defines model for TypedEventStreamEnvelopeOrderFailed.
 type TypedEventStreamEnvelopeOrderFailed struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeOrderFired defines model for TypedEventStreamEnvelopeOrderFired.
 type TypedEventStreamEnvelopeOrderFired struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopePgCredentialResolved defines model for TypedEventStreamEnvelopePgCredentialResolved.
+type TypedEventStreamEnvelopePgCredentialResolved struct {
+	Actor     string                            `json:"actor"`
+	Message   *string                           `json:"message,omitempty"`
+	Payload   PostgresCredentialResolvedPayload `json:"payload"`
+	RunId     *string                           `json:"run_id,omitempty"`
+	Seq       int64                             `json:"seq"`
+	SessionId *string                           `json:"session_id,omitempty"`
+	StepId    *string                           `json:"step_id,omitempty"`
+	Subject   *string                           `json:"subject,omitempty"`
+	Ts        time.Time                         `json:"ts"`
+	Type      string                            `json:"type"`
+	Workflow  *WorkflowEventProjection          `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeProjectIdentityStamped defines model for TypedEventStreamEnvelopeProjectIdentityStamped.
+type TypedEventStreamEnvelopeProjectIdentityStamped struct {
+	Actor     string                        `json:"actor"`
+	Message   *string                       `json:"message,omitempty"`
+	Payload   ProjectIdentityStampedPayload `json:"payload"`
+	RunId     *string                       `json:"run_id,omitempty"`
+	Seq       int64                         `json:"seq"`
+	SessionId *string                       `json:"session_id,omitempty"`
+	StepId    *string                       `json:"step_id,omitempty"`
+	Subject   *string                       `json:"subject,omitempty"`
+	Ts        time.Time                     `json:"ts"`
+	Type      string                        `json:"type"`
+	Workflow  *WorkflowEventProjection      `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeProviderSwapped defines model for TypedEventStreamEnvelopeProviderSwapped.
 type TypedEventStreamEnvelopeProviderSwapped struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeRequestFailed defines model for TypedEventStreamEnvelopeRequestFailed.
 type TypedEventStreamEnvelopeRequestFailed struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  RequestFailedPayload     `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   RequestFailedPayload     `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeRequestResultCityCreate defines model for TypedEventStreamEnvelopeRequestResultCityCreate.
 type TypedEventStreamEnvelopeRequestResultCityCreate struct {
-	Actor    string                     `json:"actor"`
-	Message  *string                    `json:"message,omitempty"`
-	Payload  CityCreateSucceededPayload `json:"payload"`
-	Seq      int64                      `json:"seq"`
-	Subject  *string                    `json:"subject,omitempty"`
-	Ts       time.Time                  `json:"ts"`
-	Type     string                     `json:"type"`
-	Workflow *WorkflowEventProjection   `json:"workflow,omitempty"`
+	Actor     string                     `json:"actor"`
+	Message   *string                    `json:"message,omitempty"`
+	Payload   CityCreateSucceededPayload `json:"payload"`
+	RunId     *string                    `json:"run_id,omitempty"`
+	Seq       int64                      `json:"seq"`
+	SessionId *string                    `json:"session_id,omitempty"`
+	StepId    *string                    `json:"step_id,omitempty"`
+	Subject   *string                    `json:"subject,omitempty"`
+	Ts        time.Time                  `json:"ts"`
+	Type      string                     `json:"type"`
+	Workflow  *WorkflowEventProjection   `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeRequestResultCityUnregister defines model for TypedEventStreamEnvelopeRequestResultCityUnregister.
 type TypedEventStreamEnvelopeRequestResultCityUnregister struct {
-	Actor    string                         `json:"actor"`
-	Message  *string                        `json:"message,omitempty"`
-	Payload  CityUnregisterSucceededPayload `json:"payload"`
-	Seq      int64                          `json:"seq"`
-	Subject  *string                        `json:"subject,omitempty"`
-	Ts       time.Time                      `json:"ts"`
-	Type     string                         `json:"type"`
-	Workflow *WorkflowEventProjection       `json:"workflow,omitempty"`
+	Actor     string                         `json:"actor"`
+	Message   *string                        `json:"message,omitempty"`
+	Payload   CityUnregisterSucceededPayload `json:"payload"`
+	RunId     *string                        `json:"run_id,omitempty"`
+	Seq       int64                          `json:"seq"`
+	SessionId *string                        `json:"session_id,omitempty"`
+	StepId    *string                        `json:"step_id,omitempty"`
+	Subject   *string                        `json:"subject,omitempty"`
+	Ts        time.Time                      `json:"ts"`
+	Type      string                         `json:"type"`
+	Workflow  *WorkflowEventProjection       `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeRequestResultSessionCreate defines model for TypedEventStreamEnvelopeRequestResultSessionCreate.
 type TypedEventStreamEnvelopeRequestResultSessionCreate struct {
-	Actor    string                        `json:"actor"`
-	Message  *string                       `json:"message,omitempty"`
-	Payload  SessionCreateSucceededPayload `json:"payload"`
-	Seq      int64                         `json:"seq"`
-	Subject  *string                       `json:"subject,omitempty"`
-	Ts       time.Time                     `json:"ts"`
-	Type     string                        `json:"type"`
-	Workflow *WorkflowEventProjection      `json:"workflow,omitempty"`
+	Actor     string                        `json:"actor"`
+	Message   *string                       `json:"message,omitempty"`
+	Payload   SessionCreateSucceededPayload `json:"payload"`
+	RunId     *string                       `json:"run_id,omitempty"`
+	Seq       int64                         `json:"seq"`
+	SessionId *string                       `json:"session_id,omitempty"`
+	StepId    *string                       `json:"step_id,omitempty"`
+	Subject   *string                       `json:"subject,omitempty"`
+	Ts        time.Time                     `json:"ts"`
+	Type      string                        `json:"type"`
+	Workflow  *WorkflowEventProjection      `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeRequestResultSessionMessage defines model for TypedEventStreamEnvelopeRequestResultSessionMessage.
 type TypedEventStreamEnvelopeRequestResultSessionMessage struct {
-	Actor    string                         `json:"actor"`
-	Message  *string                        `json:"message,omitempty"`
-	Payload  SessionMessageSucceededPayload `json:"payload"`
-	Seq      int64                          `json:"seq"`
-	Subject  *string                        `json:"subject,omitempty"`
-	Ts       time.Time                      `json:"ts"`
-	Type     string                         `json:"type"`
-	Workflow *WorkflowEventProjection       `json:"workflow,omitempty"`
+	Actor     string                         `json:"actor"`
+	Message   *string                        `json:"message,omitempty"`
+	Payload   SessionMessageSucceededPayload `json:"payload"`
+	RunId     *string                        `json:"run_id,omitempty"`
+	Seq       int64                          `json:"seq"`
+	SessionId *string                        `json:"session_id,omitempty"`
+	StepId    *string                        `json:"step_id,omitempty"`
+	Subject   *string                        `json:"subject,omitempty"`
+	Ts        time.Time                      `json:"ts"`
+	Type      string                         `json:"type"`
+	Workflow  *WorkflowEventProjection       `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeRequestResultSessionSubmit defines model for TypedEventStreamEnvelopeRequestResultSessionSubmit.
 type TypedEventStreamEnvelopeRequestResultSessionSubmit struct {
-	Actor    string                        `json:"actor"`
-	Message  *string                       `json:"message,omitempty"`
-	Payload  SessionSubmitSucceededPayload `json:"payload"`
-	Seq      int64                         `json:"seq"`
-	Subject  *string                       `json:"subject,omitempty"`
-	Ts       time.Time                     `json:"ts"`
-	Type     string                        `json:"type"`
-	Workflow *WorkflowEventProjection      `json:"workflow,omitempty"`
+	Actor     string                        `json:"actor"`
+	Message   *string                       `json:"message,omitempty"`
+	Payload   SessionSubmitSucceededPayload `json:"payload"`
+	RunId     *string                       `json:"run_id,omitempty"`
+	Seq       int64                         `json:"seq"`
+	SessionId *string                       `json:"session_id,omitempty"`
+	StepId    *string                       `json:"step_id,omitempty"`
+	Subject   *string                       `json:"subject,omitempty"`
+	Ts        time.Time                     `json:"ts"`
+	Type      string                        `json:"type"`
+	Workflow  *WorkflowEventProjection      `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeSessionColdStartTimeout defines model for TypedEventStreamEnvelopeSessionColdStartTimeout.
+type TypedEventStreamEnvelopeSessionColdStartTimeout struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeSessionCrashed defines model for TypedEventStreamEnvelopeSessionCrashed.
 type TypedEventStreamEnvelopeSessionCrashed struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   SessionLifecyclePayload  `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork defines model for TypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork.
+type TypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork struct {
+	Actor     string                                   `json:"actor"`
+	Message   *string                                  `json:"message,omitempty"`
+	Payload   SessionDrainAckedWithAssignedWorkPayload `json:"payload"`
+	RunId     *string                                  `json:"run_id,omitempty"`
+	Seq       int64                                    `json:"seq"`
+	SessionId *string                                  `json:"session_id,omitempty"`
+	StepId    *string                                  `json:"step_id,omitempty"`
+	Subject   *string                                  `json:"subject,omitempty"`
+	Ts        time.Time                                `json:"ts"`
+	Type      string                                   `json:"type"`
+	Workflow  *WorkflowEventProjection                 `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeSessionDraining defines model for TypedEventStreamEnvelopeSessionDraining.
 type TypedEventStreamEnvelopeSessionDraining struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeSessionIdleKilled defines model for TypedEventStreamEnvelopeSessionIdleKilled.
 type TypedEventStreamEnvelopeSessionIdleKilled struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeSessionMaxAgeKilled defines model for TypedEventStreamEnvelopeSessionMaxAgeKilled.
+type TypedEventStreamEnvelopeSessionMaxAgeKilled struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeSessionQuarantined defines model for TypedEventStreamEnvelopeSessionQuarantined.
 type TypedEventStreamEnvelopeSessionQuarantined struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeSessionResetStalled defines model for TypedEventStreamEnvelopeSessionResetStalled.
+type TypedEventStreamEnvelopeSessionResetStalled struct {
+	Actor     string                     `json:"actor"`
+	Message   *string                    `json:"message,omitempty"`
+	Payload   SessionResetStalledPayload `json:"payload"`
+	RunId     *string                    `json:"run_id,omitempty"`
+	Seq       int64                      `json:"seq"`
+	SessionId *string                    `json:"session_id,omitempty"`
+	StepId    *string                    `json:"step_id,omitempty"`
+	Subject   *string                    `json:"subject,omitempty"`
+	Ts        time.Time                  `json:"ts"`
+	Type      string                     `json:"type"`
+	Workflow  *WorkflowEventProjection   `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeSessionStopped defines model for TypedEventStreamEnvelopeSessionStopped.
 type TypedEventStreamEnvelopeSessionStopped struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   SessionLifecyclePayload  `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeSessionStranded defines model for TypedEventStreamEnvelopeSessionStranded.
+type TypedEventStreamEnvelopeSessionStranded struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   SessionStrandedPayload   `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeSessionSuspended defines model for TypedEventStreamEnvelopeSessionSuspended.
 type TypedEventStreamEnvelopeSessionSuspended struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeSessionUndrained defines model for TypedEventStreamEnvelopeSessionUndrained.
 type TypedEventStreamEnvelopeSessionUndrained struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeSessionUnknownState defines model for TypedEventStreamEnvelopeSessionUnknownState.
+type TypedEventStreamEnvelopeSessionUnknownState struct {
+	Actor     string                     `json:"actor"`
+	Message   *string                    `json:"message,omitempty"`
+	Payload   SessionUnknownStatePayload `json:"payload"`
+	RunId     *string                    `json:"run_id,omitempty"`
+	Seq       int64                      `json:"seq"`
+	SessionId *string                    `json:"session_id,omitempty"`
+	StepId    *string                    `json:"step_id,omitempty"`
+	Subject   *string                    `json:"subject,omitempty"`
+	Ts        time.Time                  `json:"ts"`
+	Type      string                     `json:"type"`
+	Workflow  *WorkflowEventProjection   `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeSessionUpdated defines model for TypedEventStreamEnvelopeSessionUpdated.
 type TypedEventStreamEnvelopeSessionUpdated struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeSessionWoke defines model for TypedEventStreamEnvelopeSessionWoke.
 type TypedEventStreamEnvelopeSessionWoke struct {
-	Actor    string                   `json:"actor"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeSessionWorkQueryFailed defines model for TypedEventStreamEnvelopeSessionWorkQueryFailed.
+type TypedEventStreamEnvelopeSessionWorkQueryFailed struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   SessionLifecyclePayload  `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeSupervisorFsPressureSkippedTick defines model for TypedEventStreamEnvelopeSupervisorFsPressureSkippedTick.
+type TypedEventStreamEnvelopeSupervisorFsPressureSkippedTick struct {
+	Actor     string                                 `json:"actor"`
+	Message   *string                                `json:"message,omitempty"`
+	Payload   SupervisorFSPressureSkippedTickPayload `json:"payload"`
+	RunId     *string                                `json:"run_id,omitempty"`
+	Seq       int64                                  `json:"seq"`
+	SessionId *string                                `json:"session_id,omitempty"`
+	StepId    *string                                `json:"step_id,omitempty"`
+	Subject   *string                                `json:"subject,omitempty"`
+	Ts        time.Time                              `json:"ts"`
+	Type      string                                 `json:"type"`
+	Workflow  *WorkflowEventProjection               `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeSupervisorRequest defines model for TypedEventStreamEnvelopeSupervisorRequest.
+type TypedEventStreamEnvelopeSupervisorRequest struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   SupervisorRequestPayload `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeSupervisorShutdownRequested defines model for TypedEventStreamEnvelopeSupervisorShutdownRequested.
+type TypedEventStreamEnvelopeSupervisorShutdownRequested struct {
+	Actor     string                    `json:"actor"`
+	Message   *string                   `json:"message,omitempty"`
+	Payload   SupervisorShutdownPayload `json:"payload"`
+	RunId     *string                   `json:"run_id,omitempty"`
+	Seq       int64                     `json:"seq"`
+	SessionId *string                   `json:"session_id,omitempty"`
+	StepId    *string                   `json:"step_id,omitempty"`
+	Subject   *string                   `json:"subject,omitempty"`
+	Ts        time.Time                 `json:"ts"`
+	Type      string                    `json:"type"`
+	Workflow  *WorkflowEventProjection  `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeSupervisorStarted defines model for TypedEventStreamEnvelopeSupervisorStarted.
+type TypedEventStreamEnvelopeSupervisorStarted struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   SupervisorStartedPayload `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeWebhookReceived defines model for TypedEventStreamEnvelopeWebhookReceived.
+type TypedEventStreamEnvelopeWebhookReceived struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   WebhookReceivedPayload   `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedEventStreamEnvelopeWebhookRejected defines model for TypedEventStreamEnvelopeWebhookRejected.
+type TypedEventStreamEnvelopeWebhookRejected struct {
+	Actor     string                   `json:"actor"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   WebhookRejectedPayload   `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedEventStreamEnvelopeWorkerOperation defines model for TypedEventStreamEnvelopeWorkerOperation.
 type TypedEventStreamEnvelopeWorkerOperation struct {
-	Actor    string                      `json:"actor"`
-	Message  *string                     `json:"message,omitempty"`
-	Payload  WorkerOperationEventPayload `json:"payload"`
-	Seq      int64                       `json:"seq"`
-	Subject  *string                     `json:"subject,omitempty"`
-	Ts       time.Time                   `json:"ts"`
-	Type     string                      `json:"type"`
-	Workflow *WorkflowEventProjection    `json:"workflow,omitempty"`
+	Actor     string                      `json:"actor"`
+	Message   *string                     `json:"message,omitempty"`
+	Payload   WorkerOperationEventPayload `json:"payload"`
+	RunId     *string                     `json:"run_id,omitempty"`
+	Seq       int64                       `json:"seq"`
+	SessionId *string                     `json:"session_id,omitempty"`
+	StepId    *string                     `json:"step_id,omitempty"`
+	Subject   *string                     `json:"subject,omitempty"`
+	Ts        time.Time                   `json:"ts"`
+	Type      string                      `json:"type"`
+	Workflow  *WorkflowEventProjection    `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelope Discriminated union of supervisor event stream envelopes. Each variant constrains the envelope type and payload schema together and includes the source city.
@@ -3191,602 +4815,1204 @@ type TypedTaggedEventStreamEnvelope struct {
 	union json.RawMessage
 }
 
+// TypedTaggedEventStreamEnvelopeBeadClaimRejected defines model for TypedTaggedEventStreamEnvelopeBeadClaimRejected.
+type TypedTaggedEventStreamEnvelopeBeadClaimRejected struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   BeadClaimRejectedPayload `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
 // TypedTaggedEventStreamEnvelopeBeadClosed defines model for TypedTaggedEventStreamEnvelopeBeadClosed.
 type TypedTaggedEventStreamEnvelopeBeadClosed struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  BeadEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   BeadEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeBeadCreated defines model for TypedTaggedEventStreamEnvelopeBeadCreated.
 type TypedTaggedEventStreamEnvelopeBeadCreated struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  BeadEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   BeadEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened defines model for TypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened.
+type TypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened struct {
+	Actor     string                          `json:"actor"`
+	City      string                          `json:"city"`
+	Message   *string                         `json:"message,omitempty"`
+	Payload   BeadDeadAssigneeReopenedPayload `json:"payload"`
+	RunId     *string                         `json:"run_id,omitempty"`
+	Seq       int64                           `json:"seq"`
+	SessionId *string                         `json:"session_id,omitempty"`
+	StepId    *string                         `json:"step_id,omitempty"`
+	Subject   *string                         `json:"subject,omitempty"`
+	Ts        time.Time                       `json:"ts"`
+	Type      string                          `json:"type"`
+	Workflow  *WorkflowEventProjection        `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeBeadDeleted defines model for TypedTaggedEventStreamEnvelopeBeadDeleted.
+type TypedTaggedEventStreamEnvelopeBeadDeleted struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   BeadEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeBeadUpdated defines model for TypedTaggedEventStreamEnvelopeBeadUpdated.
 type TypedTaggedEventStreamEnvelopeBeadUpdated struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  BeadEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   BeadEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped defines model for TypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped.
+type TypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped struct {
+	Actor     string                         `json:"actor"`
+	City      string                         `json:"city"`
+	Message   *string                        `json:"message,omitempty"`
+	Payload   BeadWorktreeReapSkippedPayload `json:"payload"`
+	RunId     *string                        `json:"run_id,omitempty"`
+	Seq       int64                          `json:"seq"`
+	SessionId *string                        `json:"session_id,omitempty"`
+	StepId    *string                        `json:"step_id,omitempty"`
+	Subject   *string                        `json:"subject,omitempty"`
+	Ts        time.Time                      `json:"ts"`
+	Type      string                         `json:"type"`
+	Workflow  *WorkflowEventProjection       `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeBeadWorktreeReaped defines model for TypedTaggedEventStreamEnvelopeBeadWorktreeReaped.
+type TypedTaggedEventStreamEnvelopeBeadWorktreeReaped struct {
+	Actor     string                    `json:"actor"`
+	City      string                    `json:"city"`
+	Message   *string                   `json:"message,omitempty"`
+	Payload   BeadWorktreeReapedPayload `json:"payload"`
+	RunId     *string                   `json:"run_id,omitempty"`
+	Seq       int64                     `json:"seq"`
+	SessionId *string                   `json:"session_id,omitempty"`
+	StepId    *string                   `json:"step_id,omitempty"`
+	Subject   *string                   `json:"subject,omitempty"`
+	Ts        time.Time                 `json:"ts"`
+	Type      string                    `json:"type"`
+	Workflow  *WorkflowEventProjection  `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeCityCreated defines model for TypedTaggedEventStreamEnvelopeCityCreated.
 type TypedTaggedEventStreamEnvelopeCityCreated struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  CityLifecyclePayload     `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   CityLifecyclePayload     `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeCityResumed defines model for TypedTaggedEventStreamEnvelopeCityResumed.
 type TypedTaggedEventStreamEnvelopeCityResumed struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeCitySuspended defines model for TypedTaggedEventStreamEnvelopeCitySuspended.
 type TypedTaggedEventStreamEnvelopeCitySuspended struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeCityUnregisterRequested defines model for TypedTaggedEventStreamEnvelopeCityUnregisterRequested.
 type TypedTaggedEventStreamEnvelopeCityUnregisterRequested struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  CityLifecyclePayload     `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   CityLifecyclePayload     `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeControllerStarted defines model for TypedTaggedEventStreamEnvelopeControllerStarted.
 type TypedTaggedEventStreamEnvelopeControllerStarted struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeControllerStopped defines model for TypedTaggedEventStreamEnvelopeControllerStopped.
 type TypedTaggedEventStreamEnvelopeControllerStopped struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeConvoyClosed defines model for TypedTaggedEventStreamEnvelopeConvoyClosed.
 type TypedTaggedEventStreamEnvelopeConvoyClosed struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeConvoyCreated defines model for TypedTaggedEventStreamEnvelopeConvoyCreated.
 type TypedTaggedEventStreamEnvelopeConvoyCreated struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeCustom defines model for TypedTaggedEventStreamEnvelopeCustom.
 type TypedTaggedEventStreamEnvelopeCustom struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  interface{}              `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   interface{}              `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeEmergencyAcked defines model for TypedTaggedEventStreamEnvelopeEmergencyAcked.
+type TypedTaggedEventStreamEnvelopeEmergencyAcked struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   Record                   `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeEmergencySignaled defines model for TypedTaggedEventStreamEnvelopeEmergencySignaled.
+type TypedTaggedEventStreamEnvelopeEmergencySignaled struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   Record                   `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeEventsRotated defines model for TypedTaggedEventStreamEnvelopeEventsRotated.
+type TypedTaggedEventStreamEnvelopeEventsRotated struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   RotatedPayload           `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeExtmsgAdapterAdded defines model for TypedTaggedEventStreamEnvelopeExtmsgAdapterAdded.
 type TypedTaggedEventStreamEnvelopeExtmsgAdapterAdded struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  AdapterEventPayload      `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   AdapterEventPayload      `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeExtmsgAdapterRemoved defines model for TypedTaggedEventStreamEnvelopeExtmsgAdapterRemoved.
 type TypedTaggedEventStreamEnvelopeExtmsgAdapterRemoved struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  AdapterEventPayload      `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   AdapterEventPayload      `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeExtmsgBound defines model for TypedTaggedEventStreamEnvelopeExtmsgBound.
 type TypedTaggedEventStreamEnvelopeExtmsgBound struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  BoundEventPayload        `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   BoundEventPayload        `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeExtmsgGroupCreated defines model for TypedTaggedEventStreamEnvelopeExtmsgGroupCreated.
 type TypedTaggedEventStreamEnvelopeExtmsgGroupCreated struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  GroupCreatedEventPayload `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   GroupCreatedEventPayload `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeExtmsgInbound defines model for TypedTaggedEventStreamEnvelopeExtmsgInbound.
 type TypedTaggedEventStreamEnvelopeExtmsgInbound struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  InboundEventPayload      `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   InboundEventPayload      `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeExtmsgOutbound defines model for TypedTaggedEventStreamEnvelopeExtmsgOutbound.
 type TypedTaggedEventStreamEnvelopeExtmsgOutbound struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  OutboundEventPayload     `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   OutboundEventPayload     `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch defines model for TypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch.
+type TypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch struct {
+	Actor     string                         `json:"actor"`
+	City      string                         `json:"city"`
+	Message   *string                        `json:"message,omitempty"`
+	Payload   OutboundChannelMismatchPayload `json:"payload"`
+	RunId     *string                        `json:"run_id,omitempty"`
+	Seq       int64                          `json:"seq"`
+	SessionId *string                        `json:"session_id,omitempty"`
+	StepId    *string                        `json:"step_id,omitempty"`
+	Subject   *string                        `json:"subject,omitempty"`
+	Ts        time.Time                      `json:"ts"`
+	Type      string                         `json:"type"`
+	Workflow  *WorkflowEventProjection       `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeExtmsgUnbound defines model for TypedTaggedEventStreamEnvelopeExtmsgUnbound.
 type TypedTaggedEventStreamEnvelopeExtmsgUnbound struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  UnboundEventPayload      `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   UnboundEventPayload      `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeGcStoreDiskCritical defines model for TypedTaggedEventStreamEnvelopeGcStoreDiskCritical.
+type TypedTaggedEventStreamEnvelopeGcStoreDiskCritical struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   StoreDiskCriticalPayload `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeGcStoreDiskWarn defines model for TypedTaggedEventStreamEnvelopeGcStoreDiskWarn.
+type TypedTaggedEventStreamEnvelopeGcStoreDiskWarn struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   StoreDiskWarnPayload     `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone defines model for TypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone.
+type TypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone struct {
+	Actor     string                      `json:"actor"`
+	City      string                      `json:"city"`
+	Message   *string                     `json:"message,omitempty"`
+	Payload   StoreMaintenanceDonePayload `json:"payload"`
+	RunId     *string                     `json:"run_id,omitempty"`
+	Seq       int64                       `json:"seq"`
+	SessionId *string                     `json:"session_id,omitempty"`
+	StepId    *string                     `json:"step_id,omitempty"`
+	Subject   *string                     `json:"subject,omitempty"`
+	Ts        time.Time                   `json:"ts"`
+	Type      string                      `json:"type"`
+	Workflow  *WorkflowEventProjection    `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed defines model for TypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed.
+type TypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed struct {
+	Actor     string                        `json:"actor"`
+	City      string                        `json:"city"`
+	Message   *string                       `json:"message,omitempty"`
+	Payload   StoreMaintenanceFailedPayload `json:"payload"`
+	RunId     *string                       `json:"run_id,omitempty"`
+	Seq       int64                         `json:"seq"`
+	SessionId *string                       `json:"session_id,omitempty"`
+	StepId    *string                       `json:"step_id,omitempty"`
+	Subject   *string                       `json:"subject,omitempty"`
+	Ts        time.Time                     `json:"ts"`
+	Type      string                        `json:"type"`
+	Workflow  *WorkflowEventProjection      `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeMailArchived defines model for TypedTaggedEventStreamEnvelopeMailArchived.
 type TypedTaggedEventStreamEnvelopeMailArchived struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeMailDeleted defines model for TypedTaggedEventStreamEnvelopeMailDeleted.
 type TypedTaggedEventStreamEnvelopeMailDeleted struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeMailMarkedRead defines model for TypedTaggedEventStreamEnvelopeMailMarkedRead.
 type TypedTaggedEventStreamEnvelopeMailMarkedRead struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeMailMarkedUnread defines model for TypedTaggedEventStreamEnvelopeMailMarkedUnread.
 type TypedTaggedEventStreamEnvelopeMailMarkedUnread struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeMailRead defines model for TypedTaggedEventStreamEnvelopeMailRead.
 type TypedTaggedEventStreamEnvelopeMailRead struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeMailReplied defines model for TypedTaggedEventStreamEnvelopeMailReplied.
 type TypedTaggedEventStreamEnvelopeMailReplied struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeMailSent defines model for TypedTaggedEventStreamEnvelopeMailSent.
 type TypedTaggedEventStreamEnvelopeMailSent struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  MailEventPayload         `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MailEventPayload         `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeMoleculeResolved defines model for TypedTaggedEventStreamEnvelopeMoleculeResolved.
+type TypedTaggedEventStreamEnvelopeMoleculeResolved struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   MoleculeResolvedPayload  `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeOrderCompleted defines model for TypedTaggedEventStreamEnvelopeOrderCompleted.
 type TypedTaggedEventStreamEnvelopeOrderCompleted struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeOrderFailed defines model for TypedTaggedEventStreamEnvelopeOrderFailed.
 type TypedTaggedEventStreamEnvelopeOrderFailed struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeOrderFired defines model for TypedTaggedEventStreamEnvelopeOrderFired.
 type TypedTaggedEventStreamEnvelopeOrderFired struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopePgCredentialResolved defines model for TypedTaggedEventStreamEnvelopePgCredentialResolved.
+type TypedTaggedEventStreamEnvelopePgCredentialResolved struct {
+	Actor     string                            `json:"actor"`
+	City      string                            `json:"city"`
+	Message   *string                           `json:"message,omitempty"`
+	Payload   PostgresCredentialResolvedPayload `json:"payload"`
+	RunId     *string                           `json:"run_id,omitempty"`
+	Seq       int64                             `json:"seq"`
+	SessionId *string                           `json:"session_id,omitempty"`
+	StepId    *string                           `json:"step_id,omitempty"`
+	Subject   *string                           `json:"subject,omitempty"`
+	Ts        time.Time                         `json:"ts"`
+	Type      string                            `json:"type"`
+	Workflow  *WorkflowEventProjection          `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeProjectIdentityStamped defines model for TypedTaggedEventStreamEnvelopeProjectIdentityStamped.
+type TypedTaggedEventStreamEnvelopeProjectIdentityStamped struct {
+	Actor     string                        `json:"actor"`
+	City      string                        `json:"city"`
+	Message   *string                       `json:"message,omitempty"`
+	Payload   ProjectIdentityStampedPayload `json:"payload"`
+	RunId     *string                       `json:"run_id,omitempty"`
+	Seq       int64                         `json:"seq"`
+	SessionId *string                       `json:"session_id,omitempty"`
+	StepId    *string                       `json:"step_id,omitempty"`
+	Subject   *string                       `json:"subject,omitempty"`
+	Ts        time.Time                     `json:"ts"`
+	Type      string                        `json:"type"`
+	Workflow  *WorkflowEventProjection      `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeProviderSwapped defines model for TypedTaggedEventStreamEnvelopeProviderSwapped.
 type TypedTaggedEventStreamEnvelopeProviderSwapped struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeRequestFailed defines model for TypedTaggedEventStreamEnvelopeRequestFailed.
 type TypedTaggedEventStreamEnvelopeRequestFailed struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  RequestFailedPayload     `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   RequestFailedPayload     `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeRequestResultCityCreate defines model for TypedTaggedEventStreamEnvelopeRequestResultCityCreate.
 type TypedTaggedEventStreamEnvelopeRequestResultCityCreate struct {
-	Actor    string                     `json:"actor"`
-	City     string                     `json:"city"`
-	Message  *string                    `json:"message,omitempty"`
-	Payload  CityCreateSucceededPayload `json:"payload"`
-	Seq      int64                      `json:"seq"`
-	Subject  *string                    `json:"subject,omitempty"`
-	Ts       time.Time                  `json:"ts"`
-	Type     string                     `json:"type"`
-	Workflow *WorkflowEventProjection   `json:"workflow,omitempty"`
+	Actor     string                     `json:"actor"`
+	City      string                     `json:"city"`
+	Message   *string                    `json:"message,omitempty"`
+	Payload   CityCreateSucceededPayload `json:"payload"`
+	RunId     *string                    `json:"run_id,omitempty"`
+	Seq       int64                      `json:"seq"`
+	SessionId *string                    `json:"session_id,omitempty"`
+	StepId    *string                    `json:"step_id,omitempty"`
+	Subject   *string                    `json:"subject,omitempty"`
+	Ts        time.Time                  `json:"ts"`
+	Type      string                     `json:"type"`
+	Workflow  *WorkflowEventProjection   `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeRequestResultCityUnregister defines model for TypedTaggedEventStreamEnvelopeRequestResultCityUnregister.
 type TypedTaggedEventStreamEnvelopeRequestResultCityUnregister struct {
-	Actor    string                         `json:"actor"`
-	City     string                         `json:"city"`
-	Message  *string                        `json:"message,omitempty"`
-	Payload  CityUnregisterSucceededPayload `json:"payload"`
-	Seq      int64                          `json:"seq"`
-	Subject  *string                        `json:"subject,omitempty"`
-	Ts       time.Time                      `json:"ts"`
-	Type     string                         `json:"type"`
-	Workflow *WorkflowEventProjection       `json:"workflow,omitempty"`
+	Actor     string                         `json:"actor"`
+	City      string                         `json:"city"`
+	Message   *string                        `json:"message,omitempty"`
+	Payload   CityUnregisterSucceededPayload `json:"payload"`
+	RunId     *string                        `json:"run_id,omitempty"`
+	Seq       int64                          `json:"seq"`
+	SessionId *string                        `json:"session_id,omitempty"`
+	StepId    *string                        `json:"step_id,omitempty"`
+	Subject   *string                        `json:"subject,omitempty"`
+	Ts        time.Time                      `json:"ts"`
+	Type      string                         `json:"type"`
+	Workflow  *WorkflowEventProjection       `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeRequestResultSessionCreate defines model for TypedTaggedEventStreamEnvelopeRequestResultSessionCreate.
 type TypedTaggedEventStreamEnvelopeRequestResultSessionCreate struct {
-	Actor    string                        `json:"actor"`
-	City     string                        `json:"city"`
-	Message  *string                       `json:"message,omitempty"`
-	Payload  SessionCreateSucceededPayload `json:"payload"`
-	Seq      int64                         `json:"seq"`
-	Subject  *string                       `json:"subject,omitempty"`
-	Ts       time.Time                     `json:"ts"`
-	Type     string                        `json:"type"`
-	Workflow *WorkflowEventProjection      `json:"workflow,omitempty"`
+	Actor     string                        `json:"actor"`
+	City      string                        `json:"city"`
+	Message   *string                       `json:"message,omitempty"`
+	Payload   SessionCreateSucceededPayload `json:"payload"`
+	RunId     *string                       `json:"run_id,omitempty"`
+	Seq       int64                         `json:"seq"`
+	SessionId *string                       `json:"session_id,omitempty"`
+	StepId    *string                       `json:"step_id,omitempty"`
+	Subject   *string                       `json:"subject,omitempty"`
+	Ts        time.Time                     `json:"ts"`
+	Type      string                        `json:"type"`
+	Workflow  *WorkflowEventProjection      `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeRequestResultSessionMessage defines model for TypedTaggedEventStreamEnvelopeRequestResultSessionMessage.
 type TypedTaggedEventStreamEnvelopeRequestResultSessionMessage struct {
-	Actor    string                         `json:"actor"`
-	City     string                         `json:"city"`
-	Message  *string                        `json:"message,omitempty"`
-	Payload  SessionMessageSucceededPayload `json:"payload"`
-	Seq      int64                          `json:"seq"`
-	Subject  *string                        `json:"subject,omitempty"`
-	Ts       time.Time                      `json:"ts"`
-	Type     string                         `json:"type"`
-	Workflow *WorkflowEventProjection       `json:"workflow,omitempty"`
+	Actor     string                         `json:"actor"`
+	City      string                         `json:"city"`
+	Message   *string                        `json:"message,omitempty"`
+	Payload   SessionMessageSucceededPayload `json:"payload"`
+	RunId     *string                        `json:"run_id,omitempty"`
+	Seq       int64                          `json:"seq"`
+	SessionId *string                        `json:"session_id,omitempty"`
+	StepId    *string                        `json:"step_id,omitempty"`
+	Subject   *string                        `json:"subject,omitempty"`
+	Ts        time.Time                      `json:"ts"`
+	Type      string                         `json:"type"`
+	Workflow  *WorkflowEventProjection       `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeRequestResultSessionSubmit defines model for TypedTaggedEventStreamEnvelopeRequestResultSessionSubmit.
 type TypedTaggedEventStreamEnvelopeRequestResultSessionSubmit struct {
-	Actor    string                        `json:"actor"`
-	City     string                        `json:"city"`
-	Message  *string                       `json:"message,omitempty"`
-	Payload  SessionSubmitSucceededPayload `json:"payload"`
-	Seq      int64                         `json:"seq"`
-	Subject  *string                       `json:"subject,omitempty"`
-	Ts       time.Time                     `json:"ts"`
-	Type     string                        `json:"type"`
-	Workflow *WorkflowEventProjection      `json:"workflow,omitempty"`
+	Actor     string                        `json:"actor"`
+	City      string                        `json:"city"`
+	Message   *string                       `json:"message,omitempty"`
+	Payload   SessionSubmitSucceededPayload `json:"payload"`
+	RunId     *string                       `json:"run_id,omitempty"`
+	Seq       int64                         `json:"seq"`
+	SessionId *string                       `json:"session_id,omitempty"`
+	StepId    *string                       `json:"step_id,omitempty"`
+	Subject   *string                       `json:"subject,omitempty"`
+	Ts        time.Time                     `json:"ts"`
+	Type      string                        `json:"type"`
+	Workflow  *WorkflowEventProjection      `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeSessionColdStartTimeout defines model for TypedTaggedEventStreamEnvelopeSessionColdStartTimeout.
+type TypedTaggedEventStreamEnvelopeSessionColdStartTimeout struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeSessionCrashed defines model for TypedTaggedEventStreamEnvelopeSessionCrashed.
 type TypedTaggedEventStreamEnvelopeSessionCrashed struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   SessionLifecyclePayload  `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork defines model for TypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork.
+type TypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork struct {
+	Actor     string                                   `json:"actor"`
+	City      string                                   `json:"city"`
+	Message   *string                                  `json:"message,omitempty"`
+	Payload   SessionDrainAckedWithAssignedWorkPayload `json:"payload"`
+	RunId     *string                                  `json:"run_id,omitempty"`
+	Seq       int64                                    `json:"seq"`
+	SessionId *string                                  `json:"session_id,omitempty"`
+	StepId    *string                                  `json:"step_id,omitempty"`
+	Subject   *string                                  `json:"subject,omitempty"`
+	Ts        time.Time                                `json:"ts"`
+	Type      string                                   `json:"type"`
+	Workflow  *WorkflowEventProjection                 `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeSessionDraining defines model for TypedTaggedEventStreamEnvelopeSessionDraining.
 type TypedTaggedEventStreamEnvelopeSessionDraining struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeSessionIdleKilled defines model for TypedTaggedEventStreamEnvelopeSessionIdleKilled.
 type TypedTaggedEventStreamEnvelopeSessionIdleKilled struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeSessionMaxAgeKilled defines model for TypedTaggedEventStreamEnvelopeSessionMaxAgeKilled.
+type TypedTaggedEventStreamEnvelopeSessionMaxAgeKilled struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeSessionQuarantined defines model for TypedTaggedEventStreamEnvelopeSessionQuarantined.
 type TypedTaggedEventStreamEnvelopeSessionQuarantined struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeSessionResetStalled defines model for TypedTaggedEventStreamEnvelopeSessionResetStalled.
+type TypedTaggedEventStreamEnvelopeSessionResetStalled struct {
+	Actor     string                     `json:"actor"`
+	City      string                     `json:"city"`
+	Message   *string                    `json:"message,omitempty"`
+	Payload   SessionResetStalledPayload `json:"payload"`
+	RunId     *string                    `json:"run_id,omitempty"`
+	Seq       int64                      `json:"seq"`
+	SessionId *string                    `json:"session_id,omitempty"`
+	StepId    *string                    `json:"step_id,omitempty"`
+	Subject   *string                    `json:"subject,omitempty"`
+	Ts        time.Time                  `json:"ts"`
+	Type      string                     `json:"type"`
+	Workflow  *WorkflowEventProjection   `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeSessionStopped defines model for TypedTaggedEventStreamEnvelopeSessionStopped.
 type TypedTaggedEventStreamEnvelopeSessionStopped struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   SessionLifecyclePayload  `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeSessionStranded defines model for TypedTaggedEventStreamEnvelopeSessionStranded.
+type TypedTaggedEventStreamEnvelopeSessionStranded struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   SessionStrandedPayload   `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeSessionSuspended defines model for TypedTaggedEventStreamEnvelopeSessionSuspended.
 type TypedTaggedEventStreamEnvelopeSessionSuspended struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeSessionUndrained defines model for TypedTaggedEventStreamEnvelopeSessionUndrained.
 type TypedTaggedEventStreamEnvelopeSessionUndrained struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeSessionUnknownState defines model for TypedTaggedEventStreamEnvelopeSessionUnknownState.
+type TypedTaggedEventStreamEnvelopeSessionUnknownState struct {
+	Actor     string                     `json:"actor"`
+	City      string                     `json:"city"`
+	Message   *string                    `json:"message,omitempty"`
+	Payload   SessionUnknownStatePayload `json:"payload"`
+	RunId     *string                    `json:"run_id,omitempty"`
+	Seq       int64                      `json:"seq"`
+	SessionId *string                    `json:"session_id,omitempty"`
+	StepId    *string                    `json:"step_id,omitempty"`
+	Subject   *string                    `json:"subject,omitempty"`
+	Ts        time.Time                  `json:"ts"`
+	Type      string                     `json:"type"`
+	Workflow  *WorkflowEventProjection   `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeSessionUpdated defines model for TypedTaggedEventStreamEnvelopeSessionUpdated.
 type TypedTaggedEventStreamEnvelopeSessionUpdated struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeSessionWoke defines model for TypedTaggedEventStreamEnvelopeSessionWoke.
 type TypedTaggedEventStreamEnvelopeSessionWoke struct {
-	Actor    string                   `json:"actor"`
-	City     string                   `json:"city"`
-	Message  *string                  `json:"message,omitempty"`
-	Payload  NoPayload                `json:"payload"`
-	Seq      int64                    `json:"seq"`
-	Subject  *string                  `json:"subject,omitempty"`
-	Ts       time.Time                `json:"ts"`
-	Type     string                   `json:"type"`
-	Workflow *WorkflowEventProjection `json:"workflow,omitempty"`
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   NoPayload                `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeSessionWorkQueryFailed defines model for TypedTaggedEventStreamEnvelopeSessionWorkQueryFailed.
+type TypedTaggedEventStreamEnvelopeSessionWorkQueryFailed struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   SessionLifecyclePayload  `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick defines model for TypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick.
+type TypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick struct {
+	Actor     string                                 `json:"actor"`
+	City      string                                 `json:"city"`
+	Message   *string                                `json:"message,omitempty"`
+	Payload   SupervisorFSPressureSkippedTickPayload `json:"payload"`
+	RunId     *string                                `json:"run_id,omitempty"`
+	Seq       int64                                  `json:"seq"`
+	SessionId *string                                `json:"session_id,omitempty"`
+	StepId    *string                                `json:"step_id,omitempty"`
+	Subject   *string                                `json:"subject,omitempty"`
+	Ts        time.Time                              `json:"ts"`
+	Type      string                                 `json:"type"`
+	Workflow  *WorkflowEventProjection               `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeSupervisorRequest defines model for TypedTaggedEventStreamEnvelopeSupervisorRequest.
+type TypedTaggedEventStreamEnvelopeSupervisorRequest struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   SupervisorRequestPayload `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeSupervisorShutdownRequested defines model for TypedTaggedEventStreamEnvelopeSupervisorShutdownRequested.
+type TypedTaggedEventStreamEnvelopeSupervisorShutdownRequested struct {
+	Actor     string                    `json:"actor"`
+	City      string                    `json:"city"`
+	Message   *string                   `json:"message,omitempty"`
+	Payload   SupervisorShutdownPayload `json:"payload"`
+	RunId     *string                   `json:"run_id,omitempty"`
+	Seq       int64                     `json:"seq"`
+	SessionId *string                   `json:"session_id,omitempty"`
+	StepId    *string                   `json:"step_id,omitempty"`
+	Subject   *string                   `json:"subject,omitempty"`
+	Ts        time.Time                 `json:"ts"`
+	Type      string                    `json:"type"`
+	Workflow  *WorkflowEventProjection  `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeSupervisorStarted defines model for TypedTaggedEventStreamEnvelopeSupervisorStarted.
+type TypedTaggedEventStreamEnvelopeSupervisorStarted struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   SupervisorStartedPayload `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeWebhookReceived defines model for TypedTaggedEventStreamEnvelopeWebhookReceived.
+type TypedTaggedEventStreamEnvelopeWebhookReceived struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   WebhookReceivedPayload   `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
+}
+
+// TypedTaggedEventStreamEnvelopeWebhookRejected defines model for TypedTaggedEventStreamEnvelopeWebhookRejected.
+type TypedTaggedEventStreamEnvelopeWebhookRejected struct {
+	Actor     string                   `json:"actor"`
+	City      string                   `json:"city"`
+	Message   *string                  `json:"message,omitempty"`
+	Payload   WebhookRejectedPayload   `json:"payload"`
+	RunId     *string                  `json:"run_id,omitempty"`
+	Seq       int64                    `json:"seq"`
+	SessionId *string                  `json:"session_id,omitempty"`
+	StepId    *string                  `json:"step_id,omitempty"`
+	Subject   *string                  `json:"subject,omitempty"`
+	Ts        time.Time                `json:"ts"`
+	Type      string                   `json:"type"`
+	Workflow  *WorkflowEventProjection `json:"workflow,omitempty"`
 }
 
 // TypedTaggedEventStreamEnvelopeWorkerOperation defines model for TypedTaggedEventStreamEnvelopeWorkerOperation.
 type TypedTaggedEventStreamEnvelopeWorkerOperation struct {
-	Actor    string                      `json:"actor"`
-	City     string                      `json:"city"`
-	Message  *string                     `json:"message,omitempty"`
-	Payload  WorkerOperationEventPayload `json:"payload"`
-	Seq      int64                       `json:"seq"`
-	Subject  *string                     `json:"subject,omitempty"`
-	Ts       time.Time                   `json:"ts"`
-	Type     string                      `json:"type"`
-	Workflow *WorkflowEventProjection    `json:"workflow,omitempty"`
+	Actor     string                      `json:"actor"`
+	City      string                      `json:"city"`
+	Message   *string                     `json:"message,omitempty"`
+	Payload   WorkerOperationEventPayload `json:"payload"`
+	RunId     *string                     `json:"run_id,omitempty"`
+	Seq       int64                       `json:"seq"`
+	SessionId *string                     `json:"session_id,omitempty"`
+	StepId    *string                     `json:"step_id,omitempty"`
+	Subject   *string                     `json:"subject,omitempty"`
+	Ts        time.Time                   `json:"ts"`
+	Type      string                      `json:"type"`
+	Workflow  *WorkflowEventProjection    `json:"workflow,omitempty"`
 }
 
 // UnboundEventPayload defines model for UnboundEventPayload.
@@ -3795,22 +6021,189 @@ type UnboundEventPayload struct {
 	SessionId string `json:"session_id"`
 }
 
+// WaitListBody defines model for WaitListBody.
+type WaitListBody struct {
+	// Capped True when the lookup hit the per-scope cap and the list is partial.
+	Capped bool `json:"capped"`
+
+	// Partial True when a backing store returned a partial result and the list may be incomplete.
+	Partial *bool `json:"partial,omitempty"`
+
+	// PartialErrors Human-readable errors from the degraded wait lookup when partial is true.
+	PartialErrors *[]string `json:"partial_errors,omitempty"`
+
+	// Waits Durable session waits, newest first.
+	Waits *[]WaitView `json:"waits"`
+}
+
+// WaitView defines model for WaitView.
+type WaitView struct {
+	// CreatedAt Bead creation time (RFC3339, UTC).
+	CreatedAt *string `json:"created_at,omitempty"`
+
+	// DeliveryAttempt Current delivery attempt counter.
+	DeliveryAttempt *string `json:"delivery_attempt,omitempty"`
+
+	// DepIds Dependency bead IDs the wait watches.
+	DepIds *[]string `json:"dep_ids,omitempty"`
+
+	// DepMode all or any.
+	DepMode *string `json:"dep_mode,omitempty"`
+
+	// ExpiresAt Raw RFC3339 expiry string, kept verbatim.
+	ExpiresAt *string `json:"expires_at,omitempty"`
+
+	// Id Wait bead ID.
+	Id string `json:"id"`
+
+	// Kind Wait kind, e.g. deps.
+	Kind string `json:"kind"`
+
+	// Labels Bead labels.
+	Labels *[]string `json:"labels,omitempty"`
+
+	// Note Reminder text delivered when the wait is satisfied.
+	Note *string `json:"note,omitempty"`
+
+	// NudgeId Shadow wait-nudge ID once dispatched.
+	NudgeId *string `json:"nudge_id,omitempty"`
+
+	// RegisteredEpoch Session continuation epoch at registration.
+	RegisteredEpoch *string `json:"registered_epoch,omitempty"`
+
+	// SessionId Session bead ID the wait is registered against.
+	SessionId string `json:"session_id"`
+
+	// SessionName Runtime session name recorded at registration.
+	SessionName *string `json:"session_name,omitempty"`
+
+	// State Wait lifecycle state (pending/ready/closed/...).
+	State string `json:"state"`
+
+	// Status Persisted bead status (open/closed).
+	Status string `json:"status"`
+}
+
+// WebhookReceivedPayload defines model for WebhookReceivedPayload.
+type WebhookReceivedPayload struct {
+	// BodySize Raw request body size in bytes (never the body itself).
+	BodySize int64 `json:"body_size"`
+
+	// DedupId Provider delivery id used for dedup (or a body hash when the scheme carries none).
+	DedupId *string `json:"dedup_id,omitempty"`
+
+	// Deduped True when this delivery was a duplicate and was NOT dispatched.
+	Deduped bool `json:"deduped"`
+
+	// Dispatched True when an order was launched for this delivery.
+	Dispatched bool `json:"dispatched"`
+
+	// EventType Provider event type surfaced by the scheme (e.g. pull_request).
+	EventType *string `json:"event_type,omitempty"`
+
+	// Matched True when a [[webhook.rule]] matched the delivery.
+	Matched bool `json:"matched"`
+
+	// Order Target order name when a rule matched.
+	Order *string `json:"order,omitempty"`
+
+	// Rig Target rig when the matched rule scoped one.
+	Rig *string `json:"rig,omitempty"`
+
+	// RuleIndex Matched rule index, or -1 when no rule matched.
+	RuleIndex int64 `json:"rule_index"`
+
+	// Scheme Verifier scheme (github-hmac-sha256, slack-v0, …).
+	Scheme *string `json:"scheme,omitempty"`
+
+	// ScopedName Rig-qualified name of the fired order.
+	ScopedName *string `json:"scoped_name,omitempty"`
+
+	// TrackingId Tracking bead id for the dispatch, when fired.
+	TrackingId *string `json:"tracking_id,omitempty"`
+
+	// Webhook Configured webhook name that received the delivery.
+	Webhook string `json:"webhook"`
+}
+
+// WebhookRejectedPayload defines model for WebhookRejectedPayload.
+type WebhookRejectedPayload struct {
+	// BodySize Raw request body size in bytes, when the body was read.
+	BodySize *int64 `json:"body_size,omitempty"`
+
+	// DedupId Provider delivery id, when known.
+	DedupId *string `json:"dedup_id,omitempty"`
+
+	// EventType Provider event type, when known at the rejection point.
+	EventType *string `json:"event_type,omitempty"`
+
+	// Reason Rejection reason enum (perimeter_denied, read_only, rate_limited, operator_fault, verify_failed, bad_payload, dispatch_refused, …).
+	Reason string `json:"reason"`
+
+	// Scheme Verifier scheme, when the webhook resolved.
+	Scheme *string `json:"scheme,omitempty"`
+
+	// Status HTTP status returned to the sender.
+	Status *int64 `json:"status,omitempty"`
+
+	// Webhook Configured webhook name (empty only for unresolved routes, which are not evented).
+	Webhook string `json:"webhook"`
+}
+
 // WorkerOperationEventPayload defines model for WorkerOperationEventPayload.
 type WorkerOperationEventPayload struct {
-	Delivered   *bool     `json:"delivered,omitempty"`
-	DurationMs  int64     `json:"duration_ms"`
-	Error       *string   `json:"error,omitempty"`
-	FinishedAt  time.Time `json:"finished_at"`
-	OpId        string    `json:"op_id"`
-	Operation   string    `json:"operation"`
-	Provider    *string   `json:"provider,omitempty"`
-	Queued      *bool     `json:"queued,omitempty"`
-	Result      string    `json:"result"`
+	// AgentName Qualified agent identity (best-effort, absent if the session has no agent_name metadata or alias).
+	AgentName *string `json:"agent_name,omitempty"`
+
+	// BeadId Work bead this operation is acting on (best-effort, may be absent for non-bead-scoped ops).
+	BeadId *string `json:"bead_id,omitempty"`
+
+	// CacheCreationTokens Input tokens written into the prompt cache (best-effort, currently always absent).
+	CacheCreationTokens *int64 `json:"cache_creation_tokens,omitempty"`
+
+	// CacheReadTokens Cached input tokens read (best-effort, currently always absent).
+	CacheReadTokens *int64 `json:"cache_read_tokens,omitempty"`
+
+	// CompletionTokens Output tokens (best-effort, currently always absent).
+	CompletionTokens *int64 `json:"completion_tokens,omitempty"`
+
+	// CostUsdEstimate Estimated invocation cost in USD (best-effort, currently always absent; see #1255 for pricing seam).
+	CostUsdEstimate *float64  `json:"cost_usd_estimate,omitempty"`
+	Delivered       *bool     `json:"delivered,omitempty"`
+	DurationMs      int64     `json:"duration_ms"`
+	Error           *string   `json:"error,omitempty"`
+	FinishedAt      time.Time `json:"finished_at"`
+
+	// LatencyMs LLM invocation wall-clock latency (best-effort, currently always absent — no source).
+	LatencyMs *int64 `json:"latency_ms,omitempty"`
+
+	// Model LLM model identifier (best-effort, may be absent until follow-up wiring lands).
+	Model     *string `json:"model,omitempty"`
+	OpId      string  `json:"op_id"`
+	Operation string  `json:"operation"`
+
+	// PromptSha SHA-256 of the rendered prompt (best-effort, currently always absent; #1256 follow-up).
+	PromptSha *string `json:"prompt_sha,omitempty"`
+
+	// PromptTokens Non-cached input tokens (best-effort, currently always absent; treat zero as 'not measured', not 'free').
+	PromptTokens *int64 `json:"prompt_tokens,omitempty"`
+
+	// PromptVersion Template version frontmatter (best-effort, currently always absent; #1256 follow-up).
+	PromptVersion *string `json:"prompt_version,omitempty"`
+	Provider      *string `json:"provider,omitempty"`
+	Queued        *bool   `json:"queued,omitempty"`
+	Result        string  `json:"result"`
+
+	// RunId Run-root identifier for rolling this operation up to a workflow/molecule/chat run (best-effort).
+	RunId       *string   `json:"run_id,omitempty"`
 	SessionId   *string   `json:"session_id,omitempty"`
 	SessionName *string   `json:"session_name,omitempty"`
 	StartedAt   time.Time `json:"started_at"`
 	Template    *string   `json:"template,omitempty"`
 	Transport   *string   `json:"transport,omitempty"`
+
+	// Unpriced True when tokens were observed but no price resolved (best-effort tri-state; absent = not evaluated).
+	Unpriced *bool `json:"unpriced,omitempty"`
 }
 
 // WorkflowAttemptSummary defines model for WorkflowAttemptSummary.
@@ -3900,13 +6293,14 @@ type WorkflowSnapshotResponse struct {
 
 // WorkspaceResponse defines model for WorkspaceResponse.
 type WorkspaceResponse struct {
-	DeclaredName    *string `json:"declared_name,omitempty"`
-	DeclaredPrefix  *string `json:"declared_prefix,omitempty"`
-	Name            string  `json:"name"`
-	Prefix          *string `json:"prefix,omitempty"`
-	Provider        *string `json:"provider,omitempty"`
-	SessionTemplate *string `json:"session_template,omitempty"`
-	Suspended       bool    `json:"suspended"`
+	DeclaredName      *string `json:"declared_name,omitempty"`
+	DeclaredPrefix    *string `json:"declared_prefix,omitempty"`
+	MaxActiveSessions *int64  `json:"max_active_sessions,omitempty"`
+	Name              string  `json:"name"`
+	Prefix            *string `json:"prefix,omitempty"`
+	Provider          *string `json:"provider,omitempty"`
+	SessionTemplate   *string `json:"session_template,omitempty"`
+	Suspended         bool    `json:"suspended"`
 }
 
 // PostV0CityParams defines parameters for PostV0City.
@@ -4009,6 +6403,9 @@ type GetV0CityByCityNameAgentsParamsRunning string
 type CreateAgentParams struct {
 	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
 	XGCRequest string `json:"X-GC-Request"`
+
+	// IdempotencyKey Idempotency key for safe retries.
+	IdempotencyKey *string `json:"Idempotency-Key,omitempty"`
 }
 
 // DeleteV0CityByCityNameBeadByIdParams defines parameters for DeleteV0CityByCityNameBeadById.
@@ -4075,6 +6472,9 @@ type GetV0CityByCityNameBeadsParams struct {
 
 	// Rig Filter by rig.
 	Rig *string `form:"rig,omitempty" json:"rig,omitempty"`
+
+	// All Include closed beads.
+	All *bool `form:"all,omitempty" json:"all,omitempty"`
 }
 
 // CreateBeadParams defines parameters for CreateBead.
@@ -4138,6 +6538,9 @@ type GetV0CityByCityNameConvoysParams struct {
 type CreateConvoyParams struct {
 	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
 	XGCRequest string `json:"X-GC-Request"`
+
+	// IdempotencyKey Idempotency key for safe retries.
+	IdempotencyKey *string `json:"Idempotency-Key,omitempty"`
 }
 
 // GetV0CityByCityNameEventsParams defines parameters for GetV0CityByCityNameEvents.
@@ -4166,6 +6569,15 @@ type GetV0CityByCityNameEventsParams struct {
 
 // EmitEventParams defines parameters for EmitEvent.
 type EmitEventParams struct {
+	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
+	XGCRequest string `json:"X-GC-Request"`
+}
+
+// RotateEventsParams defines parameters for RotateEvents.
+type RotateEventsParams struct {
+	// Wait Wait for archive compression to complete before returning.
+	Wait *bool `form:"wait,omitempty" json:"wait,omitempty"`
+
 	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
 	XGCRequest string `json:"X-GC-Request"`
 }
@@ -4270,7 +6682,19 @@ type GetV0CityByCityNameExtmsgTranscriptParams struct {
 
 	// Kind Conversation kind.
 	Kind *string `form:"kind,omitempty" json:"kind,omitempty"`
+
+	// AfterSequence Return entries with sequence greater than this cursor (default 0).
+	AfterSequence *int64 `form:"after_sequence,omitempty" json:"after_sequence,omitempty"`
+
+	// Limit Maximum number of entries to return (default 100, max 500).
+	Limit *int64 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Order Sort order by sequence: asc (oldest-first, default) or desc (newest-first).
+	Order *GetV0CityByCityNameExtmsgTranscriptParamsOrder `form:"order,omitempty" json:"order,omitempty"`
 }
+
+// GetV0CityByCityNameExtmsgTranscriptParamsOrder defines parameters for GetV0CityByCityNameExtmsgTranscript.
+type GetV0CityByCityNameExtmsgTranscriptParamsOrder string
 
 // PostV0CityByCityNameExtmsgTranscriptAckParams defines parameters for PostV0CityByCityNameExtmsgTranscriptAck.
 type PostV0CityByCityNameExtmsgTranscriptAckParams struct {
@@ -4292,7 +6716,7 @@ type GetV0CityByCityNameFormulaByNameParams struct {
 	// ScopeRef Scope reference.
 	ScopeRef *string `form:"scope_ref,omitempty" json:"scope_ref,omitempty"`
 
-	// Target Target agent for preview compilation.
+	// Target Preview target: a bead or convoy ID, or a configured agent identity (for example a workflow root's gc.routed_to value).
 	Target string `form:"target" json:"target"`
 }
 
@@ -4317,6 +6741,12 @@ type GetV0CityByCityNameFormulasFeedParams struct {
 	Limit *int64 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// DeleteV0CityByCityNameFormulasByNameParams defines parameters for DeleteV0CityByCityNameFormulasByName.
+type DeleteV0CityByCityNameFormulasByNameParams struct {
+	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
+	XGCRequest string `json:"X-GC-Request"`
+}
+
 // GetV0CityByCityNameFormulasByNameParams defines parameters for GetV0CityByCityNameFormulasByName.
 type GetV0CityByCityNameFormulasByNameParams struct {
 	// ScopeKind Scope kind (city or rig).
@@ -4325,8 +6755,14 @@ type GetV0CityByCityNameFormulasByNameParams struct {
 	// ScopeRef Scope reference.
 	ScopeRef *string `form:"scope_ref,omitempty" json:"scope_ref,omitempty"`
 
-	// Target Target agent for preview compilation.
+	// Target Preview target: a bead or convoy ID, or a configured agent identity (for example a workflow root's gc.routed_to value).
 	Target string `form:"target" json:"target"`
+}
+
+// PutV0CityByCityNameFormulasByNameParams defines parameters for PutV0CityByCityNameFormulasByName.
+type PutV0CityByCityNameFormulasByNameParams struct {
+	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
+	XGCRequest string `json:"X-GC-Request"`
 }
 
 // PostV0CityByCityNameFormulasByNamePreviewParams defines parameters for PostV0CityByCityNameFormulasByNamePreview.
@@ -4345,6 +6781,12 @@ type GetV0CityByCityNameFormulasByNameRunsParams struct {
 
 	// Limit Maximum number of recent runs to return. 0 = default.
 	Limit *int64 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// PostV0CityByCityNameFormulasByNameValidateParams defines parameters for PostV0CityByCityNameFormulasByNameValidate.
+type PostV0CityByCityNameFormulasByNameValidateParams struct {
+	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
+	XGCRequest string `json:"X-GC-Request"`
 }
 
 // GetV0CityByCityNameMailParams defines parameters for GetV0CityByCityNameMail.
@@ -4446,6 +6888,15 @@ type ReplyMailParams struct {
 	XGCRequest string `json:"X-GC-Request"`
 }
 
+// TriggerMaintenanceDoltGcParams defines parameters for TriggerMaintenanceDoltGc.
+type TriggerMaintenanceDoltGcParams struct {
+	// Wait When true, the handler blocks until the run completes and returns 200 with the full Run. When false (default), the handler returns 202 Accepted immediately.
+	Wait *bool `form:"wait,omitempty" json:"wait,omitempty"`
+
+	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
+	XGCRequest string `json:"X-GC-Request"`
+}
+
 // GetV0CityByCityNameOrderHistoryByBeadIdParams defines parameters for GetV0CityByCityNameOrderHistoryByBeadId.
 type GetV0CityByCityNameOrderHistoryByBeadIdParams struct {
 	// StoreRef Store reference for disambiguating store-local bead IDs.
@@ -4460,6 +6911,12 @@ type PostV0CityByCityNameOrderByNameDisableParams struct {
 
 // PostV0CityByCityNameOrderByNameEnableParams defines parameters for PostV0CityByCityNameOrderByNameEnable.
 type PostV0CityByCityNameOrderByNameEnableParams struct {
+	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
+	XGCRequest string `json:"X-GC-Request"`
+}
+
+// PostV0CityByCityNameOrderByNameRunParams defines parameters for PostV0CityByCityNameOrderByNameRun.
+type PostV0CityByCityNameOrderByNameRunParams struct {
 	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
 	XGCRequest string `json:"X-GC-Request"`
 }
@@ -4492,6 +6949,21 @@ type GetV0CityByCityNameOrdersHistoryParams struct {
 
 	// Before Return entries before this RFC3339 timestamp.
 	Before *string `form:"before,omitempty" json:"before,omitempty"`
+}
+
+// AddPackParams defines parameters for AddPack.
+type AddPackParams struct {
+	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
+	XGCRequest string `json:"X-GC-Request"`
+
+	// IdempotencyKey Idempotency key for safe retries.
+	IdempotencyKey *string `json:"Idempotency-Key,omitempty"`
+}
+
+// DeleteV0CityByCityNamePacksByNameParams defines parameters for DeleteV0CityByCityNamePacksByName.
+type DeleteV0CityByCityNamePacksByNameParams struct {
+	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
+	XGCRequest string `json:"X-GC-Request"`
 }
 
 // DeleteV0CityByCityNamePatchesAgentByBaseParams defines parameters for DeleteV0CityByCityNamePatchesAgentByBase.
@@ -4561,6 +7033,9 @@ type PatchV0CityByCityNameProviderByNameParams struct {
 type CreateProviderParams struct {
 	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
 	XGCRequest string `json:"X-GC-Request"`
+
+	// IdempotencyKey Idempotency key for safe retries.
+	IdempotencyKey *string `json:"Idempotency-Key,omitempty"`
 }
 
 // GetV0CityByCityNameReadinessParams defines parameters for GetV0CityByCityNameReadiness.
@@ -4596,6 +7071,9 @@ type PostV0CityByCityNameRigByNameByActionParams struct {
 	XGCRequest string `json:"X-GC-Request"`
 }
 
+// PostV0CityByCityNameRigByNameByActionParamsAction defines parameters for PostV0CityByCityNameRigByNameByAction.
+type PostV0CityByCityNameRigByNameByActionParamsAction string
+
 // GetV0CityByCityNameRigsParams defines parameters for GetV0CityByCityNameRigs.
 type GetV0CityByCityNameRigsParams struct {
 	// Index Event sequence number; when provided, blocks until a newer event arrives.
@@ -4612,6 +7090,15 @@ type GetV0CityByCityNameRigsParams struct {
 type CreateRigParams struct {
 	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
 	XGCRequest string `json:"X-GC-Request"`
+
+	// IdempotencyKey Idempotency key for safe retries.
+	IdempotencyKey *string `json:"Idempotency-Key,omitempty"`
+}
+
+// GetV0CityByCityNameRunsParams defines parameters for GetV0CityByCityNameRuns.
+type GetV0CityByCityNameRunsParams struct {
+	// Limit Maximum runs to return (0 uses the server default).
+	Limit *int64 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // PostV0CityByCityNameServiceByNameRestartParams defines parameters for PostV0CityByCityNameServiceByNameRestart.
@@ -4624,6 +7111,9 @@ type PostV0CityByCityNameServiceByNameRestartParams struct {
 type GetV0CityByCityNameSessionByIdParams struct {
 	// Peek Include last output preview.
 	Peek *bool `form:"peek,omitempty" json:"peek,omitempty"`
+
+	// PeekLines Number of lines to include in the last output preview when peek=true. Defaults to 5.
+	PeekLines *int64 `form:"peek_lines,omitempty" json:"peek_lines,omitempty"`
 }
 
 // PatchV0CityByCityNameSessionByIdParams defines parameters for PatchV0CityByCityNameSessionById.
@@ -4649,6 +7139,12 @@ type PostV0CityByCityNameSessionByIdKillParams struct {
 
 // SendSessionMessageParams defines parameters for SendSessionMessage.
 type SendSessionMessageParams struct {
+	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
+	XGCRequest string `json:"X-GC-Request"`
+}
+
+// PostV0CityByCityNameSessionByIdPermissionModeParams defines parameters for PostV0CityByCityNameSessionByIdPermissionMode.
+type PostV0CityByCityNameSessionByIdPermissionModeParams struct {
 	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
 	XGCRequest string `json:"X-GC-Request"`
 }
@@ -4747,12 +7243,24 @@ type GetV0CityByCityNameStatusParams struct {
 
 	// Wait How long to block waiting for changes (Go duration string, e.g. 30s). Default 30s, max 2m.
 	Wait *string `form:"wait,omitempty" json:"wait,omitempty"`
+
+	// Lite When true, omit the expensive store-health, session-count, and work-count blocks for low-cost dashboard polls.
+	Lite *bool `form:"lite,omitempty" json:"lite,omitempty"`
 }
 
 // PostV0CityByCityNameUnregisterParams defines parameters for PostV0CityByCityNameUnregister.
 type PostV0CityByCityNameUnregisterParams struct {
 	// XGCRequest Anti-CSRF header required on mutation requests. Any non-empty value is accepted; the header's presence is what the server checks.
 	XGCRequest string `json:"X-GC-Request"`
+}
+
+// GetV0CityByCityNameWaitsParams defines parameters for GetV0CityByCityNameWaits.
+type GetV0CityByCityNameWaitsParams struct {
+	// State Filter by wait state.
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+
+	// Session Filter by session ID.
+	Session *string `form:"session,omitempty" json:"session,omitempty"`
 }
 
 // DeleteV0CityByCityNameWorkflowByWorkflowIdParams defines parameters for DeleteV0CityByCityNameWorkflowByWorkflowId.
@@ -4899,6 +7407,12 @@ type SendMailJSONRequestBody = MailSendInputBody
 // ReplyMailJSONRequestBody defines body for ReplyMail for application/json ContentType.
 type ReplyMailJSONRequestBody = MailReplyInputBody
 
+// PostV0CityByCityNameOrderByNameRunJSONRequestBody defines body for PostV0CityByCityNameOrderByNameRun for application/json ContentType.
+type PostV0CityByCityNameOrderByNameRunJSONRequestBody = OrderRunInputBody
+
+// AddPackJSONRequestBody defines body for AddPack for application/json ContentType.
+type AddPackJSONRequestBody = PackAddInputBody
+
 // PutV0CityByCityNamePatchesAgentsJSONRequestBody defines body for PutV0CityByCityNamePatchesAgents for application/json ContentType.
 type PutV0CityByCityNamePatchesAgentsJSONRequestBody = AgentPatchSetInputBody
 
@@ -4925,6 +7439,9 @@ type PatchV0CityByCityNameSessionByIdJSONRequestBody = SessionPatchBody
 
 // SendSessionMessageJSONRequestBody defines body for SendSessionMessage for application/json ContentType.
 type SendSessionMessageJSONRequestBody = SessionMessageInputBody
+
+// PostV0CityByCityNameSessionByIdPermissionModeJSONRequestBody defines body for PostV0CityByCityNameSessionByIdPermissionMode for application/json ContentType.
+type PostV0CityByCityNameSessionByIdPermissionModeJSONRequestBody = SessionPermissionModeBody
 
 // PostV0CityByCityNameSessionByIdRenameJSONRequestBody defines body for PostV0CityByCityNameSessionByIdRename for application/json ContentType.
 type PostV0CityByCityNameSessionByIdRenameJSONRequestBody = SessionRenameInputBody
@@ -4967,6 +7484,58 @@ func (t *EventPayload) MergeAdapterEventPayload(v AdapterEventPayload) error {
 	return err
 }
 
+// AsBeadClaimRejectedPayload returns the union data inside the EventPayload as a BeadClaimRejectedPayload
+func (t EventPayload) AsBeadClaimRejectedPayload() (BeadClaimRejectedPayload, error) {
+	var body BeadClaimRejectedPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBeadClaimRejectedPayload overwrites any union data inside the EventPayload as the provided BeadClaimRejectedPayload
+func (t *EventPayload) FromBeadClaimRejectedPayload(v BeadClaimRejectedPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeBeadClaimRejectedPayload performs a merge with any union data inside the EventPayload, using the provided BeadClaimRejectedPayload
+func (t *EventPayload) MergeBeadClaimRejectedPayload(v BeadClaimRejectedPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsBeadDeadAssigneeReopenedPayload returns the union data inside the EventPayload as a BeadDeadAssigneeReopenedPayload
+func (t EventPayload) AsBeadDeadAssigneeReopenedPayload() (BeadDeadAssigneeReopenedPayload, error) {
+	var body BeadDeadAssigneeReopenedPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBeadDeadAssigneeReopenedPayload overwrites any union data inside the EventPayload as the provided BeadDeadAssigneeReopenedPayload
+func (t *EventPayload) FromBeadDeadAssigneeReopenedPayload(v BeadDeadAssigneeReopenedPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeBeadDeadAssigneeReopenedPayload performs a merge with any union data inside the EventPayload, using the provided BeadDeadAssigneeReopenedPayload
+func (t *EventPayload) MergeBeadDeadAssigneeReopenedPayload(v BeadDeadAssigneeReopenedPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsBeadEventPayload returns the union data inside the EventPayload as a BeadEventPayload
 func (t EventPayload) AsBeadEventPayload() (BeadEventPayload, error) {
 	var body BeadEventPayload
@@ -4983,6 +7552,58 @@ func (t *EventPayload) FromBeadEventPayload(v BeadEventPayload) error {
 
 // MergeBeadEventPayload performs a merge with any union data inside the EventPayload, using the provided BeadEventPayload
 func (t *EventPayload) MergeBeadEventPayload(v BeadEventPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsBeadWorktreeReapSkippedPayload returns the union data inside the EventPayload as a BeadWorktreeReapSkippedPayload
+func (t EventPayload) AsBeadWorktreeReapSkippedPayload() (BeadWorktreeReapSkippedPayload, error) {
+	var body BeadWorktreeReapSkippedPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBeadWorktreeReapSkippedPayload overwrites any union data inside the EventPayload as the provided BeadWorktreeReapSkippedPayload
+func (t *EventPayload) FromBeadWorktreeReapSkippedPayload(v BeadWorktreeReapSkippedPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeBeadWorktreeReapSkippedPayload performs a merge with any union data inside the EventPayload, using the provided BeadWorktreeReapSkippedPayload
+func (t *EventPayload) MergeBeadWorktreeReapSkippedPayload(v BeadWorktreeReapSkippedPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsBeadWorktreeReapedPayload returns the union data inside the EventPayload as a BeadWorktreeReapedPayload
+func (t EventPayload) AsBeadWorktreeReapedPayload() (BeadWorktreeReapedPayload, error) {
+	var body BeadWorktreeReapedPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBeadWorktreeReapedPayload overwrites any union data inside the EventPayload as the provided BeadWorktreeReapedPayload
+func (t *EventPayload) FromBeadWorktreeReapedPayload(v BeadWorktreeReapedPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeBeadWorktreeReapedPayload performs a merge with any union data inside the EventPayload, using the provided BeadWorktreeReapedPayload
+func (t *EventPayload) MergeBeadWorktreeReapedPayload(v BeadWorktreeReapedPayload) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5175,6 +7796,32 @@ func (t *EventPayload) MergeMailEventPayload(v MailEventPayload) error {
 	return err
 }
 
+// AsMoleculeResolvedPayload returns the union data inside the EventPayload as a MoleculeResolvedPayload
+func (t EventPayload) AsMoleculeResolvedPayload() (MoleculeResolvedPayload, error) {
+	var body MoleculeResolvedPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMoleculeResolvedPayload overwrites any union data inside the EventPayload as the provided MoleculeResolvedPayload
+func (t *EventPayload) FromMoleculeResolvedPayload(v MoleculeResolvedPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMoleculeResolvedPayload performs a merge with any union data inside the EventPayload, using the provided MoleculeResolvedPayload
+func (t *EventPayload) MergeMoleculeResolvedPayload(v MoleculeResolvedPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsNoPayload returns the union data inside the EventPayload as a NoPayload
 func (t EventPayload) AsNoPayload() (NoPayload, error) {
 	var body NoPayload
@@ -5191,6 +7838,32 @@ func (t *EventPayload) FromNoPayload(v NoPayload) error {
 
 // MergeNoPayload performs a merge with any union data inside the EventPayload, using the provided NoPayload
 func (t *EventPayload) MergeNoPayload(v NoPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsOutboundChannelMismatchPayload returns the union data inside the EventPayload as a OutboundChannelMismatchPayload
+func (t EventPayload) AsOutboundChannelMismatchPayload() (OutboundChannelMismatchPayload, error) {
+	var body OutboundChannelMismatchPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromOutboundChannelMismatchPayload overwrites any union data inside the EventPayload as the provided OutboundChannelMismatchPayload
+func (t *EventPayload) FromOutboundChannelMismatchPayload(v OutboundChannelMismatchPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeOutboundChannelMismatchPayload performs a merge with any union data inside the EventPayload, using the provided OutboundChannelMismatchPayload
+func (t *EventPayload) MergeOutboundChannelMismatchPayload(v OutboundChannelMismatchPayload) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5227,6 +7900,84 @@ func (t *EventPayload) MergeOutboundEventPayload(v OutboundEventPayload) error {
 	return err
 }
 
+// AsPostgresCredentialResolvedPayload returns the union data inside the EventPayload as a PostgresCredentialResolvedPayload
+func (t EventPayload) AsPostgresCredentialResolvedPayload() (PostgresCredentialResolvedPayload, error) {
+	var body PostgresCredentialResolvedPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPostgresCredentialResolvedPayload overwrites any union data inside the EventPayload as the provided PostgresCredentialResolvedPayload
+func (t *EventPayload) FromPostgresCredentialResolvedPayload(v PostgresCredentialResolvedPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePostgresCredentialResolvedPayload performs a merge with any union data inside the EventPayload, using the provided PostgresCredentialResolvedPayload
+func (t *EventPayload) MergePostgresCredentialResolvedPayload(v PostgresCredentialResolvedPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsProjectIdentityStampedPayload returns the union data inside the EventPayload as a ProjectIdentityStampedPayload
+func (t EventPayload) AsProjectIdentityStampedPayload() (ProjectIdentityStampedPayload, error) {
+	var body ProjectIdentityStampedPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromProjectIdentityStampedPayload overwrites any union data inside the EventPayload as the provided ProjectIdentityStampedPayload
+func (t *EventPayload) FromProjectIdentityStampedPayload(v ProjectIdentityStampedPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeProjectIdentityStampedPayload performs a merge with any union data inside the EventPayload, using the provided ProjectIdentityStampedPayload
+func (t *EventPayload) MergeProjectIdentityStampedPayload(v ProjectIdentityStampedPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRecord returns the union data inside the EventPayload as a Record
+func (t EventPayload) AsRecord() (Record, error) {
+	var body Record
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRecord overwrites any union data inside the EventPayload as the provided Record
+func (t *EventPayload) FromRecord(v Record) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRecord performs a merge with any union data inside the EventPayload, using the provided Record
+func (t *EventPayload) MergeRecord(v Record) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsRequestFailedPayload returns the union data inside the EventPayload as a RequestFailedPayload
 func (t EventPayload) AsRequestFailedPayload() (RequestFailedPayload, error) {
 	var body RequestFailedPayload
@@ -5243,6 +7994,32 @@ func (t *EventPayload) FromRequestFailedPayload(v RequestFailedPayload) error {
 
 // MergeRequestFailedPayload performs a merge with any union data inside the EventPayload, using the provided RequestFailedPayload
 func (t *EventPayload) MergeRequestFailedPayload(v RequestFailedPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRotatedPayload returns the union data inside the EventPayload as a RotatedPayload
+func (t EventPayload) AsRotatedPayload() (RotatedPayload, error) {
+	var body RotatedPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRotatedPayload overwrites any union data inside the EventPayload as the provided RotatedPayload
+func (t *EventPayload) FromRotatedPayload(v RotatedPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRotatedPayload performs a merge with any union data inside the EventPayload, using the provided RotatedPayload
+func (t *EventPayload) MergeRotatedPayload(v RotatedPayload) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5279,6 +8056,58 @@ func (t *EventPayload) MergeSessionCreateSucceededPayload(v SessionCreateSucceed
 	return err
 }
 
+// AsSessionDrainAckedWithAssignedWorkPayload returns the union data inside the EventPayload as a SessionDrainAckedWithAssignedWorkPayload
+func (t EventPayload) AsSessionDrainAckedWithAssignedWorkPayload() (SessionDrainAckedWithAssignedWorkPayload, error) {
+	var body SessionDrainAckedWithAssignedWorkPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSessionDrainAckedWithAssignedWorkPayload overwrites any union data inside the EventPayload as the provided SessionDrainAckedWithAssignedWorkPayload
+func (t *EventPayload) FromSessionDrainAckedWithAssignedWorkPayload(v SessionDrainAckedWithAssignedWorkPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSessionDrainAckedWithAssignedWorkPayload performs a merge with any union data inside the EventPayload, using the provided SessionDrainAckedWithAssignedWorkPayload
+func (t *EventPayload) MergeSessionDrainAckedWithAssignedWorkPayload(v SessionDrainAckedWithAssignedWorkPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSessionLifecyclePayload returns the union data inside the EventPayload as a SessionLifecyclePayload
+func (t EventPayload) AsSessionLifecyclePayload() (SessionLifecyclePayload, error) {
+	var body SessionLifecyclePayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSessionLifecyclePayload overwrites any union data inside the EventPayload as the provided SessionLifecyclePayload
+func (t *EventPayload) FromSessionLifecyclePayload(v SessionLifecyclePayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSessionLifecyclePayload performs a merge with any union data inside the EventPayload, using the provided SessionLifecyclePayload
+func (t *EventPayload) MergeSessionLifecyclePayload(v SessionLifecyclePayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsSessionMessageSucceededPayload returns the union data inside the EventPayload as a SessionMessageSucceededPayload
 func (t EventPayload) AsSessionMessageSucceededPayload() (SessionMessageSucceededPayload, error) {
 	var body SessionMessageSucceededPayload
@@ -5295,6 +8124,58 @@ func (t *EventPayload) FromSessionMessageSucceededPayload(v SessionMessageSuccee
 
 // MergeSessionMessageSucceededPayload performs a merge with any union data inside the EventPayload, using the provided SessionMessageSucceededPayload
 func (t *EventPayload) MergeSessionMessageSucceededPayload(v SessionMessageSucceededPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSessionResetStalledPayload returns the union data inside the EventPayload as a SessionResetStalledPayload
+func (t EventPayload) AsSessionResetStalledPayload() (SessionResetStalledPayload, error) {
+	var body SessionResetStalledPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSessionResetStalledPayload overwrites any union data inside the EventPayload as the provided SessionResetStalledPayload
+func (t *EventPayload) FromSessionResetStalledPayload(v SessionResetStalledPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSessionResetStalledPayload performs a merge with any union data inside the EventPayload, using the provided SessionResetStalledPayload
+func (t *EventPayload) MergeSessionResetStalledPayload(v SessionResetStalledPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSessionStrandedPayload returns the union data inside the EventPayload as a SessionStrandedPayload
+func (t EventPayload) AsSessionStrandedPayload() (SessionStrandedPayload, error) {
+	var body SessionStrandedPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSessionStrandedPayload overwrites any union data inside the EventPayload as the provided SessionStrandedPayload
+func (t *EventPayload) FromSessionStrandedPayload(v SessionStrandedPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSessionStrandedPayload performs a merge with any union data inside the EventPayload, using the provided SessionStrandedPayload
+func (t *EventPayload) MergeSessionStrandedPayload(v SessionStrandedPayload) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5331,6 +8212,240 @@ func (t *EventPayload) MergeSessionSubmitSucceededPayload(v SessionSubmitSucceed
 	return err
 }
 
+// AsSessionUnknownStatePayload returns the union data inside the EventPayload as a SessionUnknownStatePayload
+func (t EventPayload) AsSessionUnknownStatePayload() (SessionUnknownStatePayload, error) {
+	var body SessionUnknownStatePayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSessionUnknownStatePayload overwrites any union data inside the EventPayload as the provided SessionUnknownStatePayload
+func (t *EventPayload) FromSessionUnknownStatePayload(v SessionUnknownStatePayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSessionUnknownStatePayload performs a merge with any union data inside the EventPayload, using the provided SessionUnknownStatePayload
+func (t *EventPayload) MergeSessionUnknownStatePayload(v SessionUnknownStatePayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsStoreDiskCriticalPayload returns the union data inside the EventPayload as a StoreDiskCriticalPayload
+func (t EventPayload) AsStoreDiskCriticalPayload() (StoreDiskCriticalPayload, error) {
+	var body StoreDiskCriticalPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStoreDiskCriticalPayload overwrites any union data inside the EventPayload as the provided StoreDiskCriticalPayload
+func (t *EventPayload) FromStoreDiskCriticalPayload(v StoreDiskCriticalPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStoreDiskCriticalPayload performs a merge with any union data inside the EventPayload, using the provided StoreDiskCriticalPayload
+func (t *EventPayload) MergeStoreDiskCriticalPayload(v StoreDiskCriticalPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsStoreDiskWarnPayload returns the union data inside the EventPayload as a StoreDiskWarnPayload
+func (t EventPayload) AsStoreDiskWarnPayload() (StoreDiskWarnPayload, error) {
+	var body StoreDiskWarnPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStoreDiskWarnPayload overwrites any union data inside the EventPayload as the provided StoreDiskWarnPayload
+func (t *EventPayload) FromStoreDiskWarnPayload(v StoreDiskWarnPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStoreDiskWarnPayload performs a merge with any union data inside the EventPayload, using the provided StoreDiskWarnPayload
+func (t *EventPayload) MergeStoreDiskWarnPayload(v StoreDiskWarnPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsStoreMaintenanceDonePayload returns the union data inside the EventPayload as a StoreMaintenanceDonePayload
+func (t EventPayload) AsStoreMaintenanceDonePayload() (StoreMaintenanceDonePayload, error) {
+	var body StoreMaintenanceDonePayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStoreMaintenanceDonePayload overwrites any union data inside the EventPayload as the provided StoreMaintenanceDonePayload
+func (t *EventPayload) FromStoreMaintenanceDonePayload(v StoreMaintenanceDonePayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStoreMaintenanceDonePayload performs a merge with any union data inside the EventPayload, using the provided StoreMaintenanceDonePayload
+func (t *EventPayload) MergeStoreMaintenanceDonePayload(v StoreMaintenanceDonePayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsStoreMaintenanceFailedPayload returns the union data inside the EventPayload as a StoreMaintenanceFailedPayload
+func (t EventPayload) AsStoreMaintenanceFailedPayload() (StoreMaintenanceFailedPayload, error) {
+	var body StoreMaintenanceFailedPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStoreMaintenanceFailedPayload overwrites any union data inside the EventPayload as the provided StoreMaintenanceFailedPayload
+func (t *EventPayload) FromStoreMaintenanceFailedPayload(v StoreMaintenanceFailedPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStoreMaintenanceFailedPayload performs a merge with any union data inside the EventPayload, using the provided StoreMaintenanceFailedPayload
+func (t *EventPayload) MergeStoreMaintenanceFailedPayload(v StoreMaintenanceFailedPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSupervisorFSPressureSkippedTickPayload returns the union data inside the EventPayload as a SupervisorFSPressureSkippedTickPayload
+func (t EventPayload) AsSupervisorFSPressureSkippedTickPayload() (SupervisorFSPressureSkippedTickPayload, error) {
+	var body SupervisorFSPressureSkippedTickPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSupervisorFSPressureSkippedTickPayload overwrites any union data inside the EventPayload as the provided SupervisorFSPressureSkippedTickPayload
+func (t *EventPayload) FromSupervisorFSPressureSkippedTickPayload(v SupervisorFSPressureSkippedTickPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSupervisorFSPressureSkippedTickPayload performs a merge with any union data inside the EventPayload, using the provided SupervisorFSPressureSkippedTickPayload
+func (t *EventPayload) MergeSupervisorFSPressureSkippedTickPayload(v SupervisorFSPressureSkippedTickPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSupervisorRequestPayload returns the union data inside the EventPayload as a SupervisorRequestPayload
+func (t EventPayload) AsSupervisorRequestPayload() (SupervisorRequestPayload, error) {
+	var body SupervisorRequestPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSupervisorRequestPayload overwrites any union data inside the EventPayload as the provided SupervisorRequestPayload
+func (t *EventPayload) FromSupervisorRequestPayload(v SupervisorRequestPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSupervisorRequestPayload performs a merge with any union data inside the EventPayload, using the provided SupervisorRequestPayload
+func (t *EventPayload) MergeSupervisorRequestPayload(v SupervisorRequestPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSupervisorShutdownPayload returns the union data inside the EventPayload as a SupervisorShutdownPayload
+func (t EventPayload) AsSupervisorShutdownPayload() (SupervisorShutdownPayload, error) {
+	var body SupervisorShutdownPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSupervisorShutdownPayload overwrites any union data inside the EventPayload as the provided SupervisorShutdownPayload
+func (t *EventPayload) FromSupervisorShutdownPayload(v SupervisorShutdownPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSupervisorShutdownPayload performs a merge with any union data inside the EventPayload, using the provided SupervisorShutdownPayload
+func (t *EventPayload) MergeSupervisorShutdownPayload(v SupervisorShutdownPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSupervisorStartedPayload returns the union data inside the EventPayload as a SupervisorStartedPayload
+func (t EventPayload) AsSupervisorStartedPayload() (SupervisorStartedPayload, error) {
+	var body SupervisorStartedPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSupervisorStartedPayload overwrites any union data inside the EventPayload as the provided SupervisorStartedPayload
+func (t *EventPayload) FromSupervisorStartedPayload(v SupervisorStartedPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSupervisorStartedPayload performs a merge with any union data inside the EventPayload, using the provided SupervisorStartedPayload
+func (t *EventPayload) MergeSupervisorStartedPayload(v SupervisorStartedPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsUnboundEventPayload returns the union data inside the EventPayload as a UnboundEventPayload
 func (t EventPayload) AsUnboundEventPayload() (UnboundEventPayload, error) {
 	var body UnboundEventPayload
@@ -5347,6 +8462,58 @@ func (t *EventPayload) FromUnboundEventPayload(v UnboundEventPayload) error {
 
 // MergeUnboundEventPayload performs a merge with any union data inside the EventPayload, using the provided UnboundEventPayload
 func (t *EventPayload) MergeUnboundEventPayload(v UnboundEventPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWebhookReceivedPayload returns the union data inside the EventPayload as a WebhookReceivedPayload
+func (t EventPayload) AsWebhookReceivedPayload() (WebhookReceivedPayload, error) {
+	var body WebhookReceivedPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWebhookReceivedPayload overwrites any union data inside the EventPayload as the provided WebhookReceivedPayload
+func (t *EventPayload) FromWebhookReceivedPayload(v WebhookReceivedPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWebhookReceivedPayload performs a merge with any union data inside the EventPayload, using the provided WebhookReceivedPayload
+func (t *EventPayload) MergeWebhookReceivedPayload(v WebhookReceivedPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWebhookRejectedPayload returns the union data inside the EventPayload as a WebhookRejectedPayload
+func (t EventPayload) AsWebhookRejectedPayload() (WebhookRejectedPayload, error) {
+	var body WebhookRejectedPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWebhookRejectedPayload overwrites any union data inside the EventPayload as the provided WebhookRejectedPayload
+func (t *EventPayload) FromWebhookRejectedPayload(v WebhookRejectedPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWebhookRejectedPayload performs a merge with any union data inside the EventPayload, using the provided WebhookRejectedPayload
+func (t *EventPayload) MergeWebhookRejectedPayload(v WebhookRejectedPayload) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5481,6 +8648,34 @@ func (t *SessionStreamCommonEvent) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+// AsTypedEventStreamEnvelopeBeadClaimRejected returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeBeadClaimRejected
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeBeadClaimRejected() (TypedEventStreamEnvelopeBeadClaimRejected, error) {
+	var body TypedEventStreamEnvelopeBeadClaimRejected
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeBeadClaimRejected overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeBeadClaimRejected
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeBeadClaimRejected(v TypedEventStreamEnvelopeBeadClaimRejected) error {
+	v.Type = "bead.claim_rejected"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeBeadClaimRejected performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeBeadClaimRejected
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeBeadClaimRejected(v TypedEventStreamEnvelopeBeadClaimRejected) error {
+	v.Type = "bead.claim_rejected"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedEventStreamEnvelopeBeadClosed returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeBeadClosed
 func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeBeadClosed() (TypedEventStreamEnvelopeBeadClosed, error) {
 	var body TypedEventStreamEnvelopeBeadClosed
@@ -5537,6 +8732,62 @@ func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeBeadCreated(v Ty
 	return err
 }
 
+// AsTypedEventStreamEnvelopeBeadDeadAssigneeReopened returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeBeadDeadAssigneeReopened
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeBeadDeadAssigneeReopened() (TypedEventStreamEnvelopeBeadDeadAssigneeReopened, error) {
+	var body TypedEventStreamEnvelopeBeadDeadAssigneeReopened
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeBeadDeadAssigneeReopened overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeBeadDeadAssigneeReopened
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeBeadDeadAssigneeReopened(v TypedEventStreamEnvelopeBeadDeadAssigneeReopened) error {
+	v.Type = "bead.dead_assignee_reopened"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeBeadDeadAssigneeReopened performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeBeadDeadAssigneeReopened
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeBeadDeadAssigneeReopened(v TypedEventStreamEnvelopeBeadDeadAssigneeReopened) error {
+	v.Type = "bead.dead_assignee_reopened"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeBeadDeleted returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeBeadDeleted
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeBeadDeleted() (TypedEventStreamEnvelopeBeadDeleted, error) {
+	var body TypedEventStreamEnvelopeBeadDeleted
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeBeadDeleted overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeBeadDeleted
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeBeadDeleted(v TypedEventStreamEnvelopeBeadDeleted) error {
+	v.Type = "bead.deleted"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeBeadDeleted performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeBeadDeleted
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeBeadDeleted(v TypedEventStreamEnvelopeBeadDeleted) error {
+	v.Type = "bead.deleted"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedEventStreamEnvelopeBeadUpdated returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeBeadUpdated
 func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeBeadUpdated() (TypedEventStreamEnvelopeBeadUpdated, error) {
 	var body TypedEventStreamEnvelopeBeadUpdated
@@ -5555,6 +8806,62 @@ func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeBeadUpdated(v Typ
 // MergeTypedEventStreamEnvelopeBeadUpdated performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeBeadUpdated
 func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeBeadUpdated(v TypedEventStreamEnvelopeBeadUpdated) error {
 	v.Type = "bead.updated"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeBeadWorktreeReapSkipped returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeBeadWorktreeReapSkipped
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeBeadWorktreeReapSkipped() (TypedEventStreamEnvelopeBeadWorktreeReapSkipped, error) {
+	var body TypedEventStreamEnvelopeBeadWorktreeReapSkipped
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeBeadWorktreeReapSkipped overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeBeadWorktreeReapSkipped
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeBeadWorktreeReapSkipped(v TypedEventStreamEnvelopeBeadWorktreeReapSkipped) error {
+	v.Type = "bead.worktree.reap_skipped"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeBeadWorktreeReapSkipped performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeBeadWorktreeReapSkipped
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeBeadWorktreeReapSkipped(v TypedEventStreamEnvelopeBeadWorktreeReapSkipped) error {
+	v.Type = "bead.worktree.reap_skipped"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeBeadWorktreeReaped returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeBeadWorktreeReaped
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeBeadWorktreeReaped() (TypedEventStreamEnvelopeBeadWorktreeReaped, error) {
+	var body TypedEventStreamEnvelopeBeadWorktreeReaped
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeBeadWorktreeReaped overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeBeadWorktreeReaped
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeBeadWorktreeReaped(v TypedEventStreamEnvelopeBeadWorktreeReaped) error {
+	v.Type = "bead.worktree.reaped"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeBeadWorktreeReaped performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeBeadWorktreeReaped
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeBeadWorktreeReaped(v TypedEventStreamEnvelopeBeadWorktreeReaped) error {
+	v.Type = "bead.worktree.reaped"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5789,6 +9096,90 @@ func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeConvoyCreated(v 
 	return err
 }
 
+// AsTypedEventStreamEnvelopeEmergencyAcked returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeEmergencyAcked
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeEmergencyAcked() (TypedEventStreamEnvelopeEmergencyAcked, error) {
+	var body TypedEventStreamEnvelopeEmergencyAcked
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeEmergencyAcked overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeEmergencyAcked
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeEmergencyAcked(v TypedEventStreamEnvelopeEmergencyAcked) error {
+	v.Type = "emergency.acked"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeEmergencyAcked performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeEmergencyAcked
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeEmergencyAcked(v TypedEventStreamEnvelopeEmergencyAcked) error {
+	v.Type = "emergency.acked"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeEmergencySignaled returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeEmergencySignaled
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeEmergencySignaled() (TypedEventStreamEnvelopeEmergencySignaled, error) {
+	var body TypedEventStreamEnvelopeEmergencySignaled
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeEmergencySignaled overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeEmergencySignaled
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeEmergencySignaled(v TypedEventStreamEnvelopeEmergencySignaled) error {
+	v.Type = "emergency.signaled"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeEmergencySignaled performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeEmergencySignaled
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeEmergencySignaled(v TypedEventStreamEnvelopeEmergencySignaled) error {
+	v.Type = "emergency.signaled"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeEventsRotated returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeEventsRotated
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeEventsRotated() (TypedEventStreamEnvelopeEventsRotated, error) {
+	var body TypedEventStreamEnvelopeEventsRotated
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeEventsRotated overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeEventsRotated
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeEventsRotated(v TypedEventStreamEnvelopeEventsRotated) error {
+	v.Type = "events.rotated"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeEventsRotated performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeEventsRotated
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeEventsRotated(v TypedEventStreamEnvelopeEventsRotated) error {
+	v.Type = "events.rotated"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedEventStreamEnvelopeExtmsgAdapterAdded returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeExtmsgAdapterAdded
 func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeExtmsgAdapterAdded() (TypedEventStreamEnvelopeExtmsgAdapterAdded, error) {
 	var body TypedEventStreamEnvelopeExtmsgAdapterAdded
@@ -5957,6 +9348,34 @@ func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeExtmsgOutbound(v
 	return err
 }
 
+// AsTypedEventStreamEnvelopeExtmsgOutboundChannelMismatch returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeExtmsgOutboundChannelMismatch
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeExtmsgOutboundChannelMismatch() (TypedEventStreamEnvelopeExtmsgOutboundChannelMismatch, error) {
+	var body TypedEventStreamEnvelopeExtmsgOutboundChannelMismatch
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeExtmsgOutboundChannelMismatch overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeExtmsgOutboundChannelMismatch
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeExtmsgOutboundChannelMismatch(v TypedEventStreamEnvelopeExtmsgOutboundChannelMismatch) error {
+	v.Type = "extmsg.outbound_channel_mismatch"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeExtmsgOutboundChannelMismatch performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeExtmsgOutboundChannelMismatch
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeExtmsgOutboundChannelMismatch(v TypedEventStreamEnvelopeExtmsgOutboundChannelMismatch) error {
+	v.Type = "extmsg.outbound_channel_mismatch"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedEventStreamEnvelopeExtmsgUnbound returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeExtmsgUnbound
 func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeExtmsgUnbound() (TypedEventStreamEnvelopeExtmsgUnbound, error) {
 	var body TypedEventStreamEnvelopeExtmsgUnbound
@@ -5975,6 +9394,118 @@ func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeExtmsgUnbound(v T
 // MergeTypedEventStreamEnvelopeExtmsgUnbound performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeExtmsgUnbound
 func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeExtmsgUnbound(v TypedEventStreamEnvelopeExtmsgUnbound) error {
 	v.Type = "extmsg.unbound"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeGcStoreDiskCritical returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeGcStoreDiskCritical
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeGcStoreDiskCritical() (TypedEventStreamEnvelopeGcStoreDiskCritical, error) {
+	var body TypedEventStreamEnvelopeGcStoreDiskCritical
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeGcStoreDiskCritical overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeGcStoreDiskCritical
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeGcStoreDiskCritical(v TypedEventStreamEnvelopeGcStoreDiskCritical) error {
+	v.Type = "gc.store.disk_critical"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeGcStoreDiskCritical performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeGcStoreDiskCritical
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeGcStoreDiskCritical(v TypedEventStreamEnvelopeGcStoreDiskCritical) error {
+	v.Type = "gc.store.disk_critical"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeGcStoreDiskWarn returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeGcStoreDiskWarn
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeGcStoreDiskWarn() (TypedEventStreamEnvelopeGcStoreDiskWarn, error) {
+	var body TypedEventStreamEnvelopeGcStoreDiskWarn
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeGcStoreDiskWarn overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeGcStoreDiskWarn
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeGcStoreDiskWarn(v TypedEventStreamEnvelopeGcStoreDiskWarn) error {
+	v.Type = "gc.store.disk_warn"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeGcStoreDiskWarn performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeGcStoreDiskWarn
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeGcStoreDiskWarn(v TypedEventStreamEnvelopeGcStoreDiskWarn) error {
+	v.Type = "gc.store.disk_warn"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeGcStoreMaintenanceDone returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeGcStoreMaintenanceDone
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeGcStoreMaintenanceDone() (TypedEventStreamEnvelopeGcStoreMaintenanceDone, error) {
+	var body TypedEventStreamEnvelopeGcStoreMaintenanceDone
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeGcStoreMaintenanceDone overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeGcStoreMaintenanceDone
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeGcStoreMaintenanceDone(v TypedEventStreamEnvelopeGcStoreMaintenanceDone) error {
+	v.Type = "gc.store.maintenance.done"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeGcStoreMaintenanceDone performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeGcStoreMaintenanceDone
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeGcStoreMaintenanceDone(v TypedEventStreamEnvelopeGcStoreMaintenanceDone) error {
+	v.Type = "gc.store.maintenance.done"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeGcStoreMaintenanceFailed returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeGcStoreMaintenanceFailed
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeGcStoreMaintenanceFailed() (TypedEventStreamEnvelopeGcStoreMaintenanceFailed, error) {
+	var body TypedEventStreamEnvelopeGcStoreMaintenanceFailed
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeGcStoreMaintenanceFailed overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeGcStoreMaintenanceFailed
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeGcStoreMaintenanceFailed(v TypedEventStreamEnvelopeGcStoreMaintenanceFailed) error {
+	v.Type = "gc.store.maintenance.failed"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeGcStoreMaintenanceFailed performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeGcStoreMaintenanceFailed
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeGcStoreMaintenanceFailed(v TypedEventStreamEnvelopeGcStoreMaintenanceFailed) error {
+	v.Type = "gc.store.maintenance.failed"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6181,6 +9712,34 @@ func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeMailSent(v Typed
 	return err
 }
 
+// AsTypedEventStreamEnvelopeMoleculeResolved returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeMoleculeResolved
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeMoleculeResolved() (TypedEventStreamEnvelopeMoleculeResolved, error) {
+	var body TypedEventStreamEnvelopeMoleculeResolved
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeMoleculeResolved overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeMoleculeResolved
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeMoleculeResolved(v TypedEventStreamEnvelopeMoleculeResolved) error {
+	v.Type = "molecule.resolved"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeMoleculeResolved performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeMoleculeResolved
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeMoleculeResolved(v TypedEventStreamEnvelopeMoleculeResolved) error {
+	v.Type = "molecule.resolved"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedEventStreamEnvelopeOrderCompleted returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeOrderCompleted
 func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeOrderCompleted() (TypedEventStreamEnvelopeOrderCompleted, error) {
 	var body TypedEventStreamEnvelopeOrderCompleted
@@ -6255,6 +9814,62 @@ func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeOrderFired(v Type
 // MergeTypedEventStreamEnvelopeOrderFired performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeOrderFired
 func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeOrderFired(v TypedEventStreamEnvelopeOrderFired) error {
 	v.Type = "order.fired"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopePgCredentialResolved returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopePgCredentialResolved
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopePgCredentialResolved() (TypedEventStreamEnvelopePgCredentialResolved, error) {
+	var body TypedEventStreamEnvelopePgCredentialResolved
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopePgCredentialResolved overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopePgCredentialResolved
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopePgCredentialResolved(v TypedEventStreamEnvelopePgCredentialResolved) error {
+	v.Type = "pg.credential_resolved"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopePgCredentialResolved performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopePgCredentialResolved
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopePgCredentialResolved(v TypedEventStreamEnvelopePgCredentialResolved) error {
+	v.Type = "pg.credential_resolved"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeProjectIdentityStamped returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeProjectIdentityStamped
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeProjectIdentityStamped() (TypedEventStreamEnvelopeProjectIdentityStamped, error) {
+	var body TypedEventStreamEnvelopeProjectIdentityStamped
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeProjectIdentityStamped overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeProjectIdentityStamped
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeProjectIdentityStamped(v TypedEventStreamEnvelopeProjectIdentityStamped) error {
+	v.Type = "project.identity.stamped"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeProjectIdentityStamped performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeProjectIdentityStamped
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeProjectIdentityStamped(v TypedEventStreamEnvelopeProjectIdentityStamped) error {
+	v.Type = "project.identity.stamped"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6461,6 +10076,34 @@ func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeRequestResultSes
 	return err
 }
 
+// AsTypedEventStreamEnvelopeSessionColdStartTimeout returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSessionColdStartTimeout
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSessionColdStartTimeout() (TypedEventStreamEnvelopeSessionColdStartTimeout, error) {
+	var body TypedEventStreamEnvelopeSessionColdStartTimeout
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeSessionColdStartTimeout overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeSessionColdStartTimeout
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSessionColdStartTimeout(v TypedEventStreamEnvelopeSessionColdStartTimeout) error {
+	v.Type = "session.cold_start_timeout"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeSessionColdStartTimeout performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSessionColdStartTimeout
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSessionColdStartTimeout(v TypedEventStreamEnvelopeSessionColdStartTimeout) error {
+	v.Type = "session.cold_start_timeout"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedEventStreamEnvelopeSessionCrashed returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSessionCrashed
 func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSessionCrashed() (TypedEventStreamEnvelopeSessionCrashed, error) {
 	var body TypedEventStreamEnvelopeSessionCrashed
@@ -6479,6 +10122,34 @@ func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSessionCrashed(v 
 // MergeTypedEventStreamEnvelopeSessionCrashed performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSessionCrashed
 func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSessionCrashed(v TypedEventStreamEnvelopeSessionCrashed) error {
 	v.Type = "session.crashed"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork() (TypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork, error) {
+	var body TypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork(v TypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork) error {
+	v.Type = "session.drain_acked_with_assigned_work"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork(v TypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork) error {
+	v.Type = "session.drain_acked_with_assigned_work"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6545,6 +10216,34 @@ func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSessionIdleKille
 	return err
 }
 
+// AsTypedEventStreamEnvelopeSessionMaxAgeKilled returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSessionMaxAgeKilled
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSessionMaxAgeKilled() (TypedEventStreamEnvelopeSessionMaxAgeKilled, error) {
+	var body TypedEventStreamEnvelopeSessionMaxAgeKilled
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeSessionMaxAgeKilled overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeSessionMaxAgeKilled
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSessionMaxAgeKilled(v TypedEventStreamEnvelopeSessionMaxAgeKilled) error {
+	v.Type = "session.max_age_killed"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeSessionMaxAgeKilled performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSessionMaxAgeKilled
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSessionMaxAgeKilled(v TypedEventStreamEnvelopeSessionMaxAgeKilled) error {
+	v.Type = "session.max_age_killed"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedEventStreamEnvelopeSessionQuarantined returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSessionQuarantined
 func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSessionQuarantined() (TypedEventStreamEnvelopeSessionQuarantined, error) {
 	var body TypedEventStreamEnvelopeSessionQuarantined
@@ -6573,6 +10272,34 @@ func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSessionQuarantin
 	return err
 }
 
+// AsTypedEventStreamEnvelopeSessionResetStalled returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSessionResetStalled
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSessionResetStalled() (TypedEventStreamEnvelopeSessionResetStalled, error) {
+	var body TypedEventStreamEnvelopeSessionResetStalled
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeSessionResetStalled overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeSessionResetStalled
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSessionResetStalled(v TypedEventStreamEnvelopeSessionResetStalled) error {
+	v.Type = "session.reset_stalled"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeSessionResetStalled performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSessionResetStalled
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSessionResetStalled(v TypedEventStreamEnvelopeSessionResetStalled) error {
+	v.Type = "session.reset_stalled"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedEventStreamEnvelopeSessionStopped returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSessionStopped
 func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSessionStopped() (TypedEventStreamEnvelopeSessionStopped, error) {
 	var body TypedEventStreamEnvelopeSessionStopped
@@ -6591,6 +10318,34 @@ func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSessionStopped(v 
 // MergeTypedEventStreamEnvelopeSessionStopped performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSessionStopped
 func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSessionStopped(v TypedEventStreamEnvelopeSessionStopped) error {
 	v.Type = "session.stopped"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeSessionStranded returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSessionStranded
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSessionStranded() (TypedEventStreamEnvelopeSessionStranded, error) {
+	var body TypedEventStreamEnvelopeSessionStranded
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeSessionStranded overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeSessionStranded
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSessionStranded(v TypedEventStreamEnvelopeSessionStranded) error {
+	v.Type = "session.stranded"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeSessionStranded performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSessionStranded
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSessionStranded(v TypedEventStreamEnvelopeSessionStranded) error {
+	v.Type = "session.stranded"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6657,6 +10412,34 @@ func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSessionUndrained
 	return err
 }
 
+// AsTypedEventStreamEnvelopeSessionUnknownState returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSessionUnknownState
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSessionUnknownState() (TypedEventStreamEnvelopeSessionUnknownState, error) {
+	var body TypedEventStreamEnvelopeSessionUnknownState
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeSessionUnknownState overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeSessionUnknownState
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSessionUnknownState(v TypedEventStreamEnvelopeSessionUnknownState) error {
+	v.Type = "session.unknown_state"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeSessionUnknownState performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSessionUnknownState
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSessionUnknownState(v TypedEventStreamEnvelopeSessionUnknownState) error {
+	v.Type = "session.unknown_state"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedEventStreamEnvelopeSessionUpdated returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSessionUpdated
 func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSessionUpdated() (TypedEventStreamEnvelopeSessionUpdated, error) {
 	var body TypedEventStreamEnvelopeSessionUpdated
@@ -6703,6 +10486,202 @@ func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSessionWoke(v Typ
 // MergeTypedEventStreamEnvelopeSessionWoke performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSessionWoke
 func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSessionWoke(v TypedEventStreamEnvelopeSessionWoke) error {
 	v.Type = "session.woke"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeSessionWorkQueryFailed returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSessionWorkQueryFailed
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSessionWorkQueryFailed() (TypedEventStreamEnvelopeSessionWorkQueryFailed, error) {
+	var body TypedEventStreamEnvelopeSessionWorkQueryFailed
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeSessionWorkQueryFailed overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeSessionWorkQueryFailed
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSessionWorkQueryFailed(v TypedEventStreamEnvelopeSessionWorkQueryFailed) error {
+	v.Type = "session.work_query_failed"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeSessionWorkQueryFailed performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSessionWorkQueryFailed
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSessionWorkQueryFailed(v TypedEventStreamEnvelopeSessionWorkQueryFailed) error {
+	v.Type = "session.work_query_failed"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeSupervisorFsPressureSkippedTick returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSupervisorFsPressureSkippedTick
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSupervisorFsPressureSkippedTick() (TypedEventStreamEnvelopeSupervisorFsPressureSkippedTick, error) {
+	var body TypedEventStreamEnvelopeSupervisorFsPressureSkippedTick
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeSupervisorFsPressureSkippedTick overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeSupervisorFsPressureSkippedTick
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSupervisorFsPressureSkippedTick(v TypedEventStreamEnvelopeSupervisorFsPressureSkippedTick) error {
+	v.Type = "supervisor.fs_pressure.skipped_tick"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeSupervisorFsPressureSkippedTick performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSupervisorFsPressureSkippedTick
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSupervisorFsPressureSkippedTick(v TypedEventStreamEnvelopeSupervisorFsPressureSkippedTick) error {
+	v.Type = "supervisor.fs_pressure.skipped_tick"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeSupervisorRequest returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSupervisorRequest
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSupervisorRequest() (TypedEventStreamEnvelopeSupervisorRequest, error) {
+	var body TypedEventStreamEnvelopeSupervisorRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeSupervisorRequest overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeSupervisorRequest
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSupervisorRequest(v TypedEventStreamEnvelopeSupervisorRequest) error {
+	v.Type = "supervisor.request"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeSupervisorRequest performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSupervisorRequest
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSupervisorRequest(v TypedEventStreamEnvelopeSupervisorRequest) error {
+	v.Type = "supervisor.request"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeSupervisorShutdownRequested returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSupervisorShutdownRequested
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSupervisorShutdownRequested() (TypedEventStreamEnvelopeSupervisorShutdownRequested, error) {
+	var body TypedEventStreamEnvelopeSupervisorShutdownRequested
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeSupervisorShutdownRequested overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeSupervisorShutdownRequested
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSupervisorShutdownRequested(v TypedEventStreamEnvelopeSupervisorShutdownRequested) error {
+	v.Type = "supervisor.shutdown_requested"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeSupervisorShutdownRequested performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSupervisorShutdownRequested
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSupervisorShutdownRequested(v TypedEventStreamEnvelopeSupervisorShutdownRequested) error {
+	v.Type = "supervisor.shutdown_requested"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeSupervisorStarted returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeSupervisorStarted
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeSupervisorStarted() (TypedEventStreamEnvelopeSupervisorStarted, error) {
+	var body TypedEventStreamEnvelopeSupervisorStarted
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeSupervisorStarted overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeSupervisorStarted
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeSupervisorStarted(v TypedEventStreamEnvelopeSupervisorStarted) error {
+	v.Type = "supervisor.started"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeSupervisorStarted performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeSupervisorStarted
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeSupervisorStarted(v TypedEventStreamEnvelopeSupervisorStarted) error {
+	v.Type = "supervisor.started"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeWebhookReceived returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeWebhookReceived
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeWebhookReceived() (TypedEventStreamEnvelopeWebhookReceived, error) {
+	var body TypedEventStreamEnvelopeWebhookReceived
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeWebhookReceived overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeWebhookReceived
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeWebhookReceived(v TypedEventStreamEnvelopeWebhookReceived) error {
+	v.Type = "webhook.received"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeWebhookReceived performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeWebhookReceived
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeWebhookReceived(v TypedEventStreamEnvelopeWebhookReceived) error {
+	v.Type = "webhook.received"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedEventStreamEnvelopeWebhookRejected returns the union data inside the TypedEventStreamEnvelope as a TypedEventStreamEnvelopeWebhookRejected
+func (t TypedEventStreamEnvelope) AsTypedEventStreamEnvelopeWebhookRejected() (TypedEventStreamEnvelopeWebhookRejected, error) {
+	var body TypedEventStreamEnvelopeWebhookRejected
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedEventStreamEnvelopeWebhookRejected overwrites any union data inside the TypedEventStreamEnvelope as the provided TypedEventStreamEnvelopeWebhookRejected
+func (t *TypedEventStreamEnvelope) FromTypedEventStreamEnvelopeWebhookRejected(v TypedEventStreamEnvelopeWebhookRejected) error {
+	v.Type = "webhook.rejected"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedEventStreamEnvelopeWebhookRejected performs a merge with any union data inside the TypedEventStreamEnvelope, using the provided TypedEventStreamEnvelopeWebhookRejected
+func (t *TypedEventStreamEnvelope) MergeTypedEventStreamEnvelopeWebhookRejected(v TypedEventStreamEnvelopeWebhookRejected) error {
+	v.Type = "webhook.rejected"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6785,12 +10764,22 @@ func (t TypedEventStreamEnvelope) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "TypedEventStreamEnvelopeCustom":
 		return t.AsTypedEventStreamEnvelopeCustom()
+	case "bead.claim_rejected":
+		return t.AsTypedEventStreamEnvelopeBeadClaimRejected()
 	case "bead.closed":
 		return t.AsTypedEventStreamEnvelopeBeadClosed()
 	case "bead.created":
 		return t.AsTypedEventStreamEnvelopeBeadCreated()
+	case "bead.dead_assignee_reopened":
+		return t.AsTypedEventStreamEnvelopeBeadDeadAssigneeReopened()
+	case "bead.deleted":
+		return t.AsTypedEventStreamEnvelopeBeadDeleted()
 	case "bead.updated":
 		return t.AsTypedEventStreamEnvelopeBeadUpdated()
+	case "bead.worktree.reap_skipped":
+		return t.AsTypedEventStreamEnvelopeBeadWorktreeReapSkipped()
+	case "bead.worktree.reaped":
+		return t.AsTypedEventStreamEnvelopeBeadWorktreeReaped()
 	case "city.created":
 		return t.AsTypedEventStreamEnvelopeCityCreated()
 	case "city.resumed":
@@ -6807,6 +10796,12 @@ func (t TypedEventStreamEnvelope) ValueByDiscriminator() (interface{}, error) {
 		return t.AsTypedEventStreamEnvelopeConvoyClosed()
 	case "convoy.created":
 		return t.AsTypedEventStreamEnvelopeConvoyCreated()
+	case "emergency.acked":
+		return t.AsTypedEventStreamEnvelopeEmergencyAcked()
+	case "emergency.signaled":
+		return t.AsTypedEventStreamEnvelopeEmergencySignaled()
+	case "events.rotated":
+		return t.AsTypedEventStreamEnvelopeEventsRotated()
 	case "extmsg.adapter_added":
 		return t.AsTypedEventStreamEnvelopeExtmsgAdapterAdded()
 	case "extmsg.adapter_removed":
@@ -6819,8 +10814,18 @@ func (t TypedEventStreamEnvelope) ValueByDiscriminator() (interface{}, error) {
 		return t.AsTypedEventStreamEnvelopeExtmsgInbound()
 	case "extmsg.outbound":
 		return t.AsTypedEventStreamEnvelopeExtmsgOutbound()
+	case "extmsg.outbound_channel_mismatch":
+		return t.AsTypedEventStreamEnvelopeExtmsgOutboundChannelMismatch()
 	case "extmsg.unbound":
 		return t.AsTypedEventStreamEnvelopeExtmsgUnbound()
+	case "gc.store.disk_critical":
+		return t.AsTypedEventStreamEnvelopeGcStoreDiskCritical()
+	case "gc.store.disk_warn":
+		return t.AsTypedEventStreamEnvelopeGcStoreDiskWarn()
+	case "gc.store.maintenance.done":
+		return t.AsTypedEventStreamEnvelopeGcStoreMaintenanceDone()
+	case "gc.store.maintenance.failed":
+		return t.AsTypedEventStreamEnvelopeGcStoreMaintenanceFailed()
 	case "mail.archived":
 		return t.AsTypedEventStreamEnvelopeMailArchived()
 	case "mail.deleted":
@@ -6835,12 +10840,18 @@ func (t TypedEventStreamEnvelope) ValueByDiscriminator() (interface{}, error) {
 		return t.AsTypedEventStreamEnvelopeMailReplied()
 	case "mail.sent":
 		return t.AsTypedEventStreamEnvelopeMailSent()
+	case "molecule.resolved":
+		return t.AsTypedEventStreamEnvelopeMoleculeResolved()
 	case "order.completed":
 		return t.AsTypedEventStreamEnvelopeOrderCompleted()
 	case "order.failed":
 		return t.AsTypedEventStreamEnvelopeOrderFailed()
 	case "order.fired":
 		return t.AsTypedEventStreamEnvelopeOrderFired()
+	case "pg.credential_resolved":
+		return t.AsTypedEventStreamEnvelopePgCredentialResolved()
+	case "project.identity.stamped":
+		return t.AsTypedEventStreamEnvelopeProjectIdentityStamped()
 	case "provider.swapped":
 		return t.AsTypedEventStreamEnvelopeProviderSwapped()
 	case "request.failed":
@@ -6855,24 +10866,50 @@ func (t TypedEventStreamEnvelope) ValueByDiscriminator() (interface{}, error) {
 		return t.AsTypedEventStreamEnvelopeRequestResultSessionMessage()
 	case "request.result.session.submit":
 		return t.AsTypedEventStreamEnvelopeRequestResultSessionSubmit()
+	case "session.cold_start_timeout":
+		return t.AsTypedEventStreamEnvelopeSessionColdStartTimeout()
 	case "session.crashed":
 		return t.AsTypedEventStreamEnvelopeSessionCrashed()
+	case "session.drain_acked_with_assigned_work":
+		return t.AsTypedEventStreamEnvelopeSessionDrainAckedWithAssignedWork()
 	case "session.draining":
 		return t.AsTypedEventStreamEnvelopeSessionDraining()
 	case "session.idle_killed":
 		return t.AsTypedEventStreamEnvelopeSessionIdleKilled()
+	case "session.max_age_killed":
+		return t.AsTypedEventStreamEnvelopeSessionMaxAgeKilled()
 	case "session.quarantined":
 		return t.AsTypedEventStreamEnvelopeSessionQuarantined()
+	case "session.reset_stalled":
+		return t.AsTypedEventStreamEnvelopeSessionResetStalled()
 	case "session.stopped":
 		return t.AsTypedEventStreamEnvelopeSessionStopped()
+	case "session.stranded":
+		return t.AsTypedEventStreamEnvelopeSessionStranded()
 	case "session.suspended":
 		return t.AsTypedEventStreamEnvelopeSessionSuspended()
 	case "session.undrained":
 		return t.AsTypedEventStreamEnvelopeSessionUndrained()
+	case "session.unknown_state":
+		return t.AsTypedEventStreamEnvelopeSessionUnknownState()
 	case "session.updated":
 		return t.AsTypedEventStreamEnvelopeSessionUpdated()
 	case "session.woke":
 		return t.AsTypedEventStreamEnvelopeSessionWoke()
+	case "session.work_query_failed":
+		return t.AsTypedEventStreamEnvelopeSessionWorkQueryFailed()
+	case "supervisor.fs_pressure.skipped_tick":
+		return t.AsTypedEventStreamEnvelopeSupervisorFsPressureSkippedTick()
+	case "supervisor.request":
+		return t.AsTypedEventStreamEnvelopeSupervisorRequest()
+	case "supervisor.shutdown_requested":
+		return t.AsTypedEventStreamEnvelopeSupervisorShutdownRequested()
+	case "supervisor.started":
+		return t.AsTypedEventStreamEnvelopeSupervisorStarted()
+	case "webhook.received":
+		return t.AsTypedEventStreamEnvelopeWebhookReceived()
+	case "webhook.rejected":
+		return t.AsTypedEventStreamEnvelopeWebhookRejected()
 	case "worker.operation":
 		return t.AsTypedEventStreamEnvelopeWorkerOperation()
 	default:
@@ -6887,6 +10924,34 @@ func (t TypedEventStreamEnvelope) MarshalJSON() ([]byte, error) {
 
 func (t *TypedEventStreamEnvelope) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeBeadClaimRejected returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeBeadClaimRejected
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeBeadClaimRejected() (TypedTaggedEventStreamEnvelopeBeadClaimRejected, error) {
+	var body TypedTaggedEventStreamEnvelopeBeadClaimRejected
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeBeadClaimRejected overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeBeadClaimRejected
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeBeadClaimRejected(v TypedTaggedEventStreamEnvelopeBeadClaimRejected) error {
+	v.Type = "bead.claim_rejected"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeBeadClaimRejected performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeBeadClaimRejected
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeBeadClaimRejected(v TypedTaggedEventStreamEnvelopeBeadClaimRejected) error {
+	v.Type = "bead.claim_rejected"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
 	return err
 }
 
@@ -6946,6 +11011,62 @@ func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeBead
 	return err
 }
 
+// AsTypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened() (TypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened, error) {
+	var body TypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened(v TypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened) error {
+	v.Type = "bead.dead_assignee_reopened"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened(v TypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened) error {
+	v.Type = "bead.dead_assignee_reopened"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeBeadDeleted returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeBeadDeleted
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeBeadDeleted() (TypedTaggedEventStreamEnvelopeBeadDeleted, error) {
+	var body TypedTaggedEventStreamEnvelopeBeadDeleted
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeBeadDeleted overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeBeadDeleted
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeBeadDeleted(v TypedTaggedEventStreamEnvelopeBeadDeleted) error {
+	v.Type = "bead.deleted"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeBeadDeleted performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeBeadDeleted
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeBeadDeleted(v TypedTaggedEventStreamEnvelopeBeadDeleted) error {
+	v.Type = "bead.deleted"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedTaggedEventStreamEnvelopeBeadUpdated returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeBeadUpdated
 func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeBeadUpdated() (TypedTaggedEventStreamEnvelopeBeadUpdated, error) {
 	var body TypedTaggedEventStreamEnvelopeBeadUpdated
@@ -6964,6 +11085,62 @@ func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeBeadU
 // MergeTypedTaggedEventStreamEnvelopeBeadUpdated performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeBeadUpdated
 func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeBeadUpdated(v TypedTaggedEventStreamEnvelopeBeadUpdated) error {
 	v.Type = "bead.updated"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped() (TypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped, error) {
+	var body TypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped(v TypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped) error {
+	v.Type = "bead.worktree.reap_skipped"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped(v TypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped) error {
+	v.Type = "bead.worktree.reap_skipped"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeBeadWorktreeReaped returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeBeadWorktreeReaped
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeBeadWorktreeReaped() (TypedTaggedEventStreamEnvelopeBeadWorktreeReaped, error) {
+	var body TypedTaggedEventStreamEnvelopeBeadWorktreeReaped
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeBeadWorktreeReaped overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeBeadWorktreeReaped
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeBeadWorktreeReaped(v TypedTaggedEventStreamEnvelopeBeadWorktreeReaped) error {
+	v.Type = "bead.worktree.reaped"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeBeadWorktreeReaped performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeBeadWorktreeReaped
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeBeadWorktreeReaped(v TypedTaggedEventStreamEnvelopeBeadWorktreeReaped) error {
+	v.Type = "bead.worktree.reaped"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7198,6 +11375,90 @@ func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeConv
 	return err
 }
 
+// AsTypedTaggedEventStreamEnvelopeEmergencyAcked returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeEmergencyAcked
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeEmergencyAcked() (TypedTaggedEventStreamEnvelopeEmergencyAcked, error) {
+	var body TypedTaggedEventStreamEnvelopeEmergencyAcked
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeEmergencyAcked overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeEmergencyAcked
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeEmergencyAcked(v TypedTaggedEventStreamEnvelopeEmergencyAcked) error {
+	v.Type = "emergency.acked"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeEmergencyAcked performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeEmergencyAcked
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeEmergencyAcked(v TypedTaggedEventStreamEnvelopeEmergencyAcked) error {
+	v.Type = "emergency.acked"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeEmergencySignaled returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeEmergencySignaled
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeEmergencySignaled() (TypedTaggedEventStreamEnvelopeEmergencySignaled, error) {
+	var body TypedTaggedEventStreamEnvelopeEmergencySignaled
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeEmergencySignaled overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeEmergencySignaled
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeEmergencySignaled(v TypedTaggedEventStreamEnvelopeEmergencySignaled) error {
+	v.Type = "emergency.signaled"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeEmergencySignaled performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeEmergencySignaled
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeEmergencySignaled(v TypedTaggedEventStreamEnvelopeEmergencySignaled) error {
+	v.Type = "emergency.signaled"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeEventsRotated returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeEventsRotated
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeEventsRotated() (TypedTaggedEventStreamEnvelopeEventsRotated, error) {
+	var body TypedTaggedEventStreamEnvelopeEventsRotated
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeEventsRotated overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeEventsRotated
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeEventsRotated(v TypedTaggedEventStreamEnvelopeEventsRotated) error {
+	v.Type = "events.rotated"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeEventsRotated performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeEventsRotated
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeEventsRotated(v TypedTaggedEventStreamEnvelopeEventsRotated) error {
+	v.Type = "events.rotated"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedTaggedEventStreamEnvelopeExtmsgAdapterAdded returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeExtmsgAdapterAdded
 func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeExtmsgAdapterAdded() (TypedTaggedEventStreamEnvelopeExtmsgAdapterAdded, error) {
 	var body TypedTaggedEventStreamEnvelopeExtmsgAdapterAdded
@@ -7366,6 +11627,34 @@ func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeExtm
 	return err
 }
 
+// AsTypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch() (TypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch, error) {
+	var body TypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch(v TypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch) error {
+	v.Type = "extmsg.outbound_channel_mismatch"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch(v TypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch) error {
+	v.Type = "extmsg.outbound_channel_mismatch"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedTaggedEventStreamEnvelopeExtmsgUnbound returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeExtmsgUnbound
 func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeExtmsgUnbound() (TypedTaggedEventStreamEnvelopeExtmsgUnbound, error) {
 	var body TypedTaggedEventStreamEnvelopeExtmsgUnbound
@@ -7384,6 +11673,118 @@ func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeExtms
 // MergeTypedTaggedEventStreamEnvelopeExtmsgUnbound performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeExtmsgUnbound
 func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeExtmsgUnbound(v TypedTaggedEventStreamEnvelopeExtmsgUnbound) error {
 	v.Type = "extmsg.unbound"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeGcStoreDiskCritical returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeGcStoreDiskCritical
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeGcStoreDiskCritical() (TypedTaggedEventStreamEnvelopeGcStoreDiskCritical, error) {
+	var body TypedTaggedEventStreamEnvelopeGcStoreDiskCritical
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeGcStoreDiskCritical overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeGcStoreDiskCritical
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeGcStoreDiskCritical(v TypedTaggedEventStreamEnvelopeGcStoreDiskCritical) error {
+	v.Type = "gc.store.disk_critical"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeGcStoreDiskCritical performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeGcStoreDiskCritical
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeGcStoreDiskCritical(v TypedTaggedEventStreamEnvelopeGcStoreDiskCritical) error {
+	v.Type = "gc.store.disk_critical"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeGcStoreDiskWarn returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeGcStoreDiskWarn
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeGcStoreDiskWarn() (TypedTaggedEventStreamEnvelopeGcStoreDiskWarn, error) {
+	var body TypedTaggedEventStreamEnvelopeGcStoreDiskWarn
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeGcStoreDiskWarn overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeGcStoreDiskWarn
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeGcStoreDiskWarn(v TypedTaggedEventStreamEnvelopeGcStoreDiskWarn) error {
+	v.Type = "gc.store.disk_warn"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeGcStoreDiskWarn performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeGcStoreDiskWarn
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeGcStoreDiskWarn(v TypedTaggedEventStreamEnvelopeGcStoreDiskWarn) error {
+	v.Type = "gc.store.disk_warn"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone() (TypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone, error) {
+	var body TypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone(v TypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone) error {
+	v.Type = "gc.store.maintenance.done"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone(v TypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone) error {
+	v.Type = "gc.store.maintenance.done"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed() (TypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed, error) {
+	var body TypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed(v TypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed) error {
+	v.Type = "gc.store.maintenance.failed"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed(v TypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed) error {
+	v.Type = "gc.store.maintenance.failed"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7590,6 +11991,34 @@ func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeMail
 	return err
 }
 
+// AsTypedTaggedEventStreamEnvelopeMoleculeResolved returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeMoleculeResolved
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeMoleculeResolved() (TypedTaggedEventStreamEnvelopeMoleculeResolved, error) {
+	var body TypedTaggedEventStreamEnvelopeMoleculeResolved
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeMoleculeResolved overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeMoleculeResolved
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeMoleculeResolved(v TypedTaggedEventStreamEnvelopeMoleculeResolved) error {
+	v.Type = "molecule.resolved"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeMoleculeResolved performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeMoleculeResolved
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeMoleculeResolved(v TypedTaggedEventStreamEnvelopeMoleculeResolved) error {
+	v.Type = "molecule.resolved"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedTaggedEventStreamEnvelopeOrderCompleted returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeOrderCompleted
 func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeOrderCompleted() (TypedTaggedEventStreamEnvelopeOrderCompleted, error) {
 	var body TypedTaggedEventStreamEnvelopeOrderCompleted
@@ -7664,6 +12093,62 @@ func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeOrder
 // MergeTypedTaggedEventStreamEnvelopeOrderFired performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeOrderFired
 func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeOrderFired(v TypedTaggedEventStreamEnvelopeOrderFired) error {
 	v.Type = "order.fired"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopePgCredentialResolved returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopePgCredentialResolved
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopePgCredentialResolved() (TypedTaggedEventStreamEnvelopePgCredentialResolved, error) {
+	var body TypedTaggedEventStreamEnvelopePgCredentialResolved
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopePgCredentialResolved overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopePgCredentialResolved
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopePgCredentialResolved(v TypedTaggedEventStreamEnvelopePgCredentialResolved) error {
+	v.Type = "pg.credential_resolved"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopePgCredentialResolved performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopePgCredentialResolved
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopePgCredentialResolved(v TypedTaggedEventStreamEnvelopePgCredentialResolved) error {
+	v.Type = "pg.credential_resolved"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeProjectIdentityStamped returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeProjectIdentityStamped
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeProjectIdentityStamped() (TypedTaggedEventStreamEnvelopeProjectIdentityStamped, error) {
+	var body TypedTaggedEventStreamEnvelopeProjectIdentityStamped
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeProjectIdentityStamped overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeProjectIdentityStamped
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeProjectIdentityStamped(v TypedTaggedEventStreamEnvelopeProjectIdentityStamped) error {
+	v.Type = "project.identity.stamped"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeProjectIdentityStamped performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeProjectIdentityStamped
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeProjectIdentityStamped(v TypedTaggedEventStreamEnvelopeProjectIdentityStamped) error {
+	v.Type = "project.identity.stamped"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7870,6 +12355,34 @@ func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeRequ
 	return err
 }
 
+// AsTypedTaggedEventStreamEnvelopeSessionColdStartTimeout returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSessionColdStartTimeout
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSessionColdStartTimeout() (TypedTaggedEventStreamEnvelopeSessionColdStartTimeout, error) {
+	var body TypedTaggedEventStreamEnvelopeSessionColdStartTimeout
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeSessionColdStartTimeout overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeSessionColdStartTimeout
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSessionColdStartTimeout(v TypedTaggedEventStreamEnvelopeSessionColdStartTimeout) error {
+	v.Type = "session.cold_start_timeout"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeSessionColdStartTimeout performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSessionColdStartTimeout
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSessionColdStartTimeout(v TypedTaggedEventStreamEnvelopeSessionColdStartTimeout) error {
+	v.Type = "session.cold_start_timeout"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedTaggedEventStreamEnvelopeSessionCrashed returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSessionCrashed
 func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSessionCrashed() (TypedTaggedEventStreamEnvelopeSessionCrashed, error) {
 	var body TypedTaggedEventStreamEnvelopeSessionCrashed
@@ -7888,6 +12401,34 @@ func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSessi
 // MergeTypedTaggedEventStreamEnvelopeSessionCrashed performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSessionCrashed
 func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSessionCrashed(v TypedTaggedEventStreamEnvelopeSessionCrashed) error {
 	v.Type = "session.crashed"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork() (TypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork, error) {
+	var body TypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork(v TypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork) error {
+	v.Type = "session.drain_acked_with_assigned_work"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork(v TypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork) error {
+	v.Type = "session.drain_acked_with_assigned_work"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7954,6 +12495,34 @@ func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSess
 	return err
 }
 
+// AsTypedTaggedEventStreamEnvelopeSessionMaxAgeKilled returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSessionMaxAgeKilled
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSessionMaxAgeKilled() (TypedTaggedEventStreamEnvelopeSessionMaxAgeKilled, error) {
+	var body TypedTaggedEventStreamEnvelopeSessionMaxAgeKilled
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeSessionMaxAgeKilled overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeSessionMaxAgeKilled
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSessionMaxAgeKilled(v TypedTaggedEventStreamEnvelopeSessionMaxAgeKilled) error {
+	v.Type = "session.max_age_killed"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeSessionMaxAgeKilled performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSessionMaxAgeKilled
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSessionMaxAgeKilled(v TypedTaggedEventStreamEnvelopeSessionMaxAgeKilled) error {
+	v.Type = "session.max_age_killed"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedTaggedEventStreamEnvelopeSessionQuarantined returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSessionQuarantined
 func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSessionQuarantined() (TypedTaggedEventStreamEnvelopeSessionQuarantined, error) {
 	var body TypedTaggedEventStreamEnvelopeSessionQuarantined
@@ -7982,6 +12551,34 @@ func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSess
 	return err
 }
 
+// AsTypedTaggedEventStreamEnvelopeSessionResetStalled returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSessionResetStalled
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSessionResetStalled() (TypedTaggedEventStreamEnvelopeSessionResetStalled, error) {
+	var body TypedTaggedEventStreamEnvelopeSessionResetStalled
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeSessionResetStalled overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeSessionResetStalled
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSessionResetStalled(v TypedTaggedEventStreamEnvelopeSessionResetStalled) error {
+	v.Type = "session.reset_stalled"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeSessionResetStalled performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSessionResetStalled
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSessionResetStalled(v TypedTaggedEventStreamEnvelopeSessionResetStalled) error {
+	v.Type = "session.reset_stalled"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedTaggedEventStreamEnvelopeSessionStopped returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSessionStopped
 func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSessionStopped() (TypedTaggedEventStreamEnvelopeSessionStopped, error) {
 	var body TypedTaggedEventStreamEnvelopeSessionStopped
@@ -8000,6 +12597,34 @@ func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSessi
 // MergeTypedTaggedEventStreamEnvelopeSessionStopped performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSessionStopped
 func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSessionStopped(v TypedTaggedEventStreamEnvelopeSessionStopped) error {
 	v.Type = "session.stopped"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeSessionStranded returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSessionStranded
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSessionStranded() (TypedTaggedEventStreamEnvelopeSessionStranded, error) {
+	var body TypedTaggedEventStreamEnvelopeSessionStranded
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeSessionStranded overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeSessionStranded
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSessionStranded(v TypedTaggedEventStreamEnvelopeSessionStranded) error {
+	v.Type = "session.stranded"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeSessionStranded performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSessionStranded
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSessionStranded(v TypedTaggedEventStreamEnvelopeSessionStranded) error {
+	v.Type = "session.stranded"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -8066,6 +12691,34 @@ func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSess
 	return err
 }
 
+// AsTypedTaggedEventStreamEnvelopeSessionUnknownState returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSessionUnknownState
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSessionUnknownState() (TypedTaggedEventStreamEnvelopeSessionUnknownState, error) {
+	var body TypedTaggedEventStreamEnvelopeSessionUnknownState
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeSessionUnknownState overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeSessionUnknownState
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSessionUnknownState(v TypedTaggedEventStreamEnvelopeSessionUnknownState) error {
+	v.Type = "session.unknown_state"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeSessionUnknownState performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSessionUnknownState
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSessionUnknownState(v TypedTaggedEventStreamEnvelopeSessionUnknownState) error {
+	v.Type = "session.unknown_state"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsTypedTaggedEventStreamEnvelopeSessionUpdated returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSessionUpdated
 func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSessionUpdated() (TypedTaggedEventStreamEnvelopeSessionUpdated, error) {
 	var body TypedTaggedEventStreamEnvelopeSessionUpdated
@@ -8112,6 +12765,202 @@ func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSessi
 // MergeTypedTaggedEventStreamEnvelopeSessionWoke performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSessionWoke
 func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSessionWoke(v TypedTaggedEventStreamEnvelopeSessionWoke) error {
 	v.Type = "session.woke"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeSessionWorkQueryFailed returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSessionWorkQueryFailed
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSessionWorkQueryFailed() (TypedTaggedEventStreamEnvelopeSessionWorkQueryFailed, error) {
+	var body TypedTaggedEventStreamEnvelopeSessionWorkQueryFailed
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeSessionWorkQueryFailed overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeSessionWorkQueryFailed
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSessionWorkQueryFailed(v TypedTaggedEventStreamEnvelopeSessionWorkQueryFailed) error {
+	v.Type = "session.work_query_failed"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeSessionWorkQueryFailed performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSessionWorkQueryFailed
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSessionWorkQueryFailed(v TypedTaggedEventStreamEnvelopeSessionWorkQueryFailed) error {
+	v.Type = "session.work_query_failed"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick() (TypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick, error) {
+	var body TypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick(v TypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick) error {
+	v.Type = "supervisor.fs_pressure.skipped_tick"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick(v TypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick) error {
+	v.Type = "supervisor.fs_pressure.skipped_tick"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeSupervisorRequest returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSupervisorRequest
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSupervisorRequest() (TypedTaggedEventStreamEnvelopeSupervisorRequest, error) {
+	var body TypedTaggedEventStreamEnvelopeSupervisorRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeSupervisorRequest overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeSupervisorRequest
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSupervisorRequest(v TypedTaggedEventStreamEnvelopeSupervisorRequest) error {
+	v.Type = "supervisor.request"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeSupervisorRequest performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSupervisorRequest
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSupervisorRequest(v TypedTaggedEventStreamEnvelopeSupervisorRequest) error {
+	v.Type = "supervisor.request"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeSupervisorShutdownRequested returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSupervisorShutdownRequested
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSupervisorShutdownRequested() (TypedTaggedEventStreamEnvelopeSupervisorShutdownRequested, error) {
+	var body TypedTaggedEventStreamEnvelopeSupervisorShutdownRequested
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeSupervisorShutdownRequested overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeSupervisorShutdownRequested
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSupervisorShutdownRequested(v TypedTaggedEventStreamEnvelopeSupervisorShutdownRequested) error {
+	v.Type = "supervisor.shutdown_requested"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeSupervisorShutdownRequested performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSupervisorShutdownRequested
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSupervisorShutdownRequested(v TypedTaggedEventStreamEnvelopeSupervisorShutdownRequested) error {
+	v.Type = "supervisor.shutdown_requested"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeSupervisorStarted returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeSupervisorStarted
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeSupervisorStarted() (TypedTaggedEventStreamEnvelopeSupervisorStarted, error) {
+	var body TypedTaggedEventStreamEnvelopeSupervisorStarted
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeSupervisorStarted overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeSupervisorStarted
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeSupervisorStarted(v TypedTaggedEventStreamEnvelopeSupervisorStarted) error {
+	v.Type = "supervisor.started"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeSupervisorStarted performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeSupervisorStarted
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeSupervisorStarted(v TypedTaggedEventStreamEnvelopeSupervisorStarted) error {
+	v.Type = "supervisor.started"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeWebhookReceived returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeWebhookReceived
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeWebhookReceived() (TypedTaggedEventStreamEnvelopeWebhookReceived, error) {
+	var body TypedTaggedEventStreamEnvelopeWebhookReceived
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeWebhookReceived overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeWebhookReceived
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeWebhookReceived(v TypedTaggedEventStreamEnvelopeWebhookReceived) error {
+	v.Type = "webhook.received"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeWebhookReceived performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeWebhookReceived
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeWebhookReceived(v TypedTaggedEventStreamEnvelopeWebhookReceived) error {
+	v.Type = "webhook.received"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTypedTaggedEventStreamEnvelopeWebhookRejected returns the union data inside the TypedTaggedEventStreamEnvelope as a TypedTaggedEventStreamEnvelopeWebhookRejected
+func (t TypedTaggedEventStreamEnvelope) AsTypedTaggedEventStreamEnvelopeWebhookRejected() (TypedTaggedEventStreamEnvelopeWebhookRejected, error) {
+	var body TypedTaggedEventStreamEnvelopeWebhookRejected
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTypedTaggedEventStreamEnvelopeWebhookRejected overwrites any union data inside the TypedTaggedEventStreamEnvelope as the provided TypedTaggedEventStreamEnvelopeWebhookRejected
+func (t *TypedTaggedEventStreamEnvelope) FromTypedTaggedEventStreamEnvelopeWebhookRejected(v TypedTaggedEventStreamEnvelopeWebhookRejected) error {
+	v.Type = "webhook.rejected"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTypedTaggedEventStreamEnvelopeWebhookRejected performs a merge with any union data inside the TypedTaggedEventStreamEnvelope, using the provided TypedTaggedEventStreamEnvelopeWebhookRejected
+func (t *TypedTaggedEventStreamEnvelope) MergeTypedTaggedEventStreamEnvelopeWebhookRejected(v TypedTaggedEventStreamEnvelopeWebhookRejected) error {
+	v.Type = "webhook.rejected"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -8194,12 +13043,22 @@ func (t TypedTaggedEventStreamEnvelope) ValueByDiscriminator() (interface{}, err
 	switch discriminator {
 	case "TypedTaggedEventStreamEnvelopeCustom":
 		return t.AsTypedTaggedEventStreamEnvelopeCustom()
+	case "bead.claim_rejected":
+		return t.AsTypedTaggedEventStreamEnvelopeBeadClaimRejected()
 	case "bead.closed":
 		return t.AsTypedTaggedEventStreamEnvelopeBeadClosed()
 	case "bead.created":
 		return t.AsTypedTaggedEventStreamEnvelopeBeadCreated()
+	case "bead.dead_assignee_reopened":
+		return t.AsTypedTaggedEventStreamEnvelopeBeadDeadAssigneeReopened()
+	case "bead.deleted":
+		return t.AsTypedTaggedEventStreamEnvelopeBeadDeleted()
 	case "bead.updated":
 		return t.AsTypedTaggedEventStreamEnvelopeBeadUpdated()
+	case "bead.worktree.reap_skipped":
+		return t.AsTypedTaggedEventStreamEnvelopeBeadWorktreeReapSkipped()
+	case "bead.worktree.reaped":
+		return t.AsTypedTaggedEventStreamEnvelopeBeadWorktreeReaped()
 	case "city.created":
 		return t.AsTypedTaggedEventStreamEnvelopeCityCreated()
 	case "city.resumed":
@@ -8216,6 +13075,12 @@ func (t TypedTaggedEventStreamEnvelope) ValueByDiscriminator() (interface{}, err
 		return t.AsTypedTaggedEventStreamEnvelopeConvoyClosed()
 	case "convoy.created":
 		return t.AsTypedTaggedEventStreamEnvelopeConvoyCreated()
+	case "emergency.acked":
+		return t.AsTypedTaggedEventStreamEnvelopeEmergencyAcked()
+	case "emergency.signaled":
+		return t.AsTypedTaggedEventStreamEnvelopeEmergencySignaled()
+	case "events.rotated":
+		return t.AsTypedTaggedEventStreamEnvelopeEventsRotated()
 	case "extmsg.adapter_added":
 		return t.AsTypedTaggedEventStreamEnvelopeExtmsgAdapterAdded()
 	case "extmsg.adapter_removed":
@@ -8228,8 +13093,18 @@ func (t TypedTaggedEventStreamEnvelope) ValueByDiscriminator() (interface{}, err
 		return t.AsTypedTaggedEventStreamEnvelopeExtmsgInbound()
 	case "extmsg.outbound":
 		return t.AsTypedTaggedEventStreamEnvelopeExtmsgOutbound()
+	case "extmsg.outbound_channel_mismatch":
+		return t.AsTypedTaggedEventStreamEnvelopeExtmsgOutboundChannelMismatch()
 	case "extmsg.unbound":
 		return t.AsTypedTaggedEventStreamEnvelopeExtmsgUnbound()
+	case "gc.store.disk_critical":
+		return t.AsTypedTaggedEventStreamEnvelopeGcStoreDiskCritical()
+	case "gc.store.disk_warn":
+		return t.AsTypedTaggedEventStreamEnvelopeGcStoreDiskWarn()
+	case "gc.store.maintenance.done":
+		return t.AsTypedTaggedEventStreamEnvelopeGcStoreMaintenanceDone()
+	case "gc.store.maintenance.failed":
+		return t.AsTypedTaggedEventStreamEnvelopeGcStoreMaintenanceFailed()
 	case "mail.archived":
 		return t.AsTypedTaggedEventStreamEnvelopeMailArchived()
 	case "mail.deleted":
@@ -8244,12 +13119,18 @@ func (t TypedTaggedEventStreamEnvelope) ValueByDiscriminator() (interface{}, err
 		return t.AsTypedTaggedEventStreamEnvelopeMailReplied()
 	case "mail.sent":
 		return t.AsTypedTaggedEventStreamEnvelopeMailSent()
+	case "molecule.resolved":
+		return t.AsTypedTaggedEventStreamEnvelopeMoleculeResolved()
 	case "order.completed":
 		return t.AsTypedTaggedEventStreamEnvelopeOrderCompleted()
 	case "order.failed":
 		return t.AsTypedTaggedEventStreamEnvelopeOrderFailed()
 	case "order.fired":
 		return t.AsTypedTaggedEventStreamEnvelopeOrderFired()
+	case "pg.credential_resolved":
+		return t.AsTypedTaggedEventStreamEnvelopePgCredentialResolved()
+	case "project.identity.stamped":
+		return t.AsTypedTaggedEventStreamEnvelopeProjectIdentityStamped()
 	case "provider.swapped":
 		return t.AsTypedTaggedEventStreamEnvelopeProviderSwapped()
 	case "request.failed":
@@ -8264,24 +13145,50 @@ func (t TypedTaggedEventStreamEnvelope) ValueByDiscriminator() (interface{}, err
 		return t.AsTypedTaggedEventStreamEnvelopeRequestResultSessionMessage()
 	case "request.result.session.submit":
 		return t.AsTypedTaggedEventStreamEnvelopeRequestResultSessionSubmit()
+	case "session.cold_start_timeout":
+		return t.AsTypedTaggedEventStreamEnvelopeSessionColdStartTimeout()
 	case "session.crashed":
 		return t.AsTypedTaggedEventStreamEnvelopeSessionCrashed()
+	case "session.drain_acked_with_assigned_work":
+		return t.AsTypedTaggedEventStreamEnvelopeSessionDrainAckedWithAssignedWork()
 	case "session.draining":
 		return t.AsTypedTaggedEventStreamEnvelopeSessionDraining()
 	case "session.idle_killed":
 		return t.AsTypedTaggedEventStreamEnvelopeSessionIdleKilled()
+	case "session.max_age_killed":
+		return t.AsTypedTaggedEventStreamEnvelopeSessionMaxAgeKilled()
 	case "session.quarantined":
 		return t.AsTypedTaggedEventStreamEnvelopeSessionQuarantined()
+	case "session.reset_stalled":
+		return t.AsTypedTaggedEventStreamEnvelopeSessionResetStalled()
 	case "session.stopped":
 		return t.AsTypedTaggedEventStreamEnvelopeSessionStopped()
+	case "session.stranded":
+		return t.AsTypedTaggedEventStreamEnvelopeSessionStranded()
 	case "session.suspended":
 		return t.AsTypedTaggedEventStreamEnvelopeSessionSuspended()
 	case "session.undrained":
 		return t.AsTypedTaggedEventStreamEnvelopeSessionUndrained()
+	case "session.unknown_state":
+		return t.AsTypedTaggedEventStreamEnvelopeSessionUnknownState()
 	case "session.updated":
 		return t.AsTypedTaggedEventStreamEnvelopeSessionUpdated()
 	case "session.woke":
 		return t.AsTypedTaggedEventStreamEnvelopeSessionWoke()
+	case "session.work_query_failed":
+		return t.AsTypedTaggedEventStreamEnvelopeSessionWorkQueryFailed()
+	case "supervisor.fs_pressure.skipped_tick":
+		return t.AsTypedTaggedEventStreamEnvelopeSupervisorFsPressureSkippedTick()
+	case "supervisor.request":
+		return t.AsTypedTaggedEventStreamEnvelopeSupervisorRequest()
+	case "supervisor.shutdown_requested":
+		return t.AsTypedTaggedEventStreamEnvelopeSupervisorShutdownRequested()
+	case "supervisor.started":
+		return t.AsTypedTaggedEventStreamEnvelopeSupervisorStarted()
+	case "webhook.received":
+		return t.AsTypedTaggedEventStreamEnvelopeWebhookReceived()
+	case "webhook.rejected":
+		return t.AsTypedTaggedEventStreamEnvelopeWebhookRejected()
 	case "worker.operation":
 		return t.AsTypedTaggedEventStreamEnvelopeWorkerOperation()
 	default:
@@ -8486,6 +13393,9 @@ type ClientInterface interface {
 	// GetV0CityByCityNameConfig request
 	GetV0CityByCityNameConfig(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetV0CityByCityNameConfigDefaults request
+	GetV0CityByCityNameConfigDefaults(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetV0CityByCityNameConfigExplain request
 	GetV0CityByCityNameConfigExplain(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -8529,6 +13439,9 @@ type ClientInterface interface {
 	EmitEventWithBody(ctx context.Context, cityName string, params *EmitEventParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	EmitEvent(ctx context.Context, cityName string, params *EmitEventParams, body EmitEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RotateEvents request
+	RotateEvents(ctx context.Context, cityName string, params *RotateEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// StreamEvents request
 	StreamEvents(ctx context.Context, cityName string, params *StreamEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8604,8 +13517,14 @@ type ClientInterface interface {
 	// GetV0CityByCityNameFormulasFeed request
 	GetV0CityByCityNameFormulasFeed(ctx context.Context, cityName string, params *GetV0CityByCityNameFormulasFeedParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteV0CityByCityNameFormulasByName request
+	DeleteV0CityByCityNameFormulasByName(ctx context.Context, cityName string, name string, params *DeleteV0CityByCityNameFormulasByNameParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetV0CityByCityNameFormulasByName request
 	GetV0CityByCityNameFormulasByName(ctx context.Context, cityName string, name string, params *GetV0CityByCityNameFormulasByNameParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutV0CityByCityNameFormulasByNameWithBody request with any body
+	PutV0CityByCityNameFormulasByNameWithBody(ctx context.Context, cityName string, name string, params *PutV0CityByCityNameFormulasByNameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostV0CityByCityNameFormulasByNamePreviewWithBody request with any body
 	PostV0CityByCityNameFormulasByNamePreviewWithBody(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameFormulasByNamePreviewParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8614,6 +13533,12 @@ type ClientInterface interface {
 
 	// GetV0CityByCityNameFormulasByNameRuns request
 	GetV0CityByCityNameFormulasByNameRuns(ctx context.Context, cityName string, name string, params *GetV0CityByCityNameFormulasByNameRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV0CityByCityNameFormulasByNameSource request
+	GetV0CityByCityNameFormulasByNameSource(ctx context.Context, cityName string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostV0CityByCityNameFormulasByNameValidateWithBody request with any body
+	PostV0CityByCityNameFormulasByNameValidateWithBody(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameFormulasByNameValidateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetV0CityByCityNameHealth request
 	GetV0CityByCityNameHealth(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8652,6 +13577,12 @@ type ClientInterface interface {
 
 	ReplyMail(ctx context.Context, cityName string, id string, params *ReplyMailParams, body ReplyMailJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// TriggerMaintenanceDoltGc request
+	TriggerMaintenanceDoltGc(ctx context.Context, cityName string, params *TriggerMaintenanceDoltGcParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV0CityByCityNameMaintenanceStatus request
+	GetV0CityByCityNameMaintenanceStatus(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetV0CityByCityNameOrderHistoryByBeadId request
 	GetV0CityByCityNameOrderHistoryByBeadId(ctx context.Context, cityName string, beadId string, params *GetV0CityByCityNameOrderHistoryByBeadIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -8663,6 +13594,11 @@ type ClientInterface interface {
 
 	// PostV0CityByCityNameOrderByNameEnable request
 	PostV0CityByCityNameOrderByNameEnable(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameOrderByNameEnableParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostV0CityByCityNameOrderByNameRunWithBody request with any body
+	PostV0CityByCityNameOrderByNameRunWithBody(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameOrderByNameRunParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostV0CityByCityNameOrderByNameRun(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameOrderByNameRunParams, body PostV0CityByCityNameOrderByNameRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetV0CityByCityNameOrders request
 	GetV0CityByCityNameOrders(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8678,6 +13614,14 @@ type ClientInterface interface {
 
 	// GetV0CityByCityNamePacks request
 	GetV0CityByCityNamePacks(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddPackWithBody request with any body
+	AddPackWithBody(ctx context.Context, cityName string, params *AddPackParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AddPack(ctx context.Context, cityName string, params *AddPackParams, body AddPackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteV0CityByCityNamePacksByName request
+	DeleteV0CityByCityNamePacksByName(ctx context.Context, cityName string, name string, params *DeleteV0CityByCityNamePacksByNameParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteV0CityByCityNamePatchesAgentByBase request
 	DeleteV0CityByCityNamePatchesAgentByBase(ctx context.Context, cityName string, base string, params *DeleteV0CityByCityNamePatchesAgentByBaseParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8727,6 +13671,9 @@ type ClientInterface interface {
 
 	PutV0CityByCityNamePatchesRigs(ctx context.Context, cityName string, params *PutV0CityByCityNamePatchesRigsParams, body PutV0CityByCityNamePatchesRigsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetV0CityByCityNamePending request
+	GetV0CityByCityNamePending(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetV0CityByCityNameProviderReadiness request
 	GetV0CityByCityNameProviderReadiness(ctx context.Context, cityName string, params *GetV0CityByCityNameProviderReadinessParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -8767,7 +13714,7 @@ type ClientInterface interface {
 	PatchV0CityByCityNameRigByName(ctx context.Context, cityName string, name string, params *PatchV0CityByCityNameRigByNameParams, body PatchV0CityByCityNameRigByNameJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostV0CityByCityNameRigByNameByAction request
-	PostV0CityByCityNameRigByNameByAction(ctx context.Context, cityName string, name string, action string, params *PostV0CityByCityNameRigByNameByActionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostV0CityByCityNameRigByNameByAction(ctx context.Context, cityName string, name string, action PostV0CityByCityNameRigByNameByActionParamsAction, params *PostV0CityByCityNameRigByNameByActionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetV0CityByCityNameRigs request
 	GetV0CityByCityNameRigs(ctx context.Context, cityName string, params *GetV0CityByCityNameRigsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8776,6 +13723,15 @@ type ClientInterface interface {
 	CreateRigWithBody(ctx context.Context, cityName string, params *CreateRigParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateRig(ctx context.Context, cityName string, params *CreateRigParams, body CreateRigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV0CityByCityNameRuns request
+	GetV0CityByCityNameRuns(ctx context.Context, cityName string, params *GetV0CityByCityNameRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV0CityByCityNameRunsByRunId request
+	GetV0CityByCityNameRunsByRunId(ctx context.Context, cityName string, runId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV0CityByCityNameRunsByRunIdSteps request
+	GetV0CityByCityNameRunsByRunIdSteps(ctx context.Context, cityName string, runId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetV0CityByCityNameServiceByName request
 	GetV0CityByCityNameServiceByName(ctx context.Context, cityName string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8813,6 +13769,11 @@ type ClientInterface interface {
 
 	// GetV0CityByCityNameSessionByIdPending request
 	GetV0CityByCityNameSessionByIdPending(ctx context.Context, cityName string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostV0CityByCityNameSessionByIdPermissionModeWithBody request with any body
+	PostV0CityByCityNameSessionByIdPermissionModeWithBody(ctx context.Context, cityName string, id string, params *PostV0CityByCityNameSessionByIdPermissionModeParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostV0CityByCityNameSessionByIdPermissionMode(ctx context.Context, cityName string, id string, params *PostV0CityByCityNameSessionByIdPermissionModeParams, body PostV0CityByCityNameSessionByIdPermissionModeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostV0CityByCityNameSessionByIdRenameWithBody request with any body
 	PostV0CityByCityNameSessionByIdRenameWithBody(ctx context.Context, cityName string, id string, params *PostV0CityByCityNameSessionByIdRenameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8862,6 +13823,12 @@ type ClientInterface interface {
 
 	// PostV0CityByCityNameUnregister request
 	PostV0CityByCityNameUnregister(ctx context.Context, cityName string, params *PostV0CityByCityNameUnregisterParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV0CityByCityNameWaitById request
+	GetV0CityByCityNameWaitById(ctx context.Context, cityName string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetV0CityByCityNameWaits request
+	GetV0CityByCityNameWaits(ctx context.Context, cityName string, params *GetV0CityByCityNameWaitsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteV0CityByCityNameWorkflowByWorkflowId request
 	DeleteV0CityByCityNameWorkflowByWorkflowId(ctx context.Context, cityName string, workflowId string, params *DeleteV0CityByCityNameWorkflowByWorkflowIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -9374,6 +14341,18 @@ func (c *Client) GetV0CityByCityNameConfig(ctx context.Context, cityName string,
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetV0CityByCityNameConfigDefaults(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV0CityByCityNameConfigDefaultsRequest(c.Server, cityName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetV0CityByCityNameConfigExplain(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetV0CityByCityNameConfigExplainRequest(c.Server, cityName)
 	if err != nil {
@@ -9556,6 +14535,18 @@ func (c *Client) EmitEventWithBody(ctx context.Context, cityName string, params 
 
 func (c *Client) EmitEvent(ctx context.Context, cityName string, params *EmitEventParams, body EmitEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewEmitEventRequest(c.Server, cityName, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RotateEvents(ctx context.Context, cityName string, params *RotateEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRotateEventsRequest(c.Server, cityName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -9902,8 +14893,32 @@ func (c *Client) GetV0CityByCityNameFormulasFeed(ctx context.Context, cityName s
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteV0CityByCityNameFormulasByName(ctx context.Context, cityName string, name string, params *DeleteV0CityByCityNameFormulasByNameParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteV0CityByCityNameFormulasByNameRequest(c.Server, cityName, name, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetV0CityByCityNameFormulasByName(ctx context.Context, cityName string, name string, params *GetV0CityByCityNameFormulasByNameParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetV0CityByCityNameFormulasByNameRequest(c.Server, cityName, name, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutV0CityByCityNameFormulasByNameWithBody(ctx context.Context, cityName string, name string, params *PutV0CityByCityNameFormulasByNameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutV0CityByCityNameFormulasByNameRequestWithBody(c.Server, cityName, name, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -9940,6 +14955,30 @@ func (c *Client) PostV0CityByCityNameFormulasByNamePreview(ctx context.Context, 
 
 func (c *Client) GetV0CityByCityNameFormulasByNameRuns(ctx context.Context, cityName string, name string, params *GetV0CityByCityNameFormulasByNameRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetV0CityByCityNameFormulasByNameRunsRequest(c.Server, cityName, name, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV0CityByCityNameFormulasByNameSource(ctx context.Context, cityName string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV0CityByCityNameFormulasByNameSourceRequest(c.Server, cityName, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostV0CityByCityNameFormulasByNameValidateWithBody(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameFormulasByNameValidateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostV0CityByCityNameFormulasByNameValidateRequestWithBody(c.Server, cityName, name, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -10106,6 +15145,30 @@ func (c *Client) ReplyMail(ctx context.Context, cityName string, id string, para
 	return c.Client.Do(req)
 }
 
+func (c *Client) TriggerMaintenanceDoltGc(ctx context.Context, cityName string, params *TriggerMaintenanceDoltGcParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTriggerMaintenanceDoltGcRequest(c.Server, cityName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV0CityByCityNameMaintenanceStatus(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV0CityByCityNameMaintenanceStatusRequest(c.Server, cityName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetV0CityByCityNameOrderHistoryByBeadId(ctx context.Context, cityName string, beadId string, params *GetV0CityByCityNameOrderHistoryByBeadIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetV0CityByCityNameOrderHistoryByBeadIdRequest(c.Server, cityName, beadId, params)
 	if err != nil {
@@ -10144,6 +15207,30 @@ func (c *Client) PostV0CityByCityNameOrderByNameDisable(ctx context.Context, cit
 
 func (c *Client) PostV0CityByCityNameOrderByNameEnable(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameOrderByNameEnableParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostV0CityByCityNameOrderByNameEnableRequest(c.Server, cityName, name, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostV0CityByCityNameOrderByNameRunWithBody(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameOrderByNameRunParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostV0CityByCityNameOrderByNameRunRequestWithBody(c.Server, cityName, name, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostV0CityByCityNameOrderByNameRun(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameOrderByNameRunParams, body PostV0CityByCityNameOrderByNameRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostV0CityByCityNameOrderByNameRunRequest(c.Server, cityName, name, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -10204,6 +15291,42 @@ func (c *Client) GetV0CityByCityNameOrdersHistory(ctx context.Context, cityName 
 
 func (c *Client) GetV0CityByCityNamePacks(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetV0CityByCityNamePacksRequest(c.Server, cityName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddPackWithBody(ctx context.Context, cityName string, params *AddPackParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddPackRequestWithBody(c.Server, cityName, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddPack(ctx context.Context, cityName string, params *AddPackParams, body AddPackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddPackRequest(c.Server, cityName, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteV0CityByCityNamePacksByName(ctx context.Context, cityName string, name string, params *DeleteV0CityByCityNamePacksByNameParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteV0CityByCityNamePacksByNameRequest(c.Server, cityName, name, params)
 	if err != nil {
 		return nil, err
 	}
@@ -10418,6 +15541,18 @@ func (c *Client) PutV0CityByCityNamePatchesRigs(ctx context.Context, cityName st
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetV0CityByCityNamePending(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV0CityByCityNamePendingRequest(c.Server, cityName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetV0CityByCityNameProviderReadiness(ctx context.Context, cityName string, params *GetV0CityByCityNameProviderReadinessParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetV0CityByCityNameProviderReadinessRequest(c.Server, cityName, params)
 	if err != nil {
@@ -10586,7 +15721,7 @@ func (c *Client) PatchV0CityByCityNameRigByName(ctx context.Context, cityName st
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostV0CityByCityNameRigByNameByAction(ctx context.Context, cityName string, name string, action string, params *PostV0CityByCityNameRigByNameByActionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) PostV0CityByCityNameRigByNameByAction(ctx context.Context, cityName string, name string, action PostV0CityByCityNameRigByNameByActionParamsAction, params *PostV0CityByCityNameRigByNameByActionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostV0CityByCityNameRigByNameByActionRequest(c.Server, cityName, name, action, params)
 	if err != nil {
 		return nil, err
@@ -10624,6 +15759,42 @@ func (c *Client) CreateRigWithBody(ctx context.Context, cityName string, params 
 
 func (c *Client) CreateRig(ctx context.Context, cityName string, params *CreateRigParams, body CreateRigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateRigRequest(c.Server, cityName, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV0CityByCityNameRuns(ctx context.Context, cityName string, params *GetV0CityByCityNameRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV0CityByCityNameRunsRequest(c.Server, cityName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV0CityByCityNameRunsByRunId(ctx context.Context, cityName string, runId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV0CityByCityNameRunsByRunIdRequest(c.Server, cityName, runId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV0CityByCityNameRunsByRunIdSteps(ctx context.Context, cityName string, runId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV0CityByCityNameRunsByRunIdStepsRequest(c.Server, cityName, runId)
 	if err != nil {
 		return nil, err
 	}
@@ -10780,6 +15951,30 @@ func (c *Client) SendSessionMessage(ctx context.Context, cityName string, id str
 
 func (c *Client) GetV0CityByCityNameSessionByIdPending(ctx context.Context, cityName string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetV0CityByCityNameSessionByIdPendingRequest(c.Server, cityName, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostV0CityByCityNameSessionByIdPermissionModeWithBody(ctx context.Context, cityName string, id string, params *PostV0CityByCityNameSessionByIdPermissionModeParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostV0CityByCityNameSessionByIdPermissionModeRequestWithBody(c.Server, cityName, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostV0CityByCityNameSessionByIdPermissionMode(ctx context.Context, cityName string, id string, params *PostV0CityByCityNameSessionByIdPermissionModeParams, body PostV0CityByCityNameSessionByIdPermissionModeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostV0CityByCityNameSessionByIdPermissionModeRequest(c.Server, cityName, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -10996,6 +16191,30 @@ func (c *Client) GetV0CityByCityNameStatus(ctx context.Context, cityName string,
 
 func (c *Client) PostV0CityByCityNameUnregister(ctx context.Context, cityName string, params *PostV0CityByCityNameUnregisterParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostV0CityByCityNameUnregisterRequest(c.Server, cityName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV0CityByCityNameWaitById(ctx context.Context, cityName string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV0CityByCityNameWaitByIdRequest(c.Server, cityName, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV0CityByCityNameWaits(ctx context.Context, cityName string, params *GetV0CityByCityNameWaitsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV0CityByCityNameWaitsRequest(c.Server, cityName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -12198,6 +17417,17 @@ func NewCreateAgentRequestWithBody(server string, cityName string, params *Creat
 
 		req.Header.Set("X-GC-Request", headerParam0)
 
+		if params.IdempotencyKey != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam1)
+		}
+
 	}
 
 	return req, nil
@@ -12821,6 +18051,22 @@ func NewGetV0CityByCityNameBeadsRequest(server string, cityName string, params *
 
 		}
 
+		if params.All != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "all", *params.All, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -13033,6 +18279,40 @@ func NewGetV0CityByCityNameConfigRequest(server string, cityName string) (*http.
 	}
 
 	operationPath := fmt.Sprintf("/v0/city/%s/config", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetV0CityByCityNameConfigDefaultsRequest generates requests for GetV0CityByCityNameConfigDefaults
+func NewGetV0CityByCityNameConfigDefaultsRequest(server string, cityName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/config/defaults", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -13601,6 +18881,17 @@ func NewCreateConvoyRequestWithBody(server string, cityName string, params *Crea
 
 		req.Header.Set("X-GC-Request", headerParam0)
 
+		if params.IdempotencyKey != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam1)
+		}
+
 	}
 
 	return req, nil
@@ -13801,6 +19092,75 @@ func NewEmitEventRequestWithBody(server string, cityName string, params *EmitEve
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-GC-Request", params.XGCRequest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-GC-Request", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewRotateEventsRequest generates requests for RotateEvents
+func NewRotateEventsRequest(server string, cityName string, params *RotateEventsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/events/rotate", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Wait != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "wait", *params.Wait, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	if params != nil {
 
@@ -14704,6 +20064,54 @@ func NewGetV0CityByCityNameExtmsgTranscriptRequest(server string, cityName strin
 
 		}
 
+		if params.AfterSequence != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "after_sequence", *params.AfterSequence, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Order != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "order", *params.Order, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -15086,6 +20494,60 @@ func NewGetV0CityByCityNameFormulasFeedRequest(server string, cityName string, p
 	return req, nil
 }
 
+// NewDeleteV0CityByCityNameFormulasByNameRequest generates requests for DeleteV0CityByCityNameFormulasByName
+func NewDeleteV0CityByCityNameFormulasByNameRequest(server string, cityName string, name string, params *DeleteV0CityByCityNameFormulasByNameParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/formulas/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-GC-Request", params.XGCRequest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-GC-Request", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 // NewGetV0CityByCityNameFormulasByNameRequest generates requests for GetV0CityByCityNameFormulasByName
 func NewGetV0CityByCityNameFormulasByNameRequest(server string, cityName string, name string, params *GetV0CityByCityNameFormulasByNameParams) (*http.Request, error) {
 	var err error
@@ -15172,6 +20634,62 @@ func NewGetV0CityByCityNameFormulasByNameRequest(server string, cityName string,
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutV0CityByCityNameFormulasByNameRequestWithBody generates requests for PutV0CityByCityNameFormulasByName with any type of body
+func NewPutV0CityByCityNameFormulasByNameRequestWithBody(server string, cityName string, name string, params *PutV0CityByCityNameFormulasByNameParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/formulas/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-GC-Request", params.XGCRequest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-GC-Request", headerParam0)
+
 	}
 
 	return req, nil
@@ -15334,6 +20852,103 @@ func NewGetV0CityByCityNameFormulasByNameRunsRequest(server string, cityName str
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetV0CityByCityNameFormulasByNameSourceRequest generates requests for GetV0CityByCityNameFormulasByNameSource
+func NewGetV0CityByCityNameFormulasByNameSourceRequest(server string, cityName string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/formulas/%s/source", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostV0CityByCityNameFormulasByNameValidateRequestWithBody generates requests for PostV0CityByCityNameFormulasByNameValidate with any type of body
+func NewPostV0CityByCityNameFormulasByNameValidateRequestWithBody(server string, cityName string, name string, params *PostV0CityByCityNameFormulasByNameValidateParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/formulas/%s/validate", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-GC-Request", params.XGCRequest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-GC-Request", headerParam0)
+
 	}
 
 	return req, nil
@@ -16187,6 +21802,109 @@ func NewReplyMailRequestWithBody(server string, cityName string, id string, para
 	return req, nil
 }
 
+// NewTriggerMaintenanceDoltGcRequest generates requests for TriggerMaintenanceDoltGc
+func NewTriggerMaintenanceDoltGcRequest(server string, cityName string, params *TriggerMaintenanceDoltGcParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/maintenance/dolt-gc", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Wait != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "wait", *params.Wait, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-GC-Request", params.XGCRequest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-GC-Request", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewGetV0CityByCityNameMaintenanceStatusRequest generates requests for GetV0CityByCityNameMaintenanceStatus
+func NewGetV0CityByCityNameMaintenanceStatusRequest(server string, cityName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/maintenance/status", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetV0CityByCityNameOrderHistoryByBeadIdRequest generates requests for GetV0CityByCityNameOrderHistoryByBeadId
 func NewGetV0CityByCityNameOrderHistoryByBeadIdRequest(server string, cityName string, beadId string, params *GetV0CityByCityNameOrderHistoryByBeadIdParams) (*http.Request, error) {
 	var err error
@@ -16382,6 +22100,73 @@ func NewPostV0CityByCityNameOrderByNameEnableRequest(server string, cityName str
 	if err != nil {
 		return nil, err
 	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-GC-Request", params.XGCRequest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-GC-Request", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewPostV0CityByCityNameOrderByNameRunRequest calls the generic PostV0CityByCityNameOrderByNameRun builder with application/json body
+func NewPostV0CityByCityNameOrderByNameRunRequest(server string, cityName string, name string, params *PostV0CityByCityNameOrderByNameRunParams, body PostV0CityByCityNameOrderByNameRunJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostV0CityByCityNameOrderByNameRunRequestWithBody(server, cityName, name, params, "application/json", bodyReader)
+}
+
+// NewPostV0CityByCityNameOrderByNameRunRequestWithBody generates requests for PostV0CityByCityNameOrderByNameRun with any type of body
+func NewPostV0CityByCityNameOrderByNameRunRequestWithBody(server string, cityName string, name string, params *PostV0CityByCityNameOrderByNameRunParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/order/%s/run", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	if params != nil {
 
@@ -16690,6 +22475,131 @@ func NewGetV0CityByCityNamePacksRequest(server string, cityName string) (*http.R
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAddPackRequest calls the generic AddPack builder with application/json body
+func NewAddPackRequest(server string, cityName string, params *AddPackParams, body AddPackJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddPackRequestWithBody(server, cityName, params, "application/json", bodyReader)
+}
+
+// NewAddPackRequestWithBody generates requests for AddPack with any type of body
+func NewAddPackRequestWithBody(server string, cityName string, params *AddPackParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/packs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-GC-Request", params.XGCRequest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-GC-Request", headerParam0)
+
+		if params.IdempotencyKey != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam1)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteV0CityByCityNamePacksByNameRequest generates requests for DeleteV0CityByCityNamePacksByName
+func NewDeleteV0CityByCityNamePacksByNameRequest(server string, cityName string, name string, params *DeleteV0CityByCityNamePacksByNameParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/packs/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-GC-Request", params.XGCRequest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-GC-Request", headerParam0)
+
 	}
 
 	return req, nil
@@ -17371,6 +23281,40 @@ func NewPutV0CityByCityNamePatchesRigsRequestWithBody(server string, cityName st
 	return req, nil
 }
 
+// NewGetV0CityByCityNamePendingRequest generates requests for GetV0CityByCityNamePending
+func NewGetV0CityByCityNamePendingRequest(server string, cityName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/pending", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetV0CityByCityNameProviderReadinessRequest generates requests for GetV0CityByCityNameProviderReadiness
 func NewGetV0CityByCityNameProviderReadinessRequest(server string, cityName string, params *GetV0CityByCityNameProviderReadinessParams) (*http.Request, error) {
 	var err error
@@ -17694,6 +23638,17 @@ func NewCreateProviderRequestWithBody(server string, cityName string, params *Cr
 
 		req.Header.Set("X-GC-Request", headerParam0)
 
+		if params.IdempotencyKey != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam1)
+		}
+
 	}
 
 	return req, nil
@@ -17990,7 +23945,7 @@ func NewPatchV0CityByCityNameRigByNameRequestWithBody(server string, cityName st
 }
 
 // NewPostV0CityByCityNameRigByNameByActionRequest generates requests for PostV0CityByCityNameRigByNameByAction
-func NewPostV0CityByCityNameRigByNameByActionRequest(server string, cityName string, name string, action string, params *PostV0CityByCityNameRigByNameByActionParams) (*http.Request, error) {
+func NewPostV0CityByCityNameRigByNameByActionRequest(server string, cityName string, name string, action PostV0CityByCityNameRigByNameByActionParamsAction, params *PostV0CityByCityNameRigByNameByActionParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -18193,6 +24148,155 @@ func NewCreateRigRequestWithBody(server string, cityName string, params *CreateR
 
 		req.Header.Set("X-GC-Request", headerParam0)
 
+		if params.IdempotencyKey != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam1)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetV0CityByCityNameRunsRequest generates requests for GetV0CityByCityNameRuns
+func NewGetV0CityByCityNameRunsRequest(server string, cityName string, params *GetV0CityByCityNameRunsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/runs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetV0CityByCityNameRunsByRunIdRequest generates requests for GetV0CityByCityNameRunsByRunId
+func NewGetV0CityByCityNameRunsByRunIdRequest(server string, cityName string, runId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "run_id", runId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/runs/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetV0CityByCityNameRunsByRunIdStepsRequest generates requests for GetV0CityByCityNameRunsByRunIdSteps
+func NewGetV0CityByCityNameRunsByRunIdStepsRequest(server string, cityName string, runId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "run_id", runId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/runs/%s/steps", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -18366,6 +24470,22 @@ func NewGetV0CityByCityNameSessionByIdRequest(server string, cityName string, id
 		if params.Peek != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "peek", *params.Peek, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PeekLines != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "peek_lines", *params.PeekLines, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -18779,6 +24899,73 @@ func NewGetV0CityByCityNameSessionByIdPendingRequest(server string, cityName str
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostV0CityByCityNameSessionByIdPermissionModeRequest calls the generic PostV0CityByCityNameSessionByIdPermissionMode builder with application/json body
+func NewPostV0CityByCityNameSessionByIdPermissionModeRequest(server string, cityName string, id string, params *PostV0CityByCityNameSessionByIdPermissionModeParams, body PostV0CityByCityNameSessionByIdPermissionModeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostV0CityByCityNameSessionByIdPermissionModeRequestWithBody(server, cityName, id, params, "application/json", bodyReader)
+}
+
+// NewPostV0CityByCityNameSessionByIdPermissionModeRequestWithBody generates requests for PostV0CityByCityNameSessionByIdPermissionMode with any type of body
+func NewPostV0CityByCityNameSessionByIdPermissionModeRequestWithBody(server string, cityName string, id string, params *PostV0CityByCityNameSessionByIdPermissionModeParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/session/%s/permission-mode", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-GC-Request", params.XGCRequest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-GC-Request", headerParam0)
+
 	}
 
 	return req, nil
@@ -19622,6 +25809,22 @@ func NewGetV0CityByCityNameStatusRequest(server string, cityName string, params 
 
 		}
 
+		if params.Lite != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "lite", *params.Lite, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -19675,6 +25878,119 @@ func NewPostV0CityByCityNameUnregisterRequest(server string, cityName string, pa
 
 		req.Header.Set("X-GC-Request", headerParam0)
 
+	}
+
+	return req, nil
+}
+
+// NewGetV0CityByCityNameWaitByIdRequest generates requests for GetV0CityByCityNameWaitById
+func NewGetV0CityByCityNameWaitByIdRequest(server string, cityName string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/wait/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetV0CityByCityNameWaitsRequest generates requests for GetV0CityByCityNameWaits
+func NewGetV0CityByCityNameWaitsRequest(server string, cityName string, params *GetV0CityByCityNameWaitsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/waits", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Session != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "session", *params.Session, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -20315,6 +26631,9 @@ type ClientWithResponsesInterface interface {
 	// GetV0CityByCityNameConfigWithResponse request
 	GetV0CityByCityNameConfigWithResponse(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameConfigResponse, error)
 
+	// GetV0CityByCityNameConfigDefaultsWithResponse request
+	GetV0CityByCityNameConfigDefaultsWithResponse(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameConfigDefaultsResponse, error)
+
 	// GetV0CityByCityNameConfigExplainWithResponse request
 	GetV0CityByCityNameConfigExplainWithResponse(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameConfigExplainResponse, error)
 
@@ -20358,6 +26677,9 @@ type ClientWithResponsesInterface interface {
 	EmitEventWithBodyWithResponse(ctx context.Context, cityName string, params *EmitEventParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EmitEventResponse, error)
 
 	EmitEventWithResponse(ctx context.Context, cityName string, params *EmitEventParams, body EmitEventJSONRequestBody, reqEditors ...RequestEditorFn) (*EmitEventResponse, error)
+
+	// RotateEventsWithResponse request
+	RotateEventsWithResponse(ctx context.Context, cityName string, params *RotateEventsParams, reqEditors ...RequestEditorFn) (*RotateEventsResponse, error)
 
 	// StreamEventsWithResponse request
 	StreamEventsWithResponse(ctx context.Context, cityName string, params *StreamEventsParams, reqEditors ...RequestEditorFn) (*StreamEventsResponse, error)
@@ -20433,8 +26755,14 @@ type ClientWithResponsesInterface interface {
 	// GetV0CityByCityNameFormulasFeedWithResponse request
 	GetV0CityByCityNameFormulasFeedWithResponse(ctx context.Context, cityName string, params *GetV0CityByCityNameFormulasFeedParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameFormulasFeedResponse, error)
 
+	// DeleteV0CityByCityNameFormulasByNameWithResponse request
+	DeleteV0CityByCityNameFormulasByNameWithResponse(ctx context.Context, cityName string, name string, params *DeleteV0CityByCityNameFormulasByNameParams, reqEditors ...RequestEditorFn) (*DeleteV0CityByCityNameFormulasByNameResponse, error)
+
 	// GetV0CityByCityNameFormulasByNameWithResponse request
 	GetV0CityByCityNameFormulasByNameWithResponse(ctx context.Context, cityName string, name string, params *GetV0CityByCityNameFormulasByNameParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameFormulasByNameResponse, error)
+
+	// PutV0CityByCityNameFormulasByNameWithBodyWithResponse request with any body
+	PutV0CityByCityNameFormulasByNameWithBodyWithResponse(ctx context.Context, cityName string, name string, params *PutV0CityByCityNameFormulasByNameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutV0CityByCityNameFormulasByNameResponse, error)
 
 	// PostV0CityByCityNameFormulasByNamePreviewWithBodyWithResponse request with any body
 	PostV0CityByCityNameFormulasByNamePreviewWithBodyWithResponse(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameFormulasByNamePreviewParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameFormulasByNamePreviewResponse, error)
@@ -20443,6 +26771,12 @@ type ClientWithResponsesInterface interface {
 
 	// GetV0CityByCityNameFormulasByNameRunsWithResponse request
 	GetV0CityByCityNameFormulasByNameRunsWithResponse(ctx context.Context, cityName string, name string, params *GetV0CityByCityNameFormulasByNameRunsParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameFormulasByNameRunsResponse, error)
+
+	// GetV0CityByCityNameFormulasByNameSourceWithResponse request
+	GetV0CityByCityNameFormulasByNameSourceWithResponse(ctx context.Context, cityName string, name string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameFormulasByNameSourceResponse, error)
+
+	// PostV0CityByCityNameFormulasByNameValidateWithBodyWithResponse request with any body
+	PostV0CityByCityNameFormulasByNameValidateWithBodyWithResponse(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameFormulasByNameValidateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameFormulasByNameValidateResponse, error)
 
 	// GetV0CityByCityNameHealthWithResponse request
 	GetV0CityByCityNameHealthWithResponse(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameHealthResponse, error)
@@ -20481,6 +26815,12 @@ type ClientWithResponsesInterface interface {
 
 	ReplyMailWithResponse(ctx context.Context, cityName string, id string, params *ReplyMailParams, body ReplyMailJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplyMailResponse, error)
 
+	// TriggerMaintenanceDoltGcWithResponse request
+	TriggerMaintenanceDoltGcWithResponse(ctx context.Context, cityName string, params *TriggerMaintenanceDoltGcParams, reqEditors ...RequestEditorFn) (*TriggerMaintenanceDoltGcResponse, error)
+
+	// GetV0CityByCityNameMaintenanceStatusWithResponse request
+	GetV0CityByCityNameMaintenanceStatusWithResponse(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameMaintenanceStatusResponse, error)
+
 	// GetV0CityByCityNameOrderHistoryByBeadIdWithResponse request
 	GetV0CityByCityNameOrderHistoryByBeadIdWithResponse(ctx context.Context, cityName string, beadId string, params *GetV0CityByCityNameOrderHistoryByBeadIdParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameOrderHistoryByBeadIdResponse, error)
 
@@ -20492,6 +26832,11 @@ type ClientWithResponsesInterface interface {
 
 	// PostV0CityByCityNameOrderByNameEnableWithResponse request
 	PostV0CityByCityNameOrderByNameEnableWithResponse(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameOrderByNameEnableParams, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameOrderByNameEnableResponse, error)
+
+	// PostV0CityByCityNameOrderByNameRunWithBodyWithResponse request with any body
+	PostV0CityByCityNameOrderByNameRunWithBodyWithResponse(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameOrderByNameRunParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameOrderByNameRunResponse, error)
+
+	PostV0CityByCityNameOrderByNameRunWithResponse(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameOrderByNameRunParams, body PostV0CityByCityNameOrderByNameRunJSONRequestBody, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameOrderByNameRunResponse, error)
 
 	// GetV0CityByCityNameOrdersWithResponse request
 	GetV0CityByCityNameOrdersWithResponse(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameOrdersResponse, error)
@@ -20507,6 +26852,14 @@ type ClientWithResponsesInterface interface {
 
 	// GetV0CityByCityNamePacksWithResponse request
 	GetV0CityByCityNamePacksWithResponse(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNamePacksResponse, error)
+
+	// AddPackWithBodyWithResponse request with any body
+	AddPackWithBodyWithResponse(ctx context.Context, cityName string, params *AddPackParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddPackResponse, error)
+
+	AddPackWithResponse(ctx context.Context, cityName string, params *AddPackParams, body AddPackJSONRequestBody, reqEditors ...RequestEditorFn) (*AddPackResponse, error)
+
+	// DeleteV0CityByCityNamePacksByNameWithResponse request
+	DeleteV0CityByCityNamePacksByNameWithResponse(ctx context.Context, cityName string, name string, params *DeleteV0CityByCityNamePacksByNameParams, reqEditors ...RequestEditorFn) (*DeleteV0CityByCityNamePacksByNameResponse, error)
 
 	// DeleteV0CityByCityNamePatchesAgentByBaseWithResponse request
 	DeleteV0CityByCityNamePatchesAgentByBaseWithResponse(ctx context.Context, cityName string, base string, params *DeleteV0CityByCityNamePatchesAgentByBaseParams, reqEditors ...RequestEditorFn) (*DeleteV0CityByCityNamePatchesAgentByBaseResponse, error)
@@ -20556,6 +26909,9 @@ type ClientWithResponsesInterface interface {
 
 	PutV0CityByCityNamePatchesRigsWithResponse(ctx context.Context, cityName string, params *PutV0CityByCityNamePatchesRigsParams, body PutV0CityByCityNamePatchesRigsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutV0CityByCityNamePatchesRigsResponse, error)
 
+	// GetV0CityByCityNamePendingWithResponse request
+	GetV0CityByCityNamePendingWithResponse(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNamePendingResponse, error)
+
 	// GetV0CityByCityNameProviderReadinessWithResponse request
 	GetV0CityByCityNameProviderReadinessWithResponse(ctx context.Context, cityName string, params *GetV0CityByCityNameProviderReadinessParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameProviderReadinessResponse, error)
 
@@ -20596,7 +26952,7 @@ type ClientWithResponsesInterface interface {
 	PatchV0CityByCityNameRigByNameWithResponse(ctx context.Context, cityName string, name string, params *PatchV0CityByCityNameRigByNameParams, body PatchV0CityByCityNameRigByNameJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchV0CityByCityNameRigByNameResponse, error)
 
 	// PostV0CityByCityNameRigByNameByActionWithResponse request
-	PostV0CityByCityNameRigByNameByActionWithResponse(ctx context.Context, cityName string, name string, action string, params *PostV0CityByCityNameRigByNameByActionParams, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameRigByNameByActionResponse, error)
+	PostV0CityByCityNameRigByNameByActionWithResponse(ctx context.Context, cityName string, name string, action PostV0CityByCityNameRigByNameByActionParamsAction, params *PostV0CityByCityNameRigByNameByActionParams, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameRigByNameByActionResponse, error)
 
 	// GetV0CityByCityNameRigsWithResponse request
 	GetV0CityByCityNameRigsWithResponse(ctx context.Context, cityName string, params *GetV0CityByCityNameRigsParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameRigsResponse, error)
@@ -20605,6 +26961,15 @@ type ClientWithResponsesInterface interface {
 	CreateRigWithBodyWithResponse(ctx context.Context, cityName string, params *CreateRigParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRigResponse, error)
 
 	CreateRigWithResponse(ctx context.Context, cityName string, params *CreateRigParams, body CreateRigJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRigResponse, error)
+
+	// GetV0CityByCityNameRunsWithResponse request
+	GetV0CityByCityNameRunsWithResponse(ctx context.Context, cityName string, params *GetV0CityByCityNameRunsParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameRunsResponse, error)
+
+	// GetV0CityByCityNameRunsByRunIdWithResponse request
+	GetV0CityByCityNameRunsByRunIdWithResponse(ctx context.Context, cityName string, runId string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameRunsByRunIdResponse, error)
+
+	// GetV0CityByCityNameRunsByRunIdStepsWithResponse request
+	GetV0CityByCityNameRunsByRunIdStepsWithResponse(ctx context.Context, cityName string, runId string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameRunsByRunIdStepsResponse, error)
 
 	// GetV0CityByCityNameServiceByNameWithResponse request
 	GetV0CityByCityNameServiceByNameWithResponse(ctx context.Context, cityName string, name string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameServiceByNameResponse, error)
@@ -20642,6 +27007,11 @@ type ClientWithResponsesInterface interface {
 
 	// GetV0CityByCityNameSessionByIdPendingWithResponse request
 	GetV0CityByCityNameSessionByIdPendingWithResponse(ctx context.Context, cityName string, id string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameSessionByIdPendingResponse, error)
+
+	// PostV0CityByCityNameSessionByIdPermissionModeWithBodyWithResponse request with any body
+	PostV0CityByCityNameSessionByIdPermissionModeWithBodyWithResponse(ctx context.Context, cityName string, id string, params *PostV0CityByCityNameSessionByIdPermissionModeParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameSessionByIdPermissionModeResponse, error)
+
+	PostV0CityByCityNameSessionByIdPermissionModeWithResponse(ctx context.Context, cityName string, id string, params *PostV0CityByCityNameSessionByIdPermissionModeParams, body PostV0CityByCityNameSessionByIdPermissionModeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameSessionByIdPermissionModeResponse, error)
 
 	// PostV0CityByCityNameSessionByIdRenameWithBodyWithResponse request with any body
 	PostV0CityByCityNameSessionByIdRenameWithBodyWithResponse(ctx context.Context, cityName string, id string, params *PostV0CityByCityNameSessionByIdRenameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameSessionByIdRenameResponse, error)
@@ -20691,6 +27061,12 @@ type ClientWithResponsesInterface interface {
 
 	// PostV0CityByCityNameUnregisterWithResponse request
 	PostV0CityByCityNameUnregisterWithResponse(ctx context.Context, cityName string, params *PostV0CityByCityNameUnregisterParams, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameUnregisterResponse, error)
+
+	// GetV0CityByCityNameWaitByIdWithResponse request
+	GetV0CityByCityNameWaitByIdWithResponse(ctx context.Context, cityName string, id string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameWaitByIdResponse, error)
+
+	// GetV0CityByCityNameWaitsWithResponse request
+	GetV0CityByCityNameWaitsWithResponse(ctx context.Context, cityName string, params *GetV0CityByCityNameWaitsParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameWaitsResponse, error)
 
 	// DeleteV0CityByCityNameWorkflowByWorkflowIdWithResponse request
 	DeleteV0CityByCityNameWorkflowByWorkflowIdWithResponse(ctx context.Context, cityName string, workflowId string, params *DeleteV0CityByCityNameWorkflowByWorkflowIdParams, reqEditors ...RequestEditorFn) (*DeleteV0CityByCityNameWorkflowByWorkflowIdResponse, error)
@@ -20781,10 +27157,12 @@ func (r PostV0CityResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *CityGetResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *CityGetResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -20804,10 +27182,16 @@ func (r GetV0CityByCityNameResponse) StatusCode() int {
 }
 
 type PatchV0CityByCityNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -20827,10 +27211,17 @@ func (r PatchV0CityByCityNameResponse) StatusCode() int {
 }
 
 type DeleteV0CityByCityNameAgentByBaseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -20850,10 +27241,12 @@ func (r DeleteV0CityByCityNameAgentByBaseResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameAgentByBaseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *AgentResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *AgentResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -20873,10 +27266,17 @@ func (r GetV0CityByCityNameAgentByBaseResponse) StatusCode() int {
 }
 
 type PatchV0CityByCityNameAgentByBaseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -20896,10 +27296,12 @@ func (r PatchV0CityByCityNameAgentByBaseResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameAgentByBaseOutputResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *AgentOutputResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *AgentOutputResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -20941,10 +27343,16 @@ func (r StreamAgentOutputResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameAgentByBaseByActionResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -20964,10 +27372,17 @@ func (r PostV0CityByCityNameAgentByBaseByActionResponse) StatusCode() int {
 }
 
 type DeleteV0CityByCityNameAgentByDirByBaseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -20987,10 +27402,12 @@ func (r DeleteV0CityByCityNameAgentByDirByBaseResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameAgentByDirByBaseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *AgentResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *AgentResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21010,10 +27427,17 @@ func (r GetV0CityByCityNameAgentByDirByBaseResponse) StatusCode() int {
 }
 
 type PatchV0CityByCityNameAgentByDirByBaseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21033,10 +27457,12 @@ func (r PatchV0CityByCityNameAgentByDirByBaseResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameAgentByDirByBaseOutputResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *AgentOutputResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *AgentOutputResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21078,10 +27504,16 @@ func (r StreamAgentOutputQualifiedResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameAgentByDirByBaseByActionResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21101,10 +27533,12 @@ func (r PostV0CityByCityNameAgentByDirByBaseByActionResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameAgentsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodyAgentResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyAgentResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21124,10 +27558,19 @@ func (r GetV0CityByCityNameAgentsResponse) StatusCode() int {
 }
 
 type CreateAgentResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON201                       *AgentCreatedOutputBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON201                   *AgentCreatedOutputBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
+	ApplicationproblemJSON504 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21147,10 +27590,15 @@ func (r CreateAgentResponse) StatusCode() int {
 }
 
 type DeleteV0CityByCityNameBeadByIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21170,10 +27618,13 @@ func (r DeleteV0CityByCityNameBeadByIdResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameBeadByIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *Bead
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *Bead
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21193,10 +27644,16 @@ func (r GetV0CityByCityNameBeadByIdResponse) StatusCode() int {
 }
 
 type PatchV0CityByCityNameBeadByIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21216,10 +27673,16 @@ func (r PatchV0CityByCityNameBeadByIdResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameBeadByIdAssignResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *map[string]string
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *map[string]string
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21239,10 +27702,15 @@ func (r PostV0CityByCityNameBeadByIdAssignResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameBeadByIdCloseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21262,10 +27730,12 @@ func (r PostV0CityByCityNameBeadByIdCloseResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameBeadByIdDepsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *BeadDepsResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *BeadDepsResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21285,10 +27755,15 @@ func (r GetV0CityByCityNameBeadByIdDepsResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameBeadByIdReopenResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21308,10 +27783,16 @@ func (r PostV0CityByCityNameBeadByIdReopenResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameBeadByIdUpdateResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21331,10 +27812,14 @@ func (r PostV0CityByCityNameBeadByIdUpdateResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameBeadsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodyBead
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyBead
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21354,10 +27839,16 @@ func (r GetV0CityByCityNameBeadsResponse) StatusCode() int {
 }
 
 type CreateBeadResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON201                       *Bead
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON201                   *Bead
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21377,10 +27868,12 @@ func (r CreateBeadResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameBeadsGraphByRootIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *BeadGraphResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *BeadGraphResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21400,10 +27893,13 @@ func (r GetV0CityByCityNameBeadsGraphByRootIdResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameBeadsReadyResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodyBead
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyBead
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21423,10 +27919,12 @@ func (r GetV0CityByCityNameBeadsReadyResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameConfigResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ConfigResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ConfigResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21445,11 +27943,38 @@ func (r GetV0CityByCityNameConfigResponse) StatusCode() int {
 	return 0
 }
 
+type GetV0CityByCityNameConfigDefaultsResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ConfigResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV0CityByCityNameConfigDefaultsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV0CityByCityNameConfigDefaultsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetV0CityByCityNameConfigExplainResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ConfigExplainResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ConfigExplainResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21469,10 +27994,12 @@ func (r GetV0CityByCityNameConfigExplainResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameConfigValidateResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ConfigValidateOutputBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ConfigValidateOutputBody
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21492,10 +28019,15 @@ func (r GetV0CityByCityNameConfigValidateResponse) StatusCode() int {
 }
 
 type DeleteV0CityByCityNameConvoyByIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21515,10 +28047,13 @@ func (r DeleteV0CityByCityNameConvoyByIdResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameConvoyByIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ConvoyGetResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ConvoyGetResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21538,10 +28073,15 @@ func (r GetV0CityByCityNameConvoyByIdResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameConvoyByIdAddResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21561,10 +28101,14 @@ func (r PostV0CityByCityNameConvoyByIdAddResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameConvoyByIdCheckResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ConvoyCheckResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ConvoyCheckResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21584,10 +28128,15 @@ func (r GetV0CityByCityNameConvoyByIdCheckResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameConvoyByIdCloseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21607,10 +28156,15 @@ func (r PostV0CityByCityNameConvoyByIdCloseResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameConvoyByIdRemoveResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21630,10 +28184,13 @@ func (r PostV0CityByCityNameConvoyByIdRemoveResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameConvoysResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodyBead
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyBead
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21653,10 +28210,16 @@ func (r GetV0CityByCityNameConvoysResponse) StatusCode() int {
 }
 
 type CreateConvoyResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON201                       *Bead
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON201                   *Bead
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21676,10 +28239,13 @@ func (r CreateConvoyResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameEventsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodyWireEvent
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyWireEvent
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21699,10 +28265,15 @@ func (r GetV0CityByCityNameEventsResponse) StatusCode() int {
 }
 
 type EmitEventResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON201                       *EventEmitOutputBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON201                   *EventEmitOutputBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21715,6 +28286,34 @@ func (r EmitEventResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r EmitEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RotateEventsResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *EventRotateResponse
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON405 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r RotateEventsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RotateEventsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -21744,10 +28343,15 @@ func (r StreamEventsResponse) StatusCode() int {
 }
 
 type DeleteV0CityByCityNameExtmsgAdaptersResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21767,10 +28371,13 @@ func (r DeleteV0CityByCityNameExtmsgAdaptersResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameExtmsgAdaptersResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodyExtmsgAdapterInfo
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyExtmsgAdapterInfo
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21790,10 +28397,15 @@ func (r GetV0CityByCityNameExtmsgAdaptersResponse) StatusCode() int {
 }
 
 type RegisterExtmsgAdapterResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON201                       *ExtMsgAdapterRegisterOutputBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON201                   *ExtMsgAdapterRegisterOutputBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21813,10 +28425,17 @@ func (r RegisterExtmsgAdapterResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameExtmsgBindResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SessionBindingRecord
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *SessionBindingRecord
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21836,10 +28455,14 @@ func (r PostV0CityByCityNameExtmsgBindResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameExtmsgBindingsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodySessionBindingRecord
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodySessionBindingRecord
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21859,10 +28482,13 @@ func (r GetV0CityByCityNameExtmsgBindingsResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameExtmsgGroupsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ConversationGroupRecord
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ConversationGroupRecord
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21882,10 +28508,15 @@ func (r GetV0CityByCityNameExtmsgGroupsResponse) StatusCode() int {
 }
 
 type EnsureExtmsgGroupResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON201                       *ConversationGroupRecord
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON201                   *ConversationGroupRecord
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21905,10 +28536,16 @@ func (r EnsureExtmsgGroupResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameExtmsgInboundResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *InboundResult
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *InboundResult
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21928,10 +28565,15 @@ func (r PostV0CityByCityNameExtmsgInboundResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameExtmsgOutboundResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OutboundResult
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OutboundResult
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21951,10 +28593,15 @@ func (r PostV0CityByCityNameExtmsgOutboundResponse) StatusCode() int {
 }
 
 type DeleteV0CityByCityNameExtmsgParticipantsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21974,10 +28621,15 @@ func (r DeleteV0CityByCityNameExtmsgParticipantsResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameExtmsgParticipantsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ConversationGroupParticipant
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ConversationGroupParticipant
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -21997,10 +28649,13 @@ func (r PostV0CityByCityNameExtmsgParticipantsResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameExtmsgTranscriptResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodyConversationTranscriptRecord
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyConversationTranscriptRecord
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22020,10 +28675,15 @@ func (r GetV0CityByCityNameExtmsgTranscriptResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameExtmsgTranscriptAckResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22043,10 +28703,16 @@ func (r PostV0CityByCityNameExtmsgTranscriptAckResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameExtmsgUnbindResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ExtMsgUnbindBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ExtMsgUnbindBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22066,10 +28732,14 @@ func (r PostV0CityByCityNameExtmsgUnbindResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameFormulaByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *FormulaDetailResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *FormulaDetailResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22089,10 +28759,14 @@ func (r GetV0CityByCityNameFormulaByNameResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameFormulasResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *FormulaListBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *FormulaListBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22112,10 +28786,14 @@ func (r GetV0CityByCityNameFormulasResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameFormulasFeedResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *FormulaFeedBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *FormulaFeedBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22134,11 +28812,44 @@ func (r GetV0CityByCityNameFormulasFeedResponse) StatusCode() int {
 	return 0
 }
 
+type DeleteV0CityByCityNameFormulasByNameResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteV0CityByCityNameFormulasByNameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteV0CityByCityNameFormulasByNameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetV0CityByCityNameFormulasByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *FormulaDetailResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *FormulaDetailResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22157,11 +28868,47 @@ func (r GetV0CityByCityNameFormulasByNameResponse) StatusCode() int {
 	return 0
 }
 
+type PutV0CityByCityNameFormulasByNameResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON413 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r PutV0CityByCityNameFormulasByNameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutV0CityByCityNameFormulasByNameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type PostV0CityByCityNameFormulasByNamePreviewResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *FormulaDetailResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *FormulaDetailResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22181,10 +28928,14 @@ func (r PostV0CityByCityNameFormulasByNamePreviewResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameFormulasByNameRunsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *FormulaRunsResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *FormulaRunsResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22203,11 +28954,68 @@ func (r GetV0CityByCityNameFormulasByNameRunsResponse) StatusCode() int {
 	return 0
 }
 
+type GetV0CityByCityNameFormulasByNameSourceResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *FormulaSourceOutputBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV0CityByCityNameFormulasByNameSourceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV0CityByCityNameFormulasByNameSourceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostV0CityByCityNameFormulasByNameValidateResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *FormulaValidateOutputBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON413 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r PostV0CityByCityNameFormulasByNameValidateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostV0CityByCityNameFormulasByNameValidateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetV0CityByCityNameHealthResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *HealthOutputBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *HealthOutputBody
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22227,10 +29035,14 @@ func (r GetV0CityByCityNameHealthResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameMailResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *MailListBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *MailListBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22250,10 +29062,16 @@ func (r GetV0CityByCityNameMailResponse) StatusCode() int {
 }
 
 type SendMailResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON201                       *Message
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON201                   *Message
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22273,10 +29091,13 @@ func (r SendMailResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameMailCountResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *MailCountOutputBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *MailCountOutputBody
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22296,10 +29117,13 @@ func (r GetV0CityByCityNameMailCountResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameMailThreadByIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *MailListBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *MailListBody
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22319,10 +29143,14 @@ func (r GetV0CityByCityNameMailThreadByIdResponse) StatusCode() int {
 }
 
 type DeleteV0CityByCityNameMailByIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22342,10 +29170,13 @@ func (r DeleteV0CityByCityNameMailByIdResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameMailByIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *Message
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *Message
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22365,10 +29196,14 @@ func (r GetV0CityByCityNameMailByIdResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameMailByIdArchiveResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22388,10 +29223,14 @@ func (r PostV0CityByCityNameMailByIdArchiveResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameMailByIdMarkUnreadResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22411,10 +29250,14 @@ func (r PostV0CityByCityNameMailByIdMarkUnreadResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameMailByIdReadResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22434,10 +29277,14 @@ func (r PostV0CityByCityNameMailByIdReadResponse) StatusCode() int {
 }
 
 type ReplyMailResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON201                       *Message
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON201                   *Message
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22456,11 +29303,69 @@ func (r ReplyMailResponse) StatusCode() int {
 	return 0
 }
 
+type TriggerMaintenanceDoltGcResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON202                   *MaintenanceTriggerBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r TriggerMaintenanceDoltGcResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TriggerMaintenanceDoltGcResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetV0CityByCityNameMaintenanceStatusResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *MaintenanceStatusBody
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV0CityByCityNameMaintenanceStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV0CityByCityNameMaintenanceStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetV0CityByCityNameOrderHistoryByBeadIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OrderHistoryDetailResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OrderHistoryDetailResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22480,10 +29385,13 @@ func (r GetV0CityByCityNameOrderHistoryByBeadIdResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameOrderByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OrderResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OrderResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22503,10 +29411,17 @@ func (r GetV0CityByCityNameOrderByNameResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameOrderByNameDisableResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22526,10 +29441,17 @@ func (r PostV0CityByCityNameOrderByNameDisableResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameOrderByNameEnableResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22548,11 +29470,41 @@ func (r PostV0CityByCityNameOrderByNameEnableResponse) StatusCode() int {
 	return 0
 }
 
+type PostV0CityByCityNameOrderByNameRunResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON202                   *OrderRunOutputBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r PostV0CityByCityNameOrderByNameRunResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostV0CityByCityNameOrderByNameRunResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetV0CityByCityNameOrdersResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OrderListBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OrderListBody
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22572,10 +29524,12 @@ func (r GetV0CityByCityNameOrdersResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameOrdersCheckResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OrderCheckListBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OrderCheckListBody
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22595,10 +29549,13 @@ func (r GetV0CityByCityNameOrdersCheckResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameOrdersFeedResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OrdersFeedBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OrdersFeedBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22618,10 +29575,14 @@ func (r GetV0CityByCityNameOrdersFeedResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameOrdersHistoryResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OrderHistoryListBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OrderHistoryListBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22641,10 +29602,13 @@ func (r GetV0CityByCityNameOrdersHistoryResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNamePacksResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *PackListBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *PackListBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22663,11 +29627,75 @@ func (r GetV0CityByCityNamePacksResponse) StatusCode() int {
 	return 0
 }
 
+type AddPackResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON201                   *PackAddedOutputBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON502 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r AddPackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddPackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteV0CityByCityNamePacksByNameResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *PackRemovedOutputBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteV0CityByCityNamePacksByNameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteV0CityByCityNamePacksByNameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteV0CityByCityNamePatchesAgentByBaseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *PatchDeletedResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *PatchDeletedResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22687,10 +29715,12 @@ func (r DeleteV0CityByCityNamePatchesAgentByBaseResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNamePatchesAgentByBaseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *AgentPatch
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *AgentPatch
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22710,10 +29740,16 @@ func (r GetV0CityByCityNamePatchesAgentByBaseResponse) StatusCode() int {
 }
 
 type DeleteV0CityByCityNamePatchesAgentByDirByBaseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *PatchDeletedResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *PatchDeletedResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22733,10 +29769,12 @@ func (r DeleteV0CityByCityNamePatchesAgentByDirByBaseResponse) StatusCode() int 
 }
 
 type GetV0CityByCityNamePatchesAgentByDirByBaseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *AgentPatch
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *AgentPatch
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22756,10 +29794,12 @@ func (r GetV0CityByCityNamePatchesAgentByDirByBaseResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNamePatchesAgentsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodyAgentPatch
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyAgentPatch
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22779,10 +29819,16 @@ func (r GetV0CityByCityNamePatchesAgentsResponse) StatusCode() int {
 }
 
 type PutV0CityByCityNamePatchesAgentsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *PatchOKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *PatchOKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22802,10 +29848,16 @@ func (r PutV0CityByCityNamePatchesAgentsResponse) StatusCode() int {
 }
 
 type DeleteV0CityByCityNamePatchesProviderByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *PatchDeletedResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *PatchDeletedResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22825,10 +29877,12 @@ func (r DeleteV0CityByCityNamePatchesProviderByNameResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNamePatchesProviderByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ProviderPatch
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ProviderPatch
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22848,10 +29902,12 @@ func (r GetV0CityByCityNamePatchesProviderByNameResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNamePatchesProvidersResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodyProviderPatch
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyProviderPatch
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22871,10 +29927,16 @@ func (r GetV0CityByCityNamePatchesProvidersResponse) StatusCode() int {
 }
 
 type PutV0CityByCityNamePatchesProvidersResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *PatchOKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *PatchOKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22894,10 +29956,16 @@ func (r PutV0CityByCityNamePatchesProvidersResponse) StatusCode() int {
 }
 
 type DeleteV0CityByCityNamePatchesRigByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *PatchDeletedResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *PatchDeletedResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22917,10 +29985,12 @@ func (r DeleteV0CityByCityNamePatchesRigByNameResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNamePatchesRigByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *RigPatch
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *RigPatch
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22940,10 +30010,12 @@ func (r GetV0CityByCityNamePatchesRigByNameResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNamePatchesRigsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodyRigPatch
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyRigPatch
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22963,10 +30035,16 @@ func (r GetV0CityByCityNamePatchesRigsResponse) StatusCode() int {
 }
 
 type PutV0CityByCityNamePatchesRigsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *PatchOKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *PatchOKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -22985,11 +30063,40 @@ func (r PutV0CityByCityNamePatchesRigsResponse) StatusCode() int {
 	return 0
 }
 
+type GetV0CityByCityNamePendingResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyCityPendingEntry
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV0CityByCityNamePendingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV0CityByCityNamePendingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetV0CityByCityNameProviderReadinessResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ProviderReadinessResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ProviderReadinessResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23009,10 +30116,17 @@ func (r GetV0CityByCityNameProviderReadinessResponse) StatusCode() int {
 }
 
 type DeleteV0CityByCityNameProviderByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23032,10 +30146,12 @@ func (r DeleteV0CityByCityNameProviderByNameResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameProviderByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ProviderResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ProviderResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23055,10 +30171,17 @@ func (r GetV0CityByCityNameProviderByNameResponse) StatusCode() int {
 }
 
 type PatchV0CityByCityNameProviderByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23078,10 +30201,12 @@ func (r PatchV0CityByCityNameProviderByNameResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameProvidersResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodyProviderResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyProviderResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23101,10 +30226,17 @@ func (r GetV0CityByCityNameProvidersResponse) StatusCode() int {
 }
 
 type CreateProviderResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON201                       *ProviderCreatedOutputBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON201                   *ProviderCreatedOutputBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23124,10 +30256,12 @@ func (r CreateProviderResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameProvidersPublicResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ProviderPublicListBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ProviderPublicListBody
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23147,10 +30281,13 @@ func (r GetV0CityByCityNameProvidersPublicResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameReadinessResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ReadinessResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ReadinessResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23170,10 +30307,16 @@ func (r GetV0CityByCityNameReadinessResponse) StatusCode() int {
 }
 
 type DeleteV0CityByCityNameRigByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23193,10 +30336,12 @@ func (r DeleteV0CityByCityNameRigByNameResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameRigByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *RigResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *RigResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23216,10 +30361,16 @@ func (r GetV0CityByCityNameRigByNameResponse) StatusCode() int {
 }
 
 type PatchV0CityByCityNameRigByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23239,10 +30390,15 @@ func (r PatchV0CityByCityNameRigByNameResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameRigByNameByActionResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *RigActionBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *RigActionBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23262,10 +30418,13 @@ func (r PostV0CityByCityNameRigByNameByActionResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameRigsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodyRigResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyRigResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23285,10 +30444,17 @@ func (r GetV0CityByCityNameRigsResponse) StatusCode() int {
 }
 
 type CreateRigResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON201                       *RigCreatedOutputBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON201                   *RigCreatedOutputBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23307,11 +30473,90 @@ func (r CreateRigResponse) StatusCode() int {
 	return 0
 }
 
+type GetV0CityByCityNameRunsResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *RunsListOutputBody
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV0CityByCityNameRunsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV0CityByCityNameRunsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetV0CityByCityNameRunsByRunIdResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *Run
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV0CityByCityNameRunsByRunIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV0CityByCityNameRunsByRunIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetV0CityByCityNameRunsByRunIdStepsResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *RunStepsOutputBody
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV0CityByCityNameRunsByRunIdStepsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV0CityByCityNameRunsByRunIdStepsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetV0CityByCityNameServiceByNameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *Status
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *Status
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23331,10 +30576,14 @@ func (r GetV0CityByCityNameServiceByNameResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameServiceByNameRestartResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ServiceRestartOutputBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ServiceRestartOutputBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23354,10 +30603,12 @@ func (r PostV0CityByCityNameServiceByNameRestartResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameServicesResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodyStatus
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodyStatus
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23377,10 +30628,14 @@ func (r GetV0CityByCityNameServicesResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameSessionByIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SessionResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *SessionResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23400,10 +30655,17 @@ func (r GetV0CityByCityNameSessionByIdResponse) StatusCode() int {
 }
 
 type PatchV0CityByCityNameSessionByIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SessionResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *SessionResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23423,10 +30685,14 @@ func (r PatchV0CityByCityNameSessionByIdResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameSessionByIdAgentsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SessionAgentListResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *SessionAgentListResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23446,10 +30712,15 @@ func (r GetV0CityByCityNameSessionByIdAgentsResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameSessionByIdAgentsByAgentIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SessionAgentGetResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *SessionAgentGetResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23469,10 +30740,16 @@ func (r GetV0CityByCityNameSessionByIdAgentsByAgentIdResponse) StatusCode() int 
 }
 
 type PostV0CityByCityNameSessionByIdCloseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23492,10 +30769,16 @@ func (r PostV0CityByCityNameSessionByIdCloseResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameSessionByIdKillResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKWithIDResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKWithIDResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23515,10 +30798,15 @@ func (r PostV0CityByCityNameSessionByIdKillResponse) StatusCode() int {
 }
 
 type SendSessionMessageResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON202                       *AsyncAcceptedBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON202                   *AsyncAcceptedBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23538,10 +30826,14 @@ func (r SendSessionMessageResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameSessionByIdPendingResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SessionPendingResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *SessionPendingResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23560,11 +30852,49 @@ func (r GetV0CityByCityNameSessionByIdPendingResponse) StatusCode() int {
 	return 0
 }
 
+type PostV0CityByCityNameSessionByIdPermissionModeResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *SessionResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r PostV0CityByCityNameSessionByIdPermissionModeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostV0CityByCityNameSessionByIdPermissionModeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type PostV0CityByCityNameSessionByIdRenameResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SessionResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *SessionResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23584,10 +30914,17 @@ func (r PostV0CityByCityNameSessionByIdRenameResponse) StatusCode() int {
 }
 
 type RespondSessionResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON202                       *SessionRespondOutputBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON202                   *SessionRespondOutputBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON501 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23607,10 +30944,16 @@ func (r RespondSessionResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameSessionByIdStopResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKWithIDResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKWithIDResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23652,10 +30995,15 @@ func (r StreamSessionResponse) StatusCode() int {
 }
 
 type SubmitSessionResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON202                       *AsyncAcceptedBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON202                   *AsyncAcceptedBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23675,10 +31023,16 @@ func (r SubmitSessionResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameSessionByIdSuspendResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKResponseBody
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23698,10 +31052,14 @@ func (r PostV0CityByCityNameSessionByIdSuspendResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameSessionByIdTranscriptResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SessionTranscriptGetResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *SessionTranscriptGetResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23721,10 +31079,17 @@ func (r GetV0CityByCityNameSessionByIdTranscriptResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameSessionByIdWakeResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKWithIDResponseBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *OKWithIDResponseBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23744,10 +31109,13 @@ func (r PostV0CityByCityNameSessionByIdWakeResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameSessionsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListBodySessionResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *ListBodySessionResponse
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23767,10 +31135,16 @@ func (r GetV0CityByCityNameSessionsResponse) StatusCode() int {
 }
 
 type CreateSessionResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON202                       *AsyncAcceptedBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON202                   *AsyncAcceptedBody
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23790,10 +31164,16 @@ func (r CreateSessionResponse) StatusCode() int {
 }
 
 type PostV0CityByCityNameSlingResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SlingResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *SlingResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON409 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23813,10 +31193,13 @@ func (r PostV0CityByCityNameSlingResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameStatusResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *StatusBody
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *StatusBody
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23858,11 +31241,68 @@ func (r PostV0CityByCityNameUnregisterResponse) StatusCode() int {
 	return 0
 }
 
+type GetV0CityByCityNameWaitByIdResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *WaitView
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV0CityByCityNameWaitByIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV0CityByCityNameWaitByIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetV0CityByCityNameWaitsResponse struct {
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *WaitListBody
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV0CityByCityNameWaitsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV0CityByCityNameWaitsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteV0CityByCityNameWorkflowByWorkflowIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *WorkflowDeleteResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *WorkflowDeleteResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON401 *ErrorModel
+	ApplicationproblemJSON403 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -23882,10 +31322,13 @@ func (r DeleteV0CityByCityNameWorkflowByWorkflowIdResponse) StatusCode() int {
 }
 
 type GetV0CityByCityNameWorkflowByWorkflowIdResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *WorkflowSnapshotResponse
-	ApplicationproblemJSONDefault *ErrorModel
+	Body                      []byte
+	HTTPResponse              *http.Response
+	JSON200                   *WorkflowSnapshotResponse
+	ApplicationproblemJSON400 *ErrorModel
+	ApplicationproblemJSON404 *ErrorModel
+	ApplicationproblemJSON422 *ErrorModel
+	ApplicationproblemJSON500 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -24355,6 +31798,15 @@ func (c *ClientWithResponses) GetV0CityByCityNameConfigWithResponse(ctx context.
 	return ParseGetV0CityByCityNameConfigResponse(rsp)
 }
 
+// GetV0CityByCityNameConfigDefaultsWithResponse request returning *GetV0CityByCityNameConfigDefaultsResponse
+func (c *ClientWithResponses) GetV0CityByCityNameConfigDefaultsWithResponse(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameConfigDefaultsResponse, error) {
+	rsp, err := c.GetV0CityByCityNameConfigDefaults(ctx, cityName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV0CityByCityNameConfigDefaultsResponse(rsp)
+}
+
 // GetV0CityByCityNameConfigExplainWithResponse request returning *GetV0CityByCityNameConfigExplainResponse
 func (c *ClientWithResponses) GetV0CityByCityNameConfigExplainWithResponse(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameConfigExplainResponse, error) {
 	rsp, err := c.GetV0CityByCityNameConfigExplain(ctx, cityName, reqEditors...)
@@ -24493,6 +31945,15 @@ func (c *ClientWithResponses) EmitEventWithResponse(ctx context.Context, cityNam
 		return nil, err
 	}
 	return ParseEmitEventResponse(rsp)
+}
+
+// RotateEventsWithResponse request returning *RotateEventsResponse
+func (c *ClientWithResponses) RotateEventsWithResponse(ctx context.Context, cityName string, params *RotateEventsParams, reqEditors ...RequestEditorFn) (*RotateEventsResponse, error) {
+	rsp, err := c.RotateEvents(ctx, cityName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRotateEventsResponse(rsp)
 }
 
 // StreamEventsWithResponse request returning *StreamEventsResponse
@@ -24737,6 +32198,15 @@ func (c *ClientWithResponses) GetV0CityByCityNameFormulasFeedWithResponse(ctx co
 	return ParseGetV0CityByCityNameFormulasFeedResponse(rsp)
 }
 
+// DeleteV0CityByCityNameFormulasByNameWithResponse request returning *DeleteV0CityByCityNameFormulasByNameResponse
+func (c *ClientWithResponses) DeleteV0CityByCityNameFormulasByNameWithResponse(ctx context.Context, cityName string, name string, params *DeleteV0CityByCityNameFormulasByNameParams, reqEditors ...RequestEditorFn) (*DeleteV0CityByCityNameFormulasByNameResponse, error) {
+	rsp, err := c.DeleteV0CityByCityNameFormulasByName(ctx, cityName, name, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteV0CityByCityNameFormulasByNameResponse(rsp)
+}
+
 // GetV0CityByCityNameFormulasByNameWithResponse request returning *GetV0CityByCityNameFormulasByNameResponse
 func (c *ClientWithResponses) GetV0CityByCityNameFormulasByNameWithResponse(ctx context.Context, cityName string, name string, params *GetV0CityByCityNameFormulasByNameParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameFormulasByNameResponse, error) {
 	rsp, err := c.GetV0CityByCityNameFormulasByName(ctx, cityName, name, params, reqEditors...)
@@ -24744,6 +32214,15 @@ func (c *ClientWithResponses) GetV0CityByCityNameFormulasByNameWithResponse(ctx 
 		return nil, err
 	}
 	return ParseGetV0CityByCityNameFormulasByNameResponse(rsp)
+}
+
+// PutV0CityByCityNameFormulasByNameWithBodyWithResponse request with arbitrary body returning *PutV0CityByCityNameFormulasByNameResponse
+func (c *ClientWithResponses) PutV0CityByCityNameFormulasByNameWithBodyWithResponse(ctx context.Context, cityName string, name string, params *PutV0CityByCityNameFormulasByNameParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutV0CityByCityNameFormulasByNameResponse, error) {
+	rsp, err := c.PutV0CityByCityNameFormulasByNameWithBody(ctx, cityName, name, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutV0CityByCityNameFormulasByNameResponse(rsp)
 }
 
 // PostV0CityByCityNameFormulasByNamePreviewWithBodyWithResponse request with arbitrary body returning *PostV0CityByCityNameFormulasByNamePreviewResponse
@@ -24770,6 +32249,24 @@ func (c *ClientWithResponses) GetV0CityByCityNameFormulasByNameRunsWithResponse(
 		return nil, err
 	}
 	return ParseGetV0CityByCityNameFormulasByNameRunsResponse(rsp)
+}
+
+// GetV0CityByCityNameFormulasByNameSourceWithResponse request returning *GetV0CityByCityNameFormulasByNameSourceResponse
+func (c *ClientWithResponses) GetV0CityByCityNameFormulasByNameSourceWithResponse(ctx context.Context, cityName string, name string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameFormulasByNameSourceResponse, error) {
+	rsp, err := c.GetV0CityByCityNameFormulasByNameSource(ctx, cityName, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV0CityByCityNameFormulasByNameSourceResponse(rsp)
+}
+
+// PostV0CityByCityNameFormulasByNameValidateWithBodyWithResponse request with arbitrary body returning *PostV0CityByCityNameFormulasByNameValidateResponse
+func (c *ClientWithResponses) PostV0CityByCityNameFormulasByNameValidateWithBodyWithResponse(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameFormulasByNameValidateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameFormulasByNameValidateResponse, error) {
+	rsp, err := c.PostV0CityByCityNameFormulasByNameValidateWithBody(ctx, cityName, name, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostV0CityByCityNameFormulasByNameValidateResponse(rsp)
 }
 
 // GetV0CityByCityNameHealthWithResponse request returning *GetV0CityByCityNameHealthResponse
@@ -24887,6 +32384,24 @@ func (c *ClientWithResponses) ReplyMailWithResponse(ctx context.Context, cityNam
 	return ParseReplyMailResponse(rsp)
 }
 
+// TriggerMaintenanceDoltGcWithResponse request returning *TriggerMaintenanceDoltGcResponse
+func (c *ClientWithResponses) TriggerMaintenanceDoltGcWithResponse(ctx context.Context, cityName string, params *TriggerMaintenanceDoltGcParams, reqEditors ...RequestEditorFn) (*TriggerMaintenanceDoltGcResponse, error) {
+	rsp, err := c.TriggerMaintenanceDoltGc(ctx, cityName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTriggerMaintenanceDoltGcResponse(rsp)
+}
+
+// GetV0CityByCityNameMaintenanceStatusWithResponse request returning *GetV0CityByCityNameMaintenanceStatusResponse
+func (c *ClientWithResponses) GetV0CityByCityNameMaintenanceStatusWithResponse(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameMaintenanceStatusResponse, error) {
+	rsp, err := c.GetV0CityByCityNameMaintenanceStatus(ctx, cityName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV0CityByCityNameMaintenanceStatusResponse(rsp)
+}
+
 // GetV0CityByCityNameOrderHistoryByBeadIdWithResponse request returning *GetV0CityByCityNameOrderHistoryByBeadIdResponse
 func (c *ClientWithResponses) GetV0CityByCityNameOrderHistoryByBeadIdWithResponse(ctx context.Context, cityName string, beadId string, params *GetV0CityByCityNameOrderHistoryByBeadIdParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameOrderHistoryByBeadIdResponse, error) {
 	rsp, err := c.GetV0CityByCityNameOrderHistoryByBeadId(ctx, cityName, beadId, params, reqEditors...)
@@ -24921,6 +32436,23 @@ func (c *ClientWithResponses) PostV0CityByCityNameOrderByNameEnableWithResponse(
 		return nil, err
 	}
 	return ParsePostV0CityByCityNameOrderByNameEnableResponse(rsp)
+}
+
+// PostV0CityByCityNameOrderByNameRunWithBodyWithResponse request with arbitrary body returning *PostV0CityByCityNameOrderByNameRunResponse
+func (c *ClientWithResponses) PostV0CityByCityNameOrderByNameRunWithBodyWithResponse(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameOrderByNameRunParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameOrderByNameRunResponse, error) {
+	rsp, err := c.PostV0CityByCityNameOrderByNameRunWithBody(ctx, cityName, name, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostV0CityByCityNameOrderByNameRunResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostV0CityByCityNameOrderByNameRunWithResponse(ctx context.Context, cityName string, name string, params *PostV0CityByCityNameOrderByNameRunParams, body PostV0CityByCityNameOrderByNameRunJSONRequestBody, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameOrderByNameRunResponse, error) {
+	rsp, err := c.PostV0CityByCityNameOrderByNameRun(ctx, cityName, name, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostV0CityByCityNameOrderByNameRunResponse(rsp)
 }
 
 // GetV0CityByCityNameOrdersWithResponse request returning *GetV0CityByCityNameOrdersResponse
@@ -24966,6 +32498,32 @@ func (c *ClientWithResponses) GetV0CityByCityNamePacksWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseGetV0CityByCityNamePacksResponse(rsp)
+}
+
+// AddPackWithBodyWithResponse request with arbitrary body returning *AddPackResponse
+func (c *ClientWithResponses) AddPackWithBodyWithResponse(ctx context.Context, cityName string, params *AddPackParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddPackResponse, error) {
+	rsp, err := c.AddPackWithBody(ctx, cityName, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddPackResponse(rsp)
+}
+
+func (c *ClientWithResponses) AddPackWithResponse(ctx context.Context, cityName string, params *AddPackParams, body AddPackJSONRequestBody, reqEditors ...RequestEditorFn) (*AddPackResponse, error) {
+	rsp, err := c.AddPack(ctx, cityName, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddPackResponse(rsp)
+}
+
+// DeleteV0CityByCityNamePacksByNameWithResponse request returning *DeleteV0CityByCityNamePacksByNameResponse
+func (c *ClientWithResponses) DeleteV0CityByCityNamePacksByNameWithResponse(ctx context.Context, cityName string, name string, params *DeleteV0CityByCityNamePacksByNameParams, reqEditors ...RequestEditorFn) (*DeleteV0CityByCityNamePacksByNameResponse, error) {
+	rsp, err := c.DeleteV0CityByCityNamePacksByName(ctx, cityName, name, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteV0CityByCityNamePacksByNameResponse(rsp)
 }
 
 // DeleteV0CityByCityNamePatchesAgentByBaseWithResponse request returning *DeleteV0CityByCityNamePatchesAgentByBaseResponse
@@ -25118,6 +32676,15 @@ func (c *ClientWithResponses) PutV0CityByCityNamePatchesRigsWithResponse(ctx con
 	return ParsePutV0CityByCityNamePatchesRigsResponse(rsp)
 }
 
+// GetV0CityByCityNamePendingWithResponse request returning *GetV0CityByCityNamePendingResponse
+func (c *ClientWithResponses) GetV0CityByCityNamePendingWithResponse(ctx context.Context, cityName string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNamePendingResponse, error) {
+	rsp, err := c.GetV0CityByCityNamePending(ctx, cityName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV0CityByCityNamePendingResponse(rsp)
+}
+
 // GetV0CityByCityNameProviderReadinessWithResponse request returning *GetV0CityByCityNameProviderReadinessResponse
 func (c *ClientWithResponses) GetV0CityByCityNameProviderReadinessWithResponse(ctx context.Context, cityName string, params *GetV0CityByCityNameProviderReadinessParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameProviderReadinessResponse, error) {
 	rsp, err := c.GetV0CityByCityNameProviderReadiness(ctx, cityName, params, reqEditors...)
@@ -25242,7 +32809,7 @@ func (c *ClientWithResponses) PatchV0CityByCityNameRigByNameWithResponse(ctx con
 }
 
 // PostV0CityByCityNameRigByNameByActionWithResponse request returning *PostV0CityByCityNameRigByNameByActionResponse
-func (c *ClientWithResponses) PostV0CityByCityNameRigByNameByActionWithResponse(ctx context.Context, cityName string, name string, action string, params *PostV0CityByCityNameRigByNameByActionParams, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameRigByNameByActionResponse, error) {
+func (c *ClientWithResponses) PostV0CityByCityNameRigByNameByActionWithResponse(ctx context.Context, cityName string, name string, action PostV0CityByCityNameRigByNameByActionParamsAction, params *PostV0CityByCityNameRigByNameByActionParams, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameRigByNameByActionResponse, error) {
 	rsp, err := c.PostV0CityByCityNameRigByNameByAction(ctx, cityName, name, action, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -25274,6 +32841,33 @@ func (c *ClientWithResponses) CreateRigWithResponse(ctx context.Context, cityNam
 		return nil, err
 	}
 	return ParseCreateRigResponse(rsp)
+}
+
+// GetV0CityByCityNameRunsWithResponse request returning *GetV0CityByCityNameRunsResponse
+func (c *ClientWithResponses) GetV0CityByCityNameRunsWithResponse(ctx context.Context, cityName string, params *GetV0CityByCityNameRunsParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameRunsResponse, error) {
+	rsp, err := c.GetV0CityByCityNameRuns(ctx, cityName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV0CityByCityNameRunsResponse(rsp)
+}
+
+// GetV0CityByCityNameRunsByRunIdWithResponse request returning *GetV0CityByCityNameRunsByRunIdResponse
+func (c *ClientWithResponses) GetV0CityByCityNameRunsByRunIdWithResponse(ctx context.Context, cityName string, runId string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameRunsByRunIdResponse, error) {
+	rsp, err := c.GetV0CityByCityNameRunsByRunId(ctx, cityName, runId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV0CityByCityNameRunsByRunIdResponse(rsp)
+}
+
+// GetV0CityByCityNameRunsByRunIdStepsWithResponse request returning *GetV0CityByCityNameRunsByRunIdStepsResponse
+func (c *ClientWithResponses) GetV0CityByCityNameRunsByRunIdStepsWithResponse(ctx context.Context, cityName string, runId string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameRunsByRunIdStepsResponse, error) {
+	rsp, err := c.GetV0CityByCityNameRunsByRunIdSteps(ctx, cityName, runId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV0CityByCityNameRunsByRunIdStepsResponse(rsp)
 }
 
 // GetV0CityByCityNameServiceByNameWithResponse request returning *GetV0CityByCityNameServiceByNameResponse
@@ -25389,6 +32983,23 @@ func (c *ClientWithResponses) GetV0CityByCityNameSessionByIdPendingWithResponse(
 		return nil, err
 	}
 	return ParseGetV0CityByCityNameSessionByIdPendingResponse(rsp)
+}
+
+// PostV0CityByCityNameSessionByIdPermissionModeWithBodyWithResponse request with arbitrary body returning *PostV0CityByCityNameSessionByIdPermissionModeResponse
+func (c *ClientWithResponses) PostV0CityByCityNameSessionByIdPermissionModeWithBodyWithResponse(ctx context.Context, cityName string, id string, params *PostV0CityByCityNameSessionByIdPermissionModeParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameSessionByIdPermissionModeResponse, error) {
+	rsp, err := c.PostV0CityByCityNameSessionByIdPermissionModeWithBody(ctx, cityName, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostV0CityByCityNameSessionByIdPermissionModeResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostV0CityByCityNameSessionByIdPermissionModeWithResponse(ctx context.Context, cityName string, id string, params *PostV0CityByCityNameSessionByIdPermissionModeParams, body PostV0CityByCityNameSessionByIdPermissionModeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostV0CityByCityNameSessionByIdPermissionModeResponse, error) {
+	rsp, err := c.PostV0CityByCityNameSessionByIdPermissionMode(ctx, cityName, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostV0CityByCityNameSessionByIdPermissionModeResponse(rsp)
 }
 
 // PostV0CityByCityNameSessionByIdRenameWithBodyWithResponse request with arbitrary body returning *PostV0CityByCityNameSessionByIdRenameResponse
@@ -25546,6 +33157,24 @@ func (c *ClientWithResponses) PostV0CityByCityNameUnregisterWithResponse(ctx con
 		return nil, err
 	}
 	return ParsePostV0CityByCityNameUnregisterResponse(rsp)
+}
+
+// GetV0CityByCityNameWaitByIdWithResponse request returning *GetV0CityByCityNameWaitByIdResponse
+func (c *ClientWithResponses) GetV0CityByCityNameWaitByIdWithResponse(ctx context.Context, cityName string, id string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameWaitByIdResponse, error) {
+	rsp, err := c.GetV0CityByCityNameWaitById(ctx, cityName, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV0CityByCityNameWaitByIdResponse(rsp)
+}
+
+// GetV0CityByCityNameWaitsWithResponse request returning *GetV0CityByCityNameWaitsResponse
+func (c *ClientWithResponses) GetV0CityByCityNameWaitsWithResponse(ctx context.Context, cityName string, params *GetV0CityByCityNameWaitsParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameWaitsResponse, error) {
+	rsp, err := c.GetV0CityByCityNameWaits(ctx, cityName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV0CityByCityNameWaitsResponse(rsp)
 }
 
 // DeleteV0CityByCityNameWorkflowByWorkflowIdWithResponse request returning *DeleteV0CityByCityNameWorkflowByWorkflowIdResponse
@@ -25722,12 +33351,26 @@ func ParseGetV0CityByCityNameResponse(rsp *http.Response) (*GetV0CityByCityNameR
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -25755,12 +33398,54 @@ func ParsePatchV0CityByCityNameResponse(rsp *http.Response) (*PatchV0CityByCityN
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -25788,12 +33473,61 @@ func ParseDeleteV0CityByCityNameAgentByBaseResponse(rsp *http.Response) (*Delete
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -25821,12 +33555,26 @@ func ParseGetV0CityByCityNameAgentByBaseResponse(rsp *http.Response) (*GetV0City
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -25854,12 +33602,61 @@ func ParsePatchV0CityByCityNameAgentByBaseResponse(rsp *http.Response) (*PatchV0
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -25887,12 +33684,26 @@ func ParseGetV0CityByCityNameAgentByBaseOutputResponse(rsp *http.Response) (*Get
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -25946,12 +33757,54 @@ func ParsePostV0CityByCityNameAgentByBaseByActionResponse(rsp *http.Response) (*
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -25979,12 +33832,61 @@ func ParseDeleteV0CityByCityNameAgentByDirByBaseResponse(rsp *http.Response) (*D
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -26012,12 +33914,26 @@ func ParseGetV0CityByCityNameAgentByDirByBaseResponse(rsp *http.Response) (*GetV
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26045,12 +33961,61 @@ func ParsePatchV0CityByCityNameAgentByDirByBaseResponse(rsp *http.Response) (*Pa
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -26078,12 +34043,26 @@ func ParseGetV0CityByCityNameAgentByDirByBaseOutputResponse(rsp *http.Response) 
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26137,12 +34116,54 @@ func ParsePostV0CityByCityNameAgentByDirByBaseByActionResponse(rsp *http.Respons
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -26170,12 +34191,26 @@ func ParseGetV0CityByCityNameAgentsResponse(rsp *http.Response) (*GetV0CityByCit
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26203,12 +34238,75 @@ func ParseCreateAgentResponse(rsp *http.Response) (*CreateAgentResponse, error) 
 		}
 		response.JSON201 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON504 = &dest
 
 	}
 
@@ -26236,12 +34334,47 @@ func ParseDeleteV0CityByCityNameBeadByIdResponse(rsp *http.Response) (*DeleteV0C
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26269,12 +34402,33 @@ func ParseGetV0CityByCityNameBeadByIdResponse(rsp *http.Response) (*GetV0CityByC
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -26302,12 +34456,54 @@ func ParsePatchV0CityByCityNameBeadByIdResponse(rsp *http.Response) (*PatchV0Cit
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26335,12 +34531,54 @@ func ParsePostV0CityByCityNameBeadByIdAssignResponse(rsp *http.Response) (*PostV
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26368,12 +34606,47 @@ func ParsePostV0CityByCityNameBeadByIdCloseResponse(rsp *http.Response) (*PostV0
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26401,12 +34674,26 @@ func ParseGetV0CityByCityNameBeadByIdDepsResponse(rsp *http.Response) (*GetV0Cit
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26434,12 +34721,47 @@ func ParsePostV0CityByCityNameBeadByIdReopenResponse(rsp *http.Response) (*PostV
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26467,12 +34789,54 @@ func ParsePostV0CityByCityNameBeadByIdUpdateResponse(rsp *http.Response) (*PostV
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26500,12 +34864,40 @@ func ParseGetV0CityByCityNameBeadsResponse(rsp *http.Response) (*GetV0CityByCity
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -26533,12 +34925,54 @@ func ParseCreateBeadResponse(rsp *http.Response) (*CreateBeadResponse, error) {
 		}
 		response.JSON201 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26566,12 +35000,26 @@ func ParseGetV0CityByCityNameBeadsGraphByRootIdResponse(rsp *http.Response) (*Ge
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26599,12 +35047,33 @@ func ParseGetV0CityByCityNameBeadsReadyResponse(rsp *http.Response) (*GetV0CityB
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -26632,12 +35101,73 @@ func ParseGetV0CityByCityNameConfigResponse(rsp *http.Response) (*GetV0CityByCit
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV0CityByCityNameConfigDefaultsResponse parses an HTTP response from a GetV0CityByCityNameConfigDefaultsWithResponse call
+func ParseGetV0CityByCityNameConfigDefaultsResponse(rsp *http.Response) (*GetV0CityByCityNameConfigDefaultsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV0CityByCityNameConfigDefaultsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ConfigResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26665,12 +35195,26 @@ func ParseGetV0CityByCityNameConfigExplainResponse(rsp *http.Response) (*GetV0Ci
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26698,12 +35242,26 @@ func ParseGetV0CityByCityNameConfigValidateResponse(rsp *http.Response) (*GetV0C
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26731,12 +35289,47 @@ func ParseDeleteV0CityByCityNameConvoyByIdResponse(rsp *http.Response) (*DeleteV
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26764,12 +35357,33 @@ func ParseGetV0CityByCityNameConvoyByIdResponse(rsp *http.Response) (*GetV0CityB
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -26797,12 +35411,47 @@ func ParsePostV0CityByCityNameConvoyByIdAddResponse(rsp *http.Response) (*PostV0
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26830,12 +35479,40 @@ func ParseGetV0CityByCityNameConvoyByIdCheckResponse(rsp *http.Response) (*GetV0
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -26863,12 +35540,47 @@ func ParsePostV0CityByCityNameConvoyByIdCloseResponse(rsp *http.Response) (*Post
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26896,12 +35608,47 @@ func ParsePostV0CityByCityNameConvoyByIdRemoveResponse(rsp *http.Response) (*Pos
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26929,12 +35676,33 @@ func ParseGetV0CityByCityNameConvoysResponse(rsp *http.Response) (*GetV0CityByCi
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -26962,12 +35730,54 @@ func ParseCreateConvoyResponse(rsp *http.Response) (*CreateConvoyResponse, error
 		}
 		response.JSON201 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -26995,12 +35805,33 @@ func ParseGetV0CityByCityNameEventsResponse(rsp *http.Response) (*GetV0CityByCit
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -27028,12 +35859,115 @@ func ParseEmitEventResponse(rsp *http.Response) (*EmitEventResponse, error) {
 		}
 		response.JSON201 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRotateEventsResponse parses an HTTP response from a RotateEventsWithResponse call
+func ParseRotateEventsResponse(rsp *http.Response) (*RotateEventsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RotateEventsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EventRotateResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 405:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON405 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -27087,12 +36021,47 @@ func ParseDeleteV0CityByCityNameExtmsgAdaptersResponse(rsp *http.Response) (*Del
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27120,12 +36089,33 @@ func ParseGetV0CityByCityNameExtmsgAdaptersResponse(rsp *http.Response) (*GetV0C
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27153,12 +36143,47 @@ func ParseRegisterExtmsgAdapterResponse(rsp *http.Response) (*RegisterExtmsgAdap
 		}
 		response.JSON201 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27186,12 +36211,61 @@ func ParsePostV0CityByCityNameExtmsgBindResponse(rsp *http.Response) (*PostV0Cit
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27219,12 +36293,40 @@ func ParseGetV0CityByCityNameExtmsgBindingsResponse(rsp *http.Response) (*GetV0C
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27252,12 +36354,33 @@ func ParseGetV0CityByCityNameExtmsgGroupsResponse(rsp *http.Response) (*GetV0Cit
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27285,12 +36408,47 @@ func ParseEnsureExtmsgGroupResponse(rsp *http.Response) (*EnsureExtmsgGroupRespo
 		}
 		response.JSON201 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27318,12 +36476,54 @@ func ParsePostV0CityByCityNameExtmsgInboundResponse(rsp *http.Response) (*PostV0
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27351,12 +36551,47 @@ func ParsePostV0CityByCityNameExtmsgOutboundResponse(rsp *http.Response) (*PostV
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27384,12 +36619,47 @@ func ParseDeleteV0CityByCityNameExtmsgParticipantsResponse(rsp *http.Response) (
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27417,12 +36687,47 @@ func ParsePostV0CityByCityNameExtmsgParticipantsResponse(rsp *http.Response) (*P
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27450,12 +36755,33 @@ func ParseGetV0CityByCityNameExtmsgTranscriptResponse(rsp *http.Response) (*GetV
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27483,12 +36809,47 @@ func ParsePostV0CityByCityNameExtmsgTranscriptAckResponse(rsp *http.Response) (*
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27516,12 +36877,54 @@ func ParsePostV0CityByCityNameExtmsgUnbindResponse(rsp *http.Response) (*PostV0C
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27549,12 +36952,40 @@ func ParseGetV0CityByCityNameFormulaByNameResponse(rsp *http.Response) (*GetV0Ci
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27582,12 +37013,40 @@ func ParseGetV0CityByCityNameFormulasResponse(rsp *http.Response) (*GetV0CityByC
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27615,12 +37074,115 @@ func ParseGetV0CityByCityNameFormulasFeedResponse(rsp *http.Response) (*GetV0Cit
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteV0CityByCityNameFormulasByNameResponse parses an HTTP response from a DeleteV0CityByCityNameFormulasByNameWithResponse call
+func ParseDeleteV0CityByCityNameFormulasByNameResponse(rsp *http.Response) (*DeleteV0CityByCityNameFormulasByNameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteV0CityByCityNameFormulasByNameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKResponseBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -27648,12 +37210,122 @@ func ParseGetV0CityByCityNameFormulasByNameResponse(rsp *http.Response) (*GetV0C
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutV0CityByCityNameFormulasByNameResponse parses an HTTP response from a PutV0CityByCityNameFormulasByNameWithResponse call
+func ParsePutV0CityByCityNameFormulasByNameResponse(rsp *http.Response) (*PutV0CityByCityNameFormulasByNameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutV0CityByCityNameFormulasByNameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKResponseBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -27681,12 +37353,54 @@ func ParsePostV0CityByCityNameFormulasByNamePreviewResponse(rsp *http.Response) 
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27714,12 +37428,169 @@ func ParseGetV0CityByCityNameFormulasByNameRunsResponse(rsp *http.Response) (*Ge
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV0CityByCityNameFormulasByNameSourceResponse parses an HTTP response from a GetV0CityByCityNameFormulasByNameSourceWithResponse call
+func ParseGetV0CityByCityNameFormulasByNameSourceResponse(rsp *http.Response) (*GetV0CityByCityNameFormulasByNameSourceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV0CityByCityNameFormulasByNameSourceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FormulaSourceOutputBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostV0CityByCityNameFormulasByNameValidateResponse parses an HTTP response from a PostV0CityByCityNameFormulasByNameValidateWithResponse call
+func ParsePostV0CityByCityNameFormulasByNameValidateResponse(rsp *http.Response) (*PostV0CityByCityNameFormulasByNameValidateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostV0CityByCityNameFormulasByNameValidateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FormulaValidateOutputBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -27747,12 +37618,26 @@ func ParseGetV0CityByCityNameHealthResponse(rsp *http.Response) (*GetV0CityByCit
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -27780,12 +37665,40 @@ func ParseGetV0CityByCityNameMailResponse(rsp *http.Response) (*GetV0CityByCityN
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27813,12 +37726,54 @@ func ParseSendMailResponse(rsp *http.Response) (*SendMailResponse, error) {
 		}
 		response.JSON201 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -27846,12 +37801,33 @@ func ParseGetV0CityByCityNameMailCountResponse(rsp *http.Response) (*GetV0CityBy
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27879,12 +37855,33 @@ func ParseGetV0CityByCityNameMailThreadByIdResponse(rsp *http.Response) (*GetV0C
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27912,12 +37909,40 @@ func ParseDeleteV0CityByCityNameMailByIdResponse(rsp *http.Response) (*DeleteV0C
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -27945,12 +37970,33 @@ func ParseGetV0CityByCityNameMailByIdResponse(rsp *http.Response) (*GetV0CityByC
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -27978,12 +38024,40 @@ func ParsePostV0CityByCityNameMailByIdArchiveResponse(rsp *http.Response) (*Post
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28011,12 +38085,40 @@ func ParsePostV0CityByCityNameMailByIdMarkUnreadResponse(rsp *http.Response) (*P
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28044,12 +38146,40 @@ func ParsePostV0CityByCityNameMailByIdReadResponse(rsp *http.Response) (*PostV0C
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28077,12 +38207,169 @@ func ParseReplyMailResponse(rsp *http.Response) (*ReplyMailResponse, error) {
 		}
 		response.JSON201 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTriggerMaintenanceDoltGcResponse parses an HTTP response from a TriggerMaintenanceDoltGcWithResponse call
+func ParseTriggerMaintenanceDoltGcResponse(rsp *http.Response) (*TriggerMaintenanceDoltGcResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TriggerMaintenanceDoltGcResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest MaintenanceTriggerBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV0CityByCityNameMaintenanceStatusResponse parses an HTTP response from a GetV0CityByCityNameMaintenanceStatusWithResponse call
+func ParseGetV0CityByCityNameMaintenanceStatusResponse(rsp *http.Response) (*GetV0CityByCityNameMaintenanceStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV0CityByCityNameMaintenanceStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MaintenanceStatusBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -28110,12 +38397,33 @@ func ParseGetV0CityByCityNameOrderHistoryByBeadIdResponse(rsp *http.Response) (*
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -28143,12 +38451,33 @@ func ParseGetV0CityByCityNameOrderByNameResponse(rsp *http.Response) (*GetV0City
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28176,12 +38505,61 @@ func ParsePostV0CityByCityNameOrderByNameDisableResponse(rsp *http.Response) (*P
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -28209,12 +38587,129 @@ func ParsePostV0CityByCityNameOrderByNameEnableResponse(rsp *http.Response) (*Po
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostV0CityByCityNameOrderByNameRunResponse parses an HTTP response from a PostV0CityByCityNameOrderByNameRunWithResponse call
+func ParsePostV0CityByCityNameOrderByNameRunResponse(rsp *http.Response) (*PostV0CityByCityNameOrderByNameRunResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostV0CityByCityNameOrderByNameRunResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest OrderRunOutputBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -28242,12 +38737,26 @@ func ParseGetV0CityByCityNameOrdersResponse(rsp *http.Response) (*GetV0CityByCit
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28275,12 +38784,26 @@ func ParseGetV0CityByCityNameOrdersCheckResponse(rsp *http.Response) (*GetV0City
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28308,12 +38831,33 @@ func ParseGetV0CityByCityNameOrdersFeedResponse(rsp *http.Response) (*GetV0CityB
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28341,12 +38885,40 @@ func ParseGetV0CityByCityNameOrdersHistoryResponse(rsp *http.Response) (*GetV0Ci
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -28374,12 +38946,183 @@ func ParseGetV0CityByCityNamePacksResponse(rsp *http.Response) (*GetV0CityByCity
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddPackResponse parses an HTTP response from a AddPackWithResponse call
+func ParseAddPackResponse(rsp *http.Response) (*AddPackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddPackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest PackAddedOutputBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON502 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteV0CityByCityNamePacksByNameResponse parses an HTTP response from a DeleteV0CityByCityNamePacksByNameWithResponse call
+func ParseDeleteV0CityByCityNamePacksByNameResponse(rsp *http.Response) (*DeleteV0CityByCityNamePacksByNameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteV0CityByCityNamePacksByNameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PackRemovedOutputBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28407,12 +39150,54 @@ func ParseDeleteV0CityByCityNamePatchesAgentByBaseResponse(rsp *http.Response) (
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -28440,12 +39225,26 @@ func ParseGetV0CityByCityNamePatchesAgentByBaseResponse(rsp *http.Response) (*Ge
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28473,12 +39272,54 @@ func ParseDeleteV0CityByCityNamePatchesAgentByDirByBaseResponse(rsp *http.Respon
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -28506,12 +39347,26 @@ func ParseGetV0CityByCityNamePatchesAgentByDirByBaseResponse(rsp *http.Response)
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28539,12 +39394,26 @@ func ParseGetV0CityByCityNamePatchesAgentsResponse(rsp *http.Response) (*GetV0Ci
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28572,12 +39441,54 @@ func ParsePutV0CityByCityNamePatchesAgentsResponse(rsp *http.Response) (*PutV0Ci
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -28605,12 +39516,54 @@ func ParseDeleteV0CityByCityNamePatchesProviderByNameResponse(rsp *http.Response
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -28638,12 +39591,26 @@ func ParseGetV0CityByCityNamePatchesProviderByNameResponse(rsp *http.Response) (
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28671,12 +39638,26 @@ func ParseGetV0CityByCityNamePatchesProvidersResponse(rsp *http.Response) (*GetV
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28704,12 +39685,54 @@ func ParsePutV0CityByCityNamePatchesProvidersResponse(rsp *http.Response) (*PutV
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -28737,12 +39760,54 @@ func ParseDeleteV0CityByCityNamePatchesRigByNameResponse(rsp *http.Response) (*D
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -28770,12 +39835,26 @@ func ParseGetV0CityByCityNamePatchesRigByNameResponse(rsp *http.Response) (*GetV
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28803,12 +39882,26 @@ func ParseGetV0CityByCityNamePatchesRigsResponse(rsp *http.Response) (*GetV0City
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28836,12 +39929,108 @@ func ParsePutV0CityByCityNamePatchesRigsResponse(rsp *http.Response) (*PutV0City
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV0CityByCityNamePendingResponse parses an HTTP response from a GetV0CityByCityNamePendingWithResponse call
+func ParseGetV0CityByCityNamePendingResponse(rsp *http.Response) (*GetV0CityByCityNamePendingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV0CityByCityNamePendingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListBodyCityPendingEntry
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -28869,12 +40058,33 @@ func ParseGetV0CityByCityNameProviderReadinessResponse(rsp *http.Response) (*Get
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28902,12 +40112,61 @@ func ParseDeleteV0CityByCityNameProviderByNameResponse(rsp *http.Response) (*Del
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -28935,12 +40194,26 @@ func ParseGetV0CityByCityNameProviderByNameResponse(rsp *http.Response) (*GetV0C
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -28968,12 +40241,61 @@ func ParsePatchV0CityByCityNameProviderByNameResponse(rsp *http.Response) (*Patc
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -29001,12 +40323,26 @@ func ParseGetV0CityByCityNameProvidersResponse(rsp *http.Response) (*GetV0CityBy
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -29034,12 +40370,61 @@ func ParseCreateProviderResponse(rsp *http.Response) (*CreateProviderResponse, e
 		}
 		response.JSON201 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -29067,12 +40452,26 @@ func ParseGetV0CityByCityNameProvidersPublicResponse(rsp *http.Response) (*GetV0
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -29100,12 +40499,33 @@ func ParseGetV0CityByCityNameReadinessResponse(rsp *http.Response) (*GetV0CityBy
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -29133,12 +40553,54 @@ func ParseDeleteV0CityByCityNameRigByNameResponse(rsp *http.Response) (*DeleteV0
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -29166,12 +40628,26 @@ func ParseGetV0CityByCityNameRigByNameResponse(rsp *http.Response) (*GetV0CityBy
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -29199,12 +40675,54 @@ func ParsePatchV0CityByCityNameRigByNameResponse(rsp *http.Response) (*PatchV0Ci
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -29232,12 +40750,47 @@ func ParsePostV0CityByCityNameRigByNameByActionResponse(rsp *http.Response) (*Po
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
 
 	}
 
@@ -29265,12 +40818,33 @@ func ParseGetV0CityByCityNameRigsResponse(rsp *http.Response) (*GetV0CityByCityN
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29298,12 +40872,216 @@ func ParseCreateRigResponse(rsp *http.Response) (*CreateRigResponse, error) {
 		}
 		response.JSON201 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV0CityByCityNameRunsResponse parses an HTTP response from a GetV0CityByCityNameRunsWithResponse call
+func ParseGetV0CityByCityNameRunsResponse(rsp *http.Response) (*GetV0CityByCityNameRunsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV0CityByCityNameRunsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RunsListOutputBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV0CityByCityNameRunsByRunIdResponse parses an HTTP response from a GetV0CityByCityNameRunsByRunIdWithResponse call
+func ParseGetV0CityByCityNameRunsByRunIdResponse(rsp *http.Response) (*GetV0CityByCityNameRunsByRunIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV0CityByCityNameRunsByRunIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Run
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV0CityByCityNameRunsByRunIdStepsResponse parses an HTTP response from a GetV0CityByCityNameRunsByRunIdStepsWithResponse call
+func ParseGetV0CityByCityNameRunsByRunIdStepsResponse(rsp *http.Response) (*GetV0CityByCityNameRunsByRunIdStepsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV0CityByCityNameRunsByRunIdStepsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RunStepsOutputBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29331,12 +41109,26 @@ func ParseGetV0CityByCityNameServiceByNameResponse(rsp *http.Response) (*GetV0Ci
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -29364,12 +41156,40 @@ func ParsePostV0CityByCityNameServiceByNameRestartResponse(rsp *http.Response) (
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -29397,12 +41217,26 @@ func ParseGetV0CityByCityNameServicesResponse(rsp *http.Response) (*GetV0CityByC
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -29430,12 +41264,40 @@ func ParseGetV0CityByCityNameSessionByIdResponse(rsp *http.Response) (*GetV0City
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29463,12 +41325,61 @@ func ParsePatchV0CityByCityNameSessionByIdResponse(rsp *http.Response) (*PatchV0
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29496,12 +41407,40 @@ func ParseGetV0CityByCityNameSessionByIdAgentsResponse(rsp *http.Response) (*Get
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29529,12 +41468,47 @@ func ParseGetV0CityByCityNameSessionByIdAgentsByAgentIdResponse(rsp *http.Respon
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29562,12 +41536,54 @@ func ParsePostV0CityByCityNameSessionByIdCloseResponse(rsp *http.Response) (*Pos
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29595,12 +41611,54 @@ func ParsePostV0CityByCityNameSessionByIdKillResponse(rsp *http.Response) (*Post
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29628,12 +41686,47 @@ func ParseSendSessionMessageResponse(rsp *http.Response) (*SendSessionMessageRes
 		}
 		response.JSON202 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29661,12 +41754,129 @@ func ParseGetV0CityByCityNameSessionByIdPendingResponse(rsp *http.Response) (*Ge
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostV0CityByCityNameSessionByIdPermissionModeResponse parses an HTTP response from a PostV0CityByCityNameSessionByIdPermissionModeWithResponse call
+func ParsePostV0CityByCityNameSessionByIdPermissionModeResponse(rsp *http.Response) (*PostV0CityByCityNameSessionByIdPermissionModeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostV0CityByCityNameSessionByIdPermissionModeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SessionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29694,12 +41904,61 @@ func ParsePostV0CityByCityNameSessionByIdRenameResponse(rsp *http.Response) (*Po
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29727,12 +41986,61 @@ func ParseRespondSessionResponse(rsp *http.Response) (*RespondSessionResponse, e
 		}
 		response.JSON202 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29760,12 +42068,54 @@ func ParsePostV0CityByCityNameSessionByIdStopResponse(rsp *http.Response) (*Post
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29819,12 +42169,47 @@ func ParseSubmitSessionResponse(rsp *http.Response) (*SubmitSessionResponse, err
 		}
 		response.JSON202 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29852,12 +42237,54 @@ func ParsePostV0CityByCityNameSessionByIdSuspendResponse(rsp *http.Response) (*P
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29885,12 +42312,40 @@ func ParseGetV0CityByCityNameSessionByIdTranscriptResponse(rsp *http.Response) (
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29918,12 +42373,61 @@ func ParsePostV0CityByCityNameSessionByIdWakeResponse(rsp *http.Response) (*Post
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29951,12 +42455,33 @@ func ParseGetV0CityByCityNameSessionsResponse(rsp *http.Response) (*GetV0CityByC
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -29984,12 +42509,54 @@ func ParseCreateSessionResponse(rsp *http.Response) (*CreateSessionResponse, err
 		}
 		response.JSON202 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -30017,12 +42584,54 @@ func ParsePostV0CityByCityNameSlingResponse(rsp *http.Response) (*PostV0CityByCi
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -30050,12 +42659,33 @@ func ParseGetV0CityByCityNameStatusResponse(rsp *http.Response) (*GetV0CityByCit
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 
@@ -30095,6 +42725,114 @@ func ParsePostV0CityByCityNameUnregisterResponse(rsp *http.Response) (*PostV0Cit
 	return response, nil
 }
 
+// ParseGetV0CityByCityNameWaitByIdResponse parses an HTTP response from a GetV0CityByCityNameWaitByIdWithResponse call
+func ParseGetV0CityByCityNameWaitByIdResponse(rsp *http.Response) (*GetV0CityByCityNameWaitByIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV0CityByCityNameWaitByIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WaitView
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV0CityByCityNameWaitsResponse parses an HTTP response from a GetV0CityByCityNameWaitsWithResponse call
+func ParseGetV0CityByCityNameWaitsResponse(rsp *http.Response) (*GetV0CityByCityNameWaitsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV0CityByCityNameWaitsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WaitListBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteV0CityByCityNameWorkflowByWorkflowIdResponse parses an HTTP response from a DeleteV0CityByCityNameWorkflowByWorkflowIdWithResponse call
 func ParseDeleteV0CityByCityNameWorkflowByWorkflowIdResponse(rsp *http.Response) (*DeleteV0CityByCityNameWorkflowByWorkflowIdResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -30116,12 +42854,47 @@ func ParseDeleteV0CityByCityNameWorkflowByWorkflowIdResponse(rsp *http.Response)
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 
@@ -30149,12 +42922,33 @@ func ParseGetV0CityByCityNameWorkflowByWorkflowIdResponse(rsp *http.Response) (*
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.ApplicationproblemJSONDefault = &dest
+		response.ApplicationproblemJSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON500 = &dest
 
 	}
 

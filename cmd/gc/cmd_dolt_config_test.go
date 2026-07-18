@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/doctor"
 	"gopkg.in/yaml.v3"
 )
@@ -37,8 +38,15 @@ func TestDoltConfigWriteManagedCmd(t *testing.T) {
 		"host: 127.0.0.1",
 		`data_dir: "/tmp/city/.beads/dolt"`,
 		"archive_level: 0",
+		"enable: true",
 		"back_log: 50",
 		"max_connections_timeout_millis: 5000",
+		`dolt_auto_gc_enabled: "ON"`,
+		`dolt_stats_enabled: "OFF"`,
+		`dolt_stats_gc_enabled: "OFF"`,
+		`dolt_stats_memory_only: "ON"`,
+		`dolt_stats_paused: "ON"`,
+		`wait_timeout: "30"`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("config missing %q:\n%s", want, text)
@@ -48,7 +56,7 @@ func TestDoltConfigWriteManagedCmd(t *testing.T) {
 
 func TestDoltConfigWriterIncludesDoctorExpectedCoreValues(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "packs", "dolt", "dolt-config.yaml")
-	if err := writeManagedDoltConfigFile(configPath, "127.0.0.1", "3311", "/tmp/city/.beads/dolt", "warning", 0); err != nil {
+	if err := writeManagedDoltConfigFile(configPath, "127.0.0.1", "3311", "/tmp/city/.beads/dolt", "warning", config.DoltConfig{}); err != nil {
 		t.Fatalf("writeManagedDoltConfigFile: %v", err)
 	}
 
@@ -68,6 +76,31 @@ func TestDoltConfigWriterIncludesDoctorExpectedCoreValues(t *testing.T) {
 		}
 		if !testYAMLValueEqual(got, exp.Value) {
 			t.Fatalf("managed config %s = %v (%T), want %v (%T)", exp.Path, got, got, exp.Value, exp.Value)
+		}
+	}
+}
+
+func TestWriteManagedDoltConfigFile_UsesCityDoltListenerOverrides(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "packs", "dolt", "dolt-config.yaml")
+	if err := writeManagedDoltConfigFile(configPath, "127.0.0.1", "3311", "/tmp/dolt-data", "warning", config.DoltConfig{
+		ReadTimeoutMillis:  300000,
+		WriteTimeoutMillis: 600000,
+		MaxConnections:     1024,
+	}); err != nil {
+		t.Fatalf("writeManagedDoltConfigFile: %v", err)
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	text := string(data)
+	for _, want := range []string{
+		"read_timeout_millis: 300000",
+		"write_timeout_millis: 600000",
+		"max_connections: 1024",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("config missing %q:\n%s", want, text)
 		}
 	}
 }
@@ -134,9 +167,59 @@ func TestDoltConfigWriteManagedCmd_ExplicitArchiveLevel(t *testing.T) {
 	}
 }
 
+func TestDoltConfigWriteManagedCmd_AutoGCCanBeDisabled(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "packs", "dolt", "dolt-config.yaml")
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"dolt-config", "write-managed",
+		"--file", configPath,
+		"--host", "127.0.0.1",
+		"--port", "3311",
+		"--data-dir", "/tmp/city/.beads/dolt",
+		"--auto-gc-enabled=false",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("run() = %d, stderr = %s", code, stderr.String())
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%s): %v", configPath, err)
+	}
+	text := string(data)
+	for _, want := range []string{
+		"enable: false",
+		`dolt_auto_gc_enabled: "OFF"`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("config missing %q:\n%s", want, text)
+		}
+	}
+}
+
+func TestWriteManagedDoltConfigFile_AutoGCDefaultsOn(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "packs", "dolt", "dolt-config.yaml")
+	if err := writeManagedDoltConfigFile(configPath, "127.0.0.1", "3311", "/tmp/dolt-data", "warning", config.DoltConfig{}); err != nil {
+		t.Fatalf("writeManagedDoltConfigFile: %v", err)
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	text := string(data)
+	for _, want := range []string{
+		"enable: true",
+		`dolt_auto_gc_enabled: "ON"`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("config missing %q:\n%s", want, text)
+		}
+	}
+}
+
 func TestWriteManagedDoltConfigFile_DefaultLogLevel(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "packs", "dolt", "dolt-config.yaml")
-	if err := writeManagedDoltConfigFile(configPath, "127.0.0.1", "3311", "/tmp/dolt-data", "", 0); err != nil {
+	if err := writeManagedDoltConfigFile(configPath, "127.0.0.1", "3311", "/tmp/dolt-data", "", config.DoltConfig{}); err != nil {
 		t.Fatalf("writeManagedDoltConfigFile: %v", err)
 	}
 	data, err := os.ReadFile(configPath)
@@ -146,6 +229,21 @@ func TestWriteManagedDoltConfigFile_DefaultLogLevel(t *testing.T) {
 	text := string(data)
 	if !strings.Contains(text, "log_level: warning") {
 		t.Fatalf("empty logLevel should default to warning, got:\n%s", text)
+	}
+}
+
+func TestWriteManagedDoltConfigFile_WaitTimeoutCanBeDisabled(t *testing.T) {
+	t.Setenv("GC_DOLT_WAIT_TIMEOUT", "-1")
+	configPath := filepath.Join(t.TempDir(), "packs", "dolt", "dolt-config.yaml")
+	if err := writeManagedDoltConfigFile(configPath, "127.0.0.1", "3311", "/tmp/dolt-data", "", config.DoltConfig{}); err != nil {
+		t.Fatalf("writeManagedDoltConfigFile: %v", err)
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if strings.Contains(string(data), "wait_timeout") {
+		t.Fatalf("negative GC_DOLT_WAIT_TIMEOUT should disable wait_timeout override:\n%s", data)
 	}
 }
 

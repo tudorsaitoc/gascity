@@ -84,7 +84,7 @@ func TestPhase0SessionResolution_ConfiguredNamedConflictFailsClosed(t *testing.T
 }
 
 func TestPhase0SessionResolution_DoesNotImplicitlyMaterializeSingletonConfig(t *testing.T) {
-	t.Setenv("GC_SESSION", "phase0")
+	t.Setenv("GC_SESSION", "fake")
 
 	store := beads.NewMemStore()
 	cfg := &config.City{
@@ -111,7 +111,7 @@ func TestPhase0SessionResolution_DoesNotImplicitlyMaterializeSingletonConfig(t *
 }
 
 func TestPhase0SessionResolution_RigScopedBareNamedIdentityRequiresAmbientRig(t *testing.T) {
-	t.Setenv("GC_SESSION", "phase0")
+	t.Setenv("GC_SESSION", "fake")
 	t.Setenv("GC_DIR", t.TempDir())
 
 	store := beads.NewMemStore()
@@ -150,9 +150,9 @@ func TestPhase0SessionResolution_RigScopedBareNamedIdentityRequiresAmbientRig(t 
 func TestPhase0CanonicalMetadata_ManualCreateWritesSessionOrigin(t *testing.T) {
 	store := beads.NewMemStore()
 	sp := runtime.NewFake()
-	mgr := session.NewManager(store, sp)
+	mgr := session.NewManagerWithOptions(store, sp)
 
-	info, err := mgr.Create(context.Background(), "worker", "Worker", "echo test", t.TempDir(), "test-provider", nil, session.ProviderResume{}, runtime.Config{})
+	info, err := mgr.CreateSession(context.Background(), session.CreateOptions{Template: "worker", Title: "Worker", Command: "echo test", WorkDir: t.TempDir(), Provider: "test-provider", Env: nil, Resume: session.ProviderResume{}, Hints: runtime.Config{}, ExtraMeta: map[string]string{"session_origin": "manual"}})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestPhase0CanonicalMetadata_ManualCreateWritesSessionOrigin(t *testing.T) {
 }
 
 func TestPhase0CanonicalMetadata_NamedMaterializationWritesNamedOriginWithoutLegacyManualFlag(t *testing.T) {
-	t.Setenv("GC_SESSION", "phase0")
+	t.Setenv("GC_SESSION", "fake")
 
 	store := beads.NewMemStore()
 	cfg := &config.City{
@@ -202,7 +202,7 @@ func TestPhase0CanonicalMetadata_NamedMaterializationWritesNamedOriginWithoutLeg
 }
 
 func TestPhase0CanonicalMetadata_TemplateFactoryMaterializationWritesEphemeralOriginWithoutLegacyPoolFlags(t *testing.T) {
-	t.Setenv("GC_SESSION", "phase0")
+	t.Setenv("GC_SESSION", "fake")
 
 	store := beads.NewMemStore()
 	cfg := &config.City{

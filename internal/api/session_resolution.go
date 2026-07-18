@@ -79,18 +79,6 @@ func apiCityName(cfg *config.City, cityPath string) string {
 	return config.EffectiveCityName(cfg, filepath.Base(cityPath))
 }
 
-func apiIsNamedSessionBead(b beads.Bead) bool {
-	return session.IsNamedSessionBead(b)
-}
-
-func apiNamedSessionIdentity(b beads.Bead) string {
-	return session.NamedSessionIdentity(b)
-}
-
-func apiNamedSessionContinuityEligible(b beads.Bead) bool {
-	return session.NamedSessionContinuityEligible(b)
-}
-
 func (s *Server) findNamedSessionSpecForTarget(_ beads.Store, target string) (apiNamedSessionSpec, bool, error) {
 	cfg := s.state.Config()
 	target = apiNormalizeSessionTarget(target)
@@ -143,55 +131,63 @@ func (s *Server) findCanonicalNamedSession(store beads.Store, spec apiNamedSessi
 	return bead, ok, nil
 }
 
-func (s *Server) retireContinuityIneligibleNamedSessionIdentifiers(store beads.Store, spec apiNamedSessionSpec) ([]beads.Bead, error) {
+func (s *Server) retireContinuityIneligibleNamedSessionIdentifiers(store beads.Store, spec apiNamedSessionSpec) ([]session.Info, error) {
 	if store == nil {
 		return nil, nil
 	}
-	all, err := session.ExactMetadataSessionCandidates(store, false, map[string]string{
+	// Typed candidate feed: ExactMetadataSessionCandidatesInfo projects each
+	// candidate through the codec ONCE inside the session edge, so this retire
+	// lane reads only session.Info fields — no raw bead is cracked here and no
+	// b.Metadata key is inlined (the census-honest replacement for the old raw
+	// codec projection of SessionNameMetadata per candidate).
+	all, err := session.ExactMetadataSessionCandidatesInfo(store, false, map[string]string{
 		session.NamedSessionIdentityMetadata: spec.Identity,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listing named session candidates: %w", err)
 	}
-	retired := make([]beads.Bead, 0)
+	retired := make([]session.Info, 0)
 	now := time.Now().UTC()
-	for _, b := range all {
-		if b.Status == "closed" || !apiIsNamedSessionBead(b) || apiNamedSessionIdentity(b) != spec.Identity || apiNamedSessionContinuityEligible(b) {
+	for _, info := range all {
+		if info.Closed || !session.IsNamedSessionInfo(info) || session.NamedSessionIdentityInfo(info) != spec.Identity || session.NamedSessionInfoContinuityEligible(info) {
 			continue
 		}
-		if session.LifecycleIdentityReleased(b.Status, b.Metadata) {
-			retired = append(retired, b)
+		if session.LifecycleIdentityReleasedInfo(info) {
+			retired = append(retired, info)
 			continue
 		}
-		if sessionName := strings.TrimSpace(b.Metadata["session_name"]); sessionName != "" && s.state.SessionProvider() != nil {
-			if handle, err := s.workerHandleForSession(store, b.ID); err == nil {
+		if sessionName := strings.TrimSpace(info.SessionNameMetadata); sessionName != "" && s.state.SessionProvider() != nil {
+			if handle, err := s.workerHandleForSession(store, info.ID); err == nil {
 				_ = handle.Kill(context.Background())
 			}
 		}
 		patch := session.RetireNamedSessionPatch(now, "continuity-ineligible-replacement", spec.Identity)
 		patch["alias_history"] = ""
-		if err := store.SetMetadataBatch(b.ID, patch); err != nil {
-			return nil, fmt.Errorf("retiring continuity-ineligible named session identifiers on %s: %w", b.ID, err)
+		if err := store.SetMetadataBatch(info.ID, patch); err != nil {
+			return nil, fmt.Errorf("retiring continuity-ineligible named session identifiers on %s: %w", info.ID, err)
 		}
-		retired = append(retired, b)
+		retired = append(retired, info)
 	}
 	return retired, nil
 }
 
-func (s *Server) reassignContinuityIneligibleNamedSessionState(ctx context.Context, store beads.Store, retired []beads.Bead, replacementID string) error {
+func (s *Server) reassignContinuityIneligibleNamedSessionState(ctx context.Context, store beads.Store, retired []session.Info, replacementID string) error {
 	if store == nil || strings.TrimSpace(replacementID) == "" {
 		return nil
 	}
 	now := time.Now().UTC()
-	for _, b := range retired {
-		if err := reassignOpenWorkAssignedToSession(store, b.ID, replacementID); err != nil {
+	for _, info := range retired {
+		if err := reassignOpenWorkAssignedToSession(store, info.ID, replacementID); err != nil {
 			return err
 		}
-		if err := session.ReassignWaits(store, b.ID, replacementID); err != nil {
-			return fmt.Errorf("reassign waits from retired session %s to %s: %w", b.ID, replacementID, err)
+		if err := session.NewStore(beads.SessionStore{Store: store}).ReassignWaits(info.ID, replacementID); err != nil {
+			return fmt.Errorf("reassign waits from retired session %s to %s: %w", info.ID, replacementID, err)
 		}
-		if err := extmsg.ReassignSessionBindings(ctx, store, b.ID, replacementID, now); err != nil {
-			return fmt.Errorf("reassign external message bindings from retired session %s to %s: %w", b.ID, replacementID, err)
+		if err := extmsg.ReassignSessionBindings(ctx, store, info.ID, replacementID, now); err != nil {
+			return fmt.Errorf("reassign external message bindings from retired session %s to %s: %w", info.ID, replacementID, err)
+		}
+		if err := extmsg.ReassignSessionParticipants(ctx, store, info.ID, replacementID); err != nil {
+			return fmt.Errorf("reassign external message participants from retired session %s to %s: %w", info.ID, replacementID, err)
 		}
 	}
 	return nil
@@ -202,7 +198,7 @@ func reassignOpenWorkAssignedToSession(store beads.Store, oldID, newID string) e
 		return nil
 	}
 	for _, status := range []string{"open", "in_progress"} {
-		work, err := store.List(beads.ListQuery{Assignee: oldID, Status: status, Live: true})
+		work, err := store.List(beads.ListQuery{Assignee: oldID, Status: status, Live: true, TierMode: beads.TierBoth})
 		if err != nil {
 			return fmt.Errorf("listing work assigned to retired session %s: %w", oldID, err)
 		}
@@ -238,10 +234,28 @@ func (s *Server) resolveConfiguredNamedSessionIDWithContext(ctx context.Context,
 	}
 
 	if !opts.materialize {
-		return "", false, fmt.Errorf("%w: %q", session.ErrSessionNotFound, identifier)
+		// The identifier maps to a configured named session with no
+		// canonical bead. When it names the reserved identity directly
+		// (configured identity or its runtime session name), report
+		// matched=true so non-materializing callers short-circuit to
+		// not-found instead of falling through to ordinary live-session
+		// matching, where a rogue session whose session_name, alias, or
+		// path-alias title equals the reserved name could hijack the
+		// target (ga-4of1nc). Bare-leaf convenience tokens keep falling
+		// through so ordinary sessions can still own those aliases.
+		return "", namedSessionTargetIsReservedIdentity(spec, identifier), fmt.Errorf("%w: %q", session.ErrSessionNotFound, identifier)
 	}
 	id, err := s.materializeNamedSessionWithContext(ctx, store, spec)
 	return id, true, err
+}
+
+// namedSessionTargetIsReservedIdentity reports whether identifier names a
+// configured named-session identity directly — by its configured identity or
+// by its runtime session name — as opposed to a bare-leaf convenience token
+// that merely resolves to the spec.
+func namedSessionTargetIsReservedIdentity(spec apiNamedSessionSpec, identifier string) bool {
+	target := apiNormalizeSessionTarget(identifier)
+	return target != "" && (target == spec.Identity || target == spec.SessionName)
 }
 
 func parseAPITemplateTarget(identifier string) (string, bool) {
@@ -304,7 +318,7 @@ func (s *Server) materializeNamedSessionWithContext(ctx context.Context, store b
 	if resolved.BuiltinAncestor != "" && resolved.BuiltinAncestor != resolved.Name {
 		extraMeta["builtin_ancestor"] = resolved.BuiltinAncestor
 	}
-	mcpServers, err := s.sessionMCPServers(qualifiedTemplate, resolved.Name, spec.Identity, workDir, transport, "")
+	mcpServers, err := s.sessionMCPServers(qualifiedTemplate, resolved.Name, spec.Identity, workDir, transport, "", nil)
 	if err != nil {
 		return "", err
 	}
@@ -314,7 +328,8 @@ func (s *Server) materializeNamedSessionWithContext(ctx context.Context, store b
 			return "", err
 		}
 	}
-	hints := sessionCreateHints(resolved, mcpServers)
+	sessionEnv := cityAnchoredSessionEnv(s.state.CityPath(), resolved.Env)
+	hints := sessionCreateHints(resolved, sessionEnv, mcpServers)
 	var info session.Info
 	err = session.WithCitySessionIdentifierLocks(s.state.CityPath(), []string{spec.Identity, spec.SessionName}, func() error {
 		if err := session.EnsureAliasAvailableWithConfigForOwner(store, s.state.Config(), spec.Identity, "", spec.Identity); err != nil {
@@ -324,21 +339,20 @@ func (s *Server) materializeNamedSessionWithContext(ctx context.Context, store b
 			return err
 		}
 		var createErr error
-		info, createErr = mgr.CreateAliasedNamedWithTransportAndMetadata(
-			ctx,
-			spec.Identity,
-			spec.SessionName,
-			qualifiedTemplate,
-			spec.Identity,
-			launchCommand.Command,
-			workDir,
-			resolved.Name,
-			transport,
-			resolved.Env,
-			resume,
-			hints,
-			extraMeta,
-		)
+		info, createErr = mgr.CreateSession(ctx, session.CreateOptions{
+			Alias:        spec.Identity,
+			ExplicitName: spec.SessionName,
+			Template:     qualifiedTemplate,
+			Title:        spec.Identity,
+			Command:      launchCommand.Command,
+			WorkDir:      workDir,
+			Provider:     resolved.Name,
+			Transport:    transport,
+			Env:          sessionEnv,
+			Resume:       resume,
+			Hints:        hints,
+			ExtraMeta:    extraMeta,
+		})
 		return createErr
 	})
 	if err == nil {
@@ -361,49 +375,206 @@ func (s *Server) materializeNamedSession(store beads.Store, spec apiNamedSession
 	return s.materializeNamedSessionWithContext(context.Background(), store, spec)
 }
 
+// resolveLiveSessionByPathAlias matches identifier against the Title of an
+// active pool-session bead. Pool sessions surface their stable path-alias
+// under Title (the same string `gc session list` shows under TARGET /
+// TITLE) while their session_name is a synthetic internal id (s-gc-NNN),
+// so they are invisible to session.ResolveSessionID's session_name/alias
+// indexes.
+//
+// State filter accepts {active, awake, none}. Empty state (StateNone)
+// is treated as active for legacy/upgrade beads — matches the convention
+// in internal/session/manager.go:741,813 where reconciler paths normalize
+// `current == StateNone` to StateActive. Excluded states intentionally
+// fall through to apiSessionTargetNotFound:
+//   - asleep: not running, can't receive messages.
+//   - draining: on its way out, shouldn't get new external messages.
+//   - creating: runtime still booting; sendBackgroundMessageToSession
+//     would deliver against an incomplete provider, worse than not-found.
+//     Once the reconciler flips state=active, subsequent inbounds resolve.
+//
+// Configured named-session beads are skipped (session.IsNamedSessionInfo) so
+// session.ResolveSessionID still owns those identifiers via its
+// orphan-rejection path. This step is wired AFTER session.ResolveSessionID
+// in the resolver chain so session_name/alias matches always win when both
+// could apply.
+//
+// Tiebreaker on duplicate active-pool Titles (rare misconfiguration):
+// most-recently-created bead wins; ties on CreatedAt resolve to the first
+// match in store iteration order.
+func resolveLiveSessionByPathAlias(store beads.Store, identifier string) (string, bool, error) {
+	if store == nil {
+		return "", false, nil
+	}
+	identifier = strings.TrimSpace(identifier)
+	if identifier == "" {
+		return "", false, nil
+	}
+	all, err := session.NewStore(beads.SessionStore{Store: store}).ListAll(session.ListAllOptions{})
+	if err != nil {
+		return "", false, fmt.Errorf("resolveLiveSessionByPathAlias: listing sessions: %w", err)
+	}
+	var best session.Info
+	found := false
+	for _, info := range all {
+		// ListAll already filters via IsSessionBeadOrRepairable.
+		if session.IsNamedSessionInfo(info) {
+			continue
+		}
+		if strings.TrimSpace(info.Title) != identifier {
+			continue
+		}
+		// MetadataState is the RAW state mirror; Info.State is normalizeInfoState-
+		// folded (awake->active), which would change this predicate.
+		state := session.State(info.MetadataState)
+		if state != session.StateActive && state != session.StateAwake && state != session.StateNone {
+			continue
+		}
+		if !found || info.CreatedAt.After(best.CreatedAt) {
+			best = info
+			found = true
+		}
+	}
+	if !found {
+		return "", false, nil
+	}
+	return best.ID, true, nil
+}
+
+// resolveSessionTargetIDWithContext drives session.DecideSessionTarget: the
+// classifier owns the precedence ladder, this adapter performs the lookup
+// each gather action names and keeps the matched ID or error for the step a
+// terminal decision cites. Lookups run exactly when the old inline ladder
+// ran them — an exact-ID hit never reaches the live scan.
 func (s *Server) resolveSessionTargetIDWithContext(ctx context.Context, store beads.Store, identifier string, opts apiSessionResolveOptions) (string, error) {
 	if store == nil {
 		return "", fmt.Errorf("session store unavailable")
 	}
-	if _, ok := parseAPITemplateTarget(identifier); ok {
-		return "", apiSessionTargetNotFound(identifier)
+	_, templateForm := parseAPITemplateTarget(identifier)
+	facts := session.TargetFacts{
+		TemplateForm: templateForm,
+		AllowClosed:  opts.allowClosed,
 	}
-	if id, err := session.ResolveSessionIDByExactID(store, identifier); err == nil {
-		return id, nil
-	} else if !errors.Is(err, session.ErrSessionNotFound) {
-		return "", err
-	}
-	if id, matched, err := s.resolveConfiguredNamedSessionIDWithContext(ctx, store, identifier, opts); err == nil {
-		return id, nil
-	} else if matched || !errors.Is(err, session.ErrSessionNotFound) {
-		return "", err
-	}
-	if id, err := session.ResolveSessionID(store, identifier); err == nil {
-		if cfg := s.state.Config(); cfg != nil {
-			if bead, getErr := store.Get(id); getErr == nil && apiIsNamedSessionBead(bead) {
-				identity := apiNamedSessionIdentity(bead)
-				if identity != "" && config.FindNamedSession(cfg, identity) == nil {
-					return "", apiSessionTargetRejectedByConfig(identifier)
-				}
+	selected := map[session.TargetStep]string{}
+	failed := map[session.TargetStep]error{}
+	// The classifier gathers each of the ladder's six facts at most once, so
+	// classification terminates within seven decisions. The bound (matching
+	// gatherSequence in the classifier tests) turns a classifier regression
+	// that re-requests a gathered fact into an internal error instead of a
+	// spinning request goroutine.
+	for range 16 {
+		dec := session.DecideSessionTarget(facts)
+		if dec.Action == session.TargetDone {
+			switch dec.Result {
+			case session.TargetSelected:
+				return selected[dec.Source], nil
+			case session.TargetRejectedByConfig:
+				return "", apiSessionTargetRejectedByConfig(identifier)
+			case session.TargetError:
+				return "", failed[dec.Source]
+			default:
+				return "", apiSessionTargetNotFound(identifier)
 			}
 		}
-		return id, nil
-	} else if !errors.Is(err, session.ErrSessionNotFound) {
-		return "", err
-	}
-	if opts.allowClosed {
-		if _, ok, err := s.findNamedSessionSpecForTarget(store, identifier); err != nil {
-			return "", err
-		} else if ok {
-			return "", apiSessionTargetNotFound(identifier)
+		switch dec.Gather {
+		case session.TargetStepExactID:
+			id, err := session.ResolveSessionIDByExactID(store, identifier)
+			facts.ExactID = lookupFact(err)
+			selected[dec.Gather], failed[dec.Gather] = id, err
+		case session.TargetStepConfiguredName:
+			id, matched, err := s.resolveConfiguredNamedSessionIDWithContext(ctx, store, identifier, opts)
+			switch {
+			case err == nil:
+				facts.ConfiguredName = session.NamedLookupMatch
+				selected[dec.Gather] = id
+			case matched || !errors.Is(err, session.ErrSessionNotFound):
+				facts.ConfiguredName = session.NamedLookupTerminalError
+				failed[dec.Gather] = err
+			default:
+				facts.ConfiguredName = session.NamedLookupNoMatch
+			}
+		case session.TargetStepLive:
+			id, err := session.ResolveSessionID(store, identifier)
+			facts.Live = lookupFact(err)
+			selected[dec.Gather], failed[dec.Gather] = id, err
+			if err == nil {
+				facts.LiveConfigOrphan = s.liveSessionMatchIsConfigOrphan(store, id)
+			}
+		case session.TargetStepPathAlias:
+			id, ok, err := resolveLiveSessionByPathAlias(store, identifier)
+			switch {
+			case err != nil:
+				facts.PathAlias = session.LookupError
+				failed[dec.Gather] = err
+			case ok:
+				facts.PathAlias = session.LookupMatch
+				selected[dec.Gather] = id
+			default:
+				facts.PathAlias = session.LookupNoMatch
+			}
+		case session.TargetStepClosedNamedSpec:
+			_, ok, err := s.findNamedSessionSpecForTarget(store, identifier)
+			switch {
+			case err != nil:
+				facts.ClosedNamedSpec = session.LookupError
+				failed[dec.Gather] = err
+			case ok:
+				facts.ClosedNamedSpec = session.LookupMatch
+			default:
+				facts.ClosedNamedSpec = session.LookupNoMatch
+			}
+		case session.TargetStepClosed:
+			id, err := session.ResolveSessionIDAllowClosed(store, identifier)
+			facts.Closed = lookupFact(err)
+			selected[dec.Gather], failed[dec.Gather] = id, err
+		default:
+			return "", fmt.Errorf("session target classifier requested unknown step %v", dec.Gather)
 		}
-		if id, err := session.ResolveSessionIDAllowClosed(store, identifier); err == nil {
-			return id, nil
-		} else if !errors.Is(err, session.ErrSessionNotFound) {
-			return "", err
-		}
 	}
-	return "", apiSessionTargetNotFound(identifier)
+	return "", fmt.Errorf("session target classifier did not terminate for %q", identifier)
+}
+
+// lookupFact maps a Resolve* error to the classifier's tri-state lookup
+// fact: nil is a match, ErrSessionNotFound is a miss, anything else is a
+// terminal lookup error.
+func lookupFact(err error) session.TargetLookupFact {
+	switch {
+	case err == nil:
+		return session.LookupMatch
+	case errors.Is(err, session.ErrSessionNotFound):
+		return session.LookupNoMatch
+	default:
+		return session.LookupError
+	}
+}
+
+// liveSessionMatchIsConfigOrphan reports whether a live-resolved bead is a
+// named-session bead whose configured identity is absent from current config.
+// Lookup failures fail open: the match stands (any error → false). The read
+// routes through the session front door and the session.Info twins
+// (IsNamedSessionInfo / NamedSessionIdentityInfo), so no raw bead is cracked here
+// — the Info projections mirror the bead accessors exactly.
+//
+// Byte-identical to the old raw store.Get for every real input: absent id →
+// false; present non-session bead → false; present session bead (named or not) →
+// the same verdict via the mirrored projections. ONE design-prescribed direction
+// change, and only under double corruption: a bead carrying
+// configured_named_session="true" that has lost BOTH its session type AND its
+// gc:session label was previously classified an orphan (match rejected); it now
+// fails the front door's IsSessionBeadOrRepairable check → ErrSessionNotFound →
+// false (the match stands). A named bead that is merely type-lost stays
+// repairable and reaches the identity check unchanged.
+func (s *Server) liveSessionMatchIsConfigOrphan(store beads.Store, id string) bool {
+	cfg := s.state.Config()
+	if cfg == nil {
+		return false
+	}
+	info, err := session.NewStore(beads.SessionStore{Store: store}).Get(id)
+	if err != nil || !session.IsNamedSessionInfo(info) {
+		return false
+	}
+	identity := session.NamedSessionIdentityInfo(info)
+	return identity != "" && config.FindNamedSession(cfg, identity) == nil
 }
 
 func (s *Server) resolveSessionTargetID(store beads.Store, identifier string, opts apiSessionResolveOptions) (string, error) {

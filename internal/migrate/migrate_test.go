@@ -11,6 +11,42 @@ import (
 	"github.com/gastownhall/gascity/internal/fsys"
 )
 
+// TestDropRedundantControlDispatcherNamedSession pins the stale-city cleanup:
+// gc doctor --fix (via migrate.Apply) drops the auto-created control-dispatcher
+// named session (bare or core-qualified backing template) that older gc init
+// versions injected, leaves user-defined named sessions untouched, and is
+// idempotent.
+func TestDropRedundantControlDispatcherNamedSession(t *testing.T) {
+	t.Parallel()
+	in := []config.NamedSession{
+		{Name: "control-dispatcher", Template: "control-dispatcher", Mode: "on_demand"},      // pre-1.3 bare (the stale case)
+		{Name: "mayor", Template: "mayor", Mode: "always"},                                   // user-defined: keep
+		{Name: "control-dispatcher", Template: "core.control-dispatcher", Mode: "on_demand"}, // rc1/rc2 qualified
+	}
+	out, removed := dropRedundantControlDispatcherNamedSession(in)
+	if removed != 2 {
+		t.Fatalf("removed = %d, want 2", removed)
+	}
+	if len(out) != 1 || out[0].Name != "mayor" {
+		t.Fatalf("remaining = %+v, want only the user-defined mayor session", out)
+	}
+	// Idempotent: a second pass removes nothing.
+	if out2, removed2 := dropRedundantControlDispatcherNamedSession(out); removed2 != 0 || len(out2) != 1 {
+		t.Fatalf("second pass removed=%d len=%d, want 0 removed / 1 remaining", removed2, len(out2))
+	}
+	// User-authored control-dispatcher sessions express intent and must be
+	// left alone: a non-core template, an always mode, or an explicit
+	// scope/dir all disqualify the auto-created match.
+	keep := []config.NamedSession{
+		{Name: "control-dispatcher", Template: "myrig/custom-dispatcher", Mode: "always"},                  // custom template
+		{Name: "control-dispatcher", Template: "core.control-dispatcher", Mode: "always"},                  // always mode
+		{Name: "control-dispatcher", Template: "core.control-dispatcher", Mode: "on_demand", Scope: "rig"}, // explicit scope
+	}
+	if out, n := dropRedundantControlDispatcherNamedSession(keep); n != 0 || len(out) != len(keep) {
+		t.Fatalf("dropped a user-authored control-dispatcher session (removed=%d); all must be kept", n)
+	}
+}
+
 func TestMigrateCityCommonCase(t *testing.T) {
 	t.Parallel()
 
@@ -28,7 +64,6 @@ provider = "claude"
 prompt_template = "prompts/mayor.md"
 overlay_dir = "overlays/mayor"
 namepool = "namepools/mayor.txt"
-fallback = true
 
 [[agent]]
 name = "worker"
@@ -39,13 +74,8 @@ prompt_template = "prompts/worker.md"
 	writeFile(t, cityDir, "overlays/mayor/CLAUDE.md", "city overlay\n")
 	writeFile(t, cityDir, "namepools/mayor.txt", "Ada\nGrace\n")
 
-	report, err := Apply(cityDir, Options{})
-	if err != nil {
+	if _, err := Apply(cityDir, Options{}); err != nil {
 		t.Fatalf("Apply: %v", err)
-	}
-
-	if len(report.Warnings) == 0 {
-		t.Fatal("expected fallback warning, got none")
 	}
 
 	packToml := readFile(t, filepath.Join(cityDir, "pack.toml"))
@@ -61,21 +91,17 @@ prompt_template = "prompts/worker.md"
 	if !strings.Contains(packToml, "source = \"../packs/gastown\"") {
 		t.Fatalf("pack.toml missing gastown source:\n%s", packToml)
 	}
+	cityToml := readFile(t, filepath.Join(cityDir, "city.toml"))
 	for _, line := range []string{
-		"[defaults.rig.imports.z-pack]",
-		"source = \"../packs/z-pack\"",
 		"[defaults.rig.imports.a-pack]",
 		"source = \"../packs/a-pack\"",
+		"[defaults.rig.imports.z-pack]",
+		"source = \"../packs/z-pack\"",
 	} {
-		if !strings.Contains(packToml, line) {
-			t.Fatalf("pack.toml missing migrated default-rig imports %q:\n%s", line, packToml)
+		if !strings.Contains(cityToml, line) {
+			t.Fatalf("city.toml missing migrated default-rig imports %q:\n%s", line, cityToml)
 		}
 	}
-	if strings.Index(packToml, "[defaults.rig.imports.z-pack]") > strings.Index(packToml, "[defaults.rig.imports.a-pack]") {
-		t.Fatalf("pack.toml reordered migrated default-rig imports:\n%s", packToml)
-	}
-
-	cityToml := readFile(t, filepath.Join(cityDir, "city.toml"))
 	if strings.Contains(cityToml, "[[agent]]") {
 		t.Fatalf("city.toml still contains [[agent]]:\n%s", cityToml)
 	}
@@ -144,18 +170,17 @@ default_rig_includes = ["../packs/z-pack", "../packs/a-pack"]
 		t.Fatalf("Apply: %v", err)
 	}
 
-	packToml := readFile(t, filepath.Join(cityDir, "pack.toml"))
+	cityToml := readFile(t, filepath.Join(cityDir, "city.toml"))
 	for _, line := range []string{
-		"[defaults.rig.imports.z-pack]",
-		`source = "../packs/z-pack"`,
 		"[defaults.rig.imports.a-pack]",
 		`source = "../packs/a-pack"`,
+		"[defaults.rig.imports.z-pack]",
+		`source = "../packs/z-pack"`,
 	} {
-		if !strings.Contains(packToml, line) {
-			t.Fatalf("pack.toml missing migrated default-rig imports %q:\n%s", line, packToml)
+		if !strings.Contains(cityToml, line) {
+			t.Fatalf("city.toml missing migrated default-rig imports %q:\n%s", line, cityToml)
 		}
 	}
-	cityToml := readFile(t, filepath.Join(cityDir, "city.toml"))
 	if strings.Contains(cityToml, "default_rig_includes") {
 		t.Fatalf("city.toml should drop legacy workspace.default_rig_includes:\n%s", cityToml)
 	}
@@ -164,14 +189,97 @@ default_rig_includes = ["../packs/z-pack", "../packs/a-pack"]
 	if err != nil {
 		t.Fatalf("LoadWithIncludes after migration: %v", err)
 	}
-	if len(cfg.Workspace.DefaultRigIncludes) != 2 {
-		t.Fatalf("len(DefaultRigIncludes) = %d, want 2", len(cfg.Workspace.DefaultRigIncludes))
+	if len(cfg.DefaultRigImports) != 2 {
+		t.Fatalf("len(DefaultRigImports) = %d, want 2", len(cfg.DefaultRigImports))
 	}
-	if cfg.Workspace.DefaultRigIncludes[0] != "../packs/z-pack" {
-		t.Fatalf("DefaultRigIncludes[0] = %q, want %q", cfg.Workspace.DefaultRigIncludes[0], "../packs/z-pack")
+	if cfg.DefaultRigImports["z-pack"].Source != "../packs/z-pack" {
+		t.Fatalf("DefaultRigImports[z-pack].Source = %q, want %q", cfg.DefaultRigImports["z-pack"].Source, "../packs/z-pack")
 	}
-	if cfg.Workspace.DefaultRigIncludes[1] != "../packs/a-pack" {
-		t.Fatalf("DefaultRigIncludes[1] = %q, want %q", cfg.Workspace.DefaultRigIncludes[1], "../packs/a-pack")
+	if cfg.DefaultRigImports["a-pack"].Source != "../packs/a-pack" {
+		t.Fatalf("DefaultRigImports[a-pack].Source = %q, want %q", cfg.DefaultRigImports["a-pack"].Source, "../packs/a-pack")
+	}
+}
+
+func TestMigrateRemovesPacksAfterMigratingNamedIncludes(t *testing.T) {
+	t.Parallel()
+
+	cityDir := t.TempDir()
+	writeFile(t, cityDir, "city.toml", `
+[workspace]
+name = "legacy-city"
+includes = ["team"]
+default_rig_includes = ["ops"]
+
+[packs.team]
+source = "https://example.com/team.git"
+path = "pack"
+ref = "v1"
+
+[packs.ops]
+source = "../packs/ops"
+`)
+
+	if _, err := Apply(cityDir, Options{}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	packToml := readFile(t, filepath.Join(cityDir, "pack.toml"))
+	for _, want := range []string{
+		"[imports.team]",
+		`source = "https://example.com/team.git//pack#v1"`,
+	} {
+		if !strings.Contains(packToml, want) {
+			t.Fatalf("pack.toml missing %q after named pack migration:\n%s", want, packToml)
+		}
+	}
+
+	cityToml := readFile(t, filepath.Join(cityDir, "city.toml"))
+	for _, want := range []string{
+		"[defaults.rig.imports.ops]",
+		`source = "../packs/ops"`,
+	} {
+		if !strings.Contains(cityToml, want) {
+			t.Fatalf("city.toml missing %q after named pack migration:\n%s", want, cityToml)
+		}
+	}
+
+	if strings.Contains(cityToml, "[packs.") || strings.Contains(cityToml, "[packs]") {
+		t.Fatalf("city.toml still contains migrated [packs] entries:\n%s", cityToml)
+	}
+}
+
+func TestMigrateKeepsPacksStillReferencedByRigIncludes(t *testing.T) {
+	t.Parallel()
+
+	cityDir := t.TempDir()
+	writeFile(t, cityDir, "city.toml", `
+[workspace]
+name = "legacy-city"
+includes = ["team"]
+
+[[rigs]]
+name = "app"
+path = "app"
+includes = ["team"]
+
+[packs.team]
+source = "../packs/team"
+`)
+
+	if _, err := Apply(cityDir, Options{}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	cityToml := readFile(t, filepath.Join(cityDir, "city.toml"))
+	if !strings.Contains(cityToml, "[packs.team]") {
+		t.Fatalf("city.toml removed pack still referenced by rig includes:\n%s", cityToml)
+	}
+	cfg, err := config.Load(fsys.OSFS{}, filepath.Join(cityDir, "city.toml"))
+	if err != nil {
+		t.Fatalf("Load migrated city: %v", err)
+	}
+	if len(cfg.Workspace.LegacyIncludes()) != 0 {
+		t.Fatalf("workspace legacy includes = %v, want none", cfg.Workspace.LegacyIncludes())
 	}
 }
 
@@ -231,7 +339,37 @@ legacy_unknown = "silently dropped before strict migration validation"
 	}
 }
 
-func TestMigratePreservesExistingRootDefaultRigImportOrder(t *testing.T) {
+func TestMigrateRejectsUnknownCityTomlKeys(t *testing.T) {
+	t.Parallel()
+
+	cityDir := t.TempDir()
+	writeFile(t, cityDir, "city.toml", `
+[workspace]
+name = "legacy-city"
+includes = ["../packs/gastown"]
+
+[agent_defaults]
+future_unknown = "written by a newer gc, silently dropped by this rewrite"
+`)
+
+	beforeCity := readFile(t, filepath.Join(cityDir, "city.toml"))
+
+	_, err := Apply(cityDir, Options{})
+	if err == nil {
+		t.Fatal("expected Apply to refuse a city.toml with unknown keys")
+	}
+	if !strings.Contains(err.Error(), "agent_defaults.future_unknown") {
+		t.Fatalf("error = %v, want the unknown key named", err)
+	}
+	if !strings.Contains(err.Error(), "refusing to rewrite") {
+		t.Fatalf("error = %v, want key-loss refusal with remediation", err)
+	}
+	if got := readFile(t, filepath.Join(cityDir, "city.toml")); got != beforeCity {
+		t.Fatalf("city.toml changed after refusal:\n%s", got)
+	}
+}
+
+func TestMigrateMovesExistingRootDefaultRigImportsToCityToml(t *testing.T) {
 	t.Parallel()
 
 	cityDir := t.TempDir()
@@ -260,13 +398,397 @@ source = "../packs/a-pack"
 	if !strings.Contains(packToml, "[imports.new-pack]") {
 		t.Fatalf("pack.toml missing migrated workspace include:\n%s", packToml)
 	}
-	zIndex := strings.Index(packToml, "[defaults.rig.imports.z-pack]")
-	aIndex := strings.Index(packToml, "[defaults.rig.imports.a-pack]")
-	if zIndex < 0 || aIndex < 0 {
-		t.Fatalf("pack.toml missing root default rig imports:\n%s", packToml)
+	if strings.Contains(packToml, "[defaults.rig.imports.") {
+		t.Fatalf("pack.toml should not retain default rig imports:\n%s", packToml)
 	}
-	if zIndex > aIndex {
-		t.Fatalf("pack.toml reordered default rig imports:\n%s", packToml)
+	cityToml := readFile(t, filepath.Join(cityDir, "city.toml"))
+	for _, want := range []string{
+		"[defaults.rig.imports.a-pack]",
+		`source = "../packs/a-pack"`,
+		"[defaults.rig.imports.z-pack]",
+		`source = "../packs/z-pack"`,
+	} {
+		if !strings.Contains(cityToml, want) {
+			t.Fatalf("city.toml missing migrated root default rig import %q:\n%s", want, cityToml)
+		}
+	}
+}
+
+func TestMigrateMovesPackV2RejectedSurfacesThenLoads(t *testing.T) {
+	t.Parallel()
+
+	cityDir := t.TempDir()
+	writeFile(t, cityDir, "city.toml", `
+[workspace]
+name = "legacy-city"
+
+[[rigs]]
+name = "app"
+
+[formulas]
+dir = "city-formulas"
+
+[providers.local]
+command = "true"
+`)
+	writeFile(t, cityDir, "pack.toml", `
+[pack]
+name = "legacy-city"
+schema = 2
+
+[agent_defaults]
+default_sling_formula = "mol-canonical"
+
+[agents]
+append_fragments = ["legacy-footer"]
+
+[formulas]
+dir = "legacy-formulas"
+
+[defaults.rig.imports.ops]
+source = "../packs/ops"
+
+[[patches.rigs]]
+name = "app"
+prefix = "ga"
+
+[[patches.providers]]
+name = "local"
+command = "false"
+
+[[agent]]
+name = "worker"
+provider = "local"
+`)
+
+	report, err := Apply(cityDir, Options{})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	packToml := readFile(t, filepath.Join(cityDir, "pack.toml"))
+	for _, forbidden := range []string{
+		"[agent_defaults]",
+		"[agents]",
+		"[formulas]",
+		"[defaults.rig.imports.",
+		"[[patches.rigs]]",
+		"[[patches.providers]]",
+	} {
+		if strings.Contains(packToml, forbidden) {
+			t.Fatalf("pack.toml still contains rejected surface %q:\n%s", forbidden, packToml)
+		}
+	}
+
+	cityToml := readFile(t, filepath.Join(cityDir, "city.toml"))
+	for _, want := range []string{
+		"[agent_defaults]",
+		`default_sling_formula = "mol-canonical"`,
+		`append_fragments = ["legacy-footer"]`,
+		"[defaults.rig.imports.ops]",
+		"[[patches.rigs]]",
+		`prefix = "ga"`,
+		"[[patches.providers]]",
+		`command = "false"`,
+	} {
+		if !strings.Contains(cityToml, want) {
+			t.Fatalf("city.toml missing migrated surface %q:\n%s", want, cityToml)
+		}
+	}
+	if strings.Contains(cityToml, "[formulas]") {
+		t.Fatalf("city.toml should not gain unsupported [formulas].dir:\n%s", cityToml)
+	}
+	if len(report.Warnings) == 0 || !strings.Contains(strings.Join(report.Warnings, "\n"), "formulas.dir") {
+		t.Fatalf("expected formulas.dir migration warning, got %v", report.Warnings)
+	}
+
+	if _, _, err := config.LoadWithIncludes(fsys.OSFS{}, filepath.Join(cityDir, "city.toml")); err != nil {
+		t.Fatalf("LoadWithIncludes after migration: %v", err)
+	}
+}
+
+// TestMigratePreservesRootPackUpstreams guards the migrate packFile round-trip
+// for pack-level [upstreams]. The normal loader accepts [upstreams.<name>] in a
+// city's own pack.toml (a valid authoring surface, mirroring [providers]), so gc
+// migrate / gc doctor --fix must not fail it on the undecoded-key gate, and the
+// table — including its nested [upstreams.<name>.env] block — must survive the
+// pack.toml rewrite rather than being silently dropped.
+func TestMigratePreservesRootPackUpstreams(t *testing.T) {
+	t.Parallel()
+
+	cityDir := t.TempDir()
+	writeFile(t, cityDir, "city.toml", `
+[workspace]
+name = "legacy-city"
+`)
+	// [agent_defaults] is migrated out to city.toml, forcing a pack.toml rewrite
+	// so the round-trip through marshalPackFile is exercised, not just the decode
+	// gate.
+	writeFile(t, cityDir, "pack.toml", `
+[pack]
+name = "legacy-city"
+schema = 2
+
+[agent_defaults]
+default_sling_formula = "mol-canonical"
+
+[upstreams.groq]
+description = "Groq OpenAI-compatible gateway"
+base_url = "https://api.groq.com/openai/v1"
+api_key = "$GROQ_API_KEY"
+
+[upstreams.groq.env]
+GROQ_EXTRA = "$GROQ_EXTRA"
+`)
+
+	if _, err := Apply(cityDir, Options{}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	packToml := readFile(t, filepath.Join(cityDir, "pack.toml"))
+	for _, want := range []string{
+		"[upstreams.groq]",
+		`description = "Groq OpenAI-compatible gateway"`,
+		`base_url = "https://api.groq.com/openai/v1"`,
+		`api_key = "$GROQ_API_KEY"`,
+		"[upstreams.groq.env]",
+		`GROQ_EXTRA = "$GROQ_EXTRA"`,
+	} {
+		if !strings.Contains(packToml, want) {
+			t.Fatalf("rewritten pack.toml missing preserved upstream %q:\n%s", want, packToml)
+		}
+	}
+
+	// The migrated city must still compose cleanly with the preserved upstream.
+	if _, _, err := config.LoadWithIncludes(fsys.OSFS{}, filepath.Join(cityDir, "city.toml")); err != nil {
+		t.Fatalf("LoadWithIncludes after migration: %v", err)
+	}
+}
+
+func TestMigrateMovesPackAgentDefaultsProvider(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		pack string
+		want []string
+	}{
+		{
+			name: "canonical provider only",
+			pack: `
+[agent_defaults]
+provider = "codex"
+`,
+			want: []string{
+				"[agent_defaults]",
+				`provider = "codex"`,
+			},
+		},
+		{
+			name: "canonical provider mixed with model",
+			pack: `
+[agent_defaults]
+provider = "codex"
+model = "gpt-5"
+`,
+			want: []string{
+				`provider = "codex"`,
+				`model = "gpt-5"`,
+			},
+		},
+		{
+			name: "legacy agents provider only",
+			pack: `
+[agents]
+provider = "claude"
+`,
+			want: []string{
+				"[agent_defaults]",
+				`provider = "claude"`,
+			},
+		},
+		{
+			name: "legacy agents provider fills canonical defaults",
+			pack: `
+[agent_defaults]
+model = "gpt-5"
+
+[agents]
+provider = "claude"
+`,
+			want: []string{
+				`provider = "claude"`,
+				`model = "gpt-5"`,
+			},
+		},
+		{
+			name: "canonical provider beats legacy agents alias",
+			pack: `
+[agent_defaults]
+provider = "codex"
+
+[agents]
+provider = "claude"
+wake_mode = "resume"
+`,
+			want: []string{
+				`provider = "codex"`,
+				`wake_mode = "resume"`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cityDir := t.TempDir()
+			writeFile(t, cityDir, "city.toml", `
+[workspace]
+name = "legacy-city"
+`)
+			writeFile(t, cityDir, "pack.toml", `
+[pack]
+name = "legacy-city"
+schema = 2
+`+tt.pack)
+
+			if _, err := Apply(cityDir, Options{}); err != nil {
+				t.Fatalf("Apply: %v", err)
+			}
+
+			cityToml := readFile(t, filepath.Join(cityDir, "city.toml"))
+			for _, want := range tt.want {
+				if !strings.Contains(cityToml, want) {
+					t.Fatalf("city.toml missing migrated provider default %q:\n%s", want, cityToml)
+				}
+			}
+
+			packToml := readFile(t, filepath.Join(cityDir, "pack.toml"))
+			for _, forbidden := range []string{"[agent_defaults]", "[agents]"} {
+				if strings.Contains(packToml, forbidden) {
+					t.Fatalf("pack.toml still contains %s after migration:\n%s", forbidden, packToml)
+				}
+			}
+		})
+	}
+}
+
+// TestMigrateMovesPackAgentDefaultsUpstream guards the AgentDefaults.Upstream
+// field through pack→city migration. The "upstream only" case proves
+// isZeroAgentDefaults no longer treats an upstream-only defaults block as zero
+// (else the whole merge is skipped and the city loses its upstream default);
+// the mixed and legacy-alias cases prove mergeMigratedAgentDefaults and
+// mergeAgentDefaultsAliasForMigration both carry Upstream through.
+func TestMigrateMovesPackAgentDefaultsUpstream(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		pack string
+		want []string
+	}{
+		{
+			name: "upstream only",
+			pack: `
+[agent_defaults]
+upstream = "bedrock"
+`,
+			want: []string{
+				"[agent_defaults]",
+				`upstream = "bedrock"`,
+			},
+		},
+		{
+			name: "upstream mixed with provider",
+			pack: `
+[agent_defaults]
+provider = "codex"
+upstream = "bedrock"
+`,
+			want: []string{
+				`provider = "codex"`,
+				`upstream = "bedrock"`,
+			},
+		},
+		{
+			name: "legacy agents upstream fills canonical defaults",
+			pack: `
+[agent_defaults]
+provider = "codex"
+
+[agents]
+upstream = "bedrock"
+`,
+			want: []string{
+				`provider = "codex"`,
+				`upstream = "bedrock"`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cityDir := t.TempDir()
+			writeFile(t, cityDir, "city.toml", `
+[workspace]
+name = "legacy-city"
+`)
+			writeFile(t, cityDir, "pack.toml", `
+[pack]
+name = "legacy-city"
+schema = 2
+`+tt.pack)
+
+			if _, err := Apply(cityDir, Options{}); err != nil {
+				t.Fatalf("Apply: %v", err)
+			}
+
+			cityToml := readFile(t, filepath.Join(cityDir, "city.toml"))
+			for _, want := range tt.want {
+				if !strings.Contains(cityToml, want) {
+					t.Fatalf("city.toml missing migrated upstream default %q:\n%s", want, cityToml)
+				}
+			}
+
+			packToml := readFile(t, filepath.Join(cityDir, "pack.toml"))
+			for _, forbidden := range []string{"[agent_defaults]", "[agents]"} {
+				if strings.Contains(packToml, forbidden) {
+					t.Fatalf("pack.toml still contains %s after migration:\n%s", forbidden, packToml)
+				}
+			}
+		})
+	}
+}
+
+// TestMigrateWritesAgentTomlForUpstreamOnlyAgent guards isZeroAgentConfig: an
+// agent whose only non-default field is upstream must still get its per-agent
+// agent.toml written. If isZeroAgentConfig omits cfg.Upstream it judges the
+// agent "zero", skips the write, and the per-agent upstream selection is lost.
+func TestMigrateWritesAgentTomlForUpstreamOnlyAgent(t *testing.T) {
+	t.Parallel()
+
+	cityDir := t.TempDir()
+	writeFile(t, cityDir, "city.toml", `
+[workspace]
+name = "legacy-city"
+
+[[agent]]
+name = "worker"
+upstream = "bedrock"
+`)
+
+	if _, err := Apply(cityDir, Options{}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	agentToml := readFile(t, filepath.Join(cityDir, "agents", "worker", "agent.toml"))
+	if !strings.Contains(agentToml, `upstream = "bedrock"`) {
+		t.Fatalf("worker agent.toml missing upstream:\n%s", agentToml)
 	}
 }
 
@@ -325,12 +847,12 @@ shadow = "silent"
 		t.Fatalf("Apply: %v", err)
 	}
 
-	packToml := readFile(t, filepath.Join(cityDir, "pack.toml"))
-	if !strings.Contains(packToml, "[defaults.rig.imports.gastown]") || !strings.Contains(packToml, `shadow = "silent"`) {
-		t.Fatalf("pack.toml should preserve the existing non-default default-rig binding:\n%s", packToml)
+	cityToml := readFile(t, filepath.Join(cityDir, "city.toml"))
+	if !strings.Contains(cityToml, "[defaults.rig.imports.gastown]") || !strings.Contains(cityToml, `shadow = "silent"`) {
+		t.Fatalf("city.toml should preserve the existing non-default default-rig binding:\n%s", cityToml)
 	}
-	if !strings.Contains(packToml, "[defaults.rig.imports.gastown-2]") {
-		t.Fatalf("pack.toml should add a fresh default-rig binding instead of reusing the non-default one:\n%s", packToml)
+	if !strings.Contains(cityToml, "[defaults.rig.imports.gastown-2]") {
+		t.Fatalf("city.toml should add a fresh default-rig binding instead of reusing the non-default one:\n%s", cityToml)
 	}
 }
 
@@ -356,13 +878,12 @@ source = "../packs/z-pack"
 source = "../packs/a-pack"
 `)
 
-	beforePack := readFile(t, filepath.Join(cityDir, "pack.toml"))
 	beforeCity := readFile(t, filepath.Join(cityDir, "city.toml"))
 	if _, err := Apply(cityDir, Options{}); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
-	if got := readFile(t, filepath.Join(cityDir, "pack.toml")); got != beforePack {
-		t.Fatalf("pack.toml changed without pack migration changes:\n%s", got)
+	if got := readFile(t, filepath.Join(cityDir, "pack.toml")); strings.Contains(got, "[defaults.rig.imports.") {
+		t.Fatalf("pack.toml should drop default rig imports:\n%s", got)
 	}
 	afterCity := readFile(t, filepath.Join(cityDir, "city.toml"))
 	if afterCity == beforeCity {
@@ -500,7 +1021,7 @@ path = "packs/gastown"
 	if !strings.Contains(packToml, "[imports.gastown]") {
 		t.Fatalf("pack.toml missing gastown import:\n%s", packToml)
 	}
-	if !strings.Contains(packToml, "source = \"https://github.com/example/gastown.git//packs/gastown#main\"") {
+	if !strings.Contains(packToml, "source = \"https://github.com/example/gastown/tree/main/packs/gastown\"") {
 		t.Fatalf("pack.toml missing converted pack source:\n%s", packToml)
 	}
 }
@@ -588,6 +1109,7 @@ func TestAgentConfigFromAgentCoversPersistedFields(t *testing.T) {
 		Description:            "test agent description",
 		Dir:                    "demo",
 		WorkDir:                ".gc/agents/worker",
+		TmuxAlias:              "worker--{{.CityName}}",
 		Scope:                  "city",
 		Suspended:              true,
 		PreStart:               []string{"pre-cmd"},
@@ -595,7 +1117,9 @@ func TestAgentConfigFromAgentCoversPersistedFields(t *testing.T) {
 		Nudge:                  "nudge text",
 		Session:                "acp",
 		Provider:               "claude",
+		Upstream:               "anthropic",
 		StartCommand:           "claude --dangerously",
+		Lifecycle:              config.AgentLifecycleOneShot,
 		Args:                   []string{"--arg1"},
 		PromptMode:             "flag",
 		PromptFlag:             "--prompt",
@@ -615,6 +1139,8 @@ func TestAgentConfigFromAgentCoversPersistedFields(t *testing.T) {
 		WorkQuery:              "bd ready",
 		SlingQuery:             "bd update {}",
 		IdleTimeout:            "15m",
+		MaxSessionAge:          "5h",
+		MaxSessionAgeJitter:    "15m",
 		SleepAfterIdle:         "30s",
 		InstallAgentHooks:      []string{"claude"},
 		HooksInstalled:         &trueVal,
@@ -627,10 +1153,10 @@ func TestAgentConfigFromAgentCoversPersistedFields(t *testing.T) {
 		InjectFragments:        []string{"frag1"},
 		AppendFragments:        []string{"append1"},
 		Attach:                 &trueVal,
-		Fallback:               true,
 		DependsOn:              []string{"other-agent"},
 		ResumeCommand:          "claude --resume {{.SessionKey}} --dangerously",
 		WakeMode:               "fresh",
+		MouseMode:              "on",
 	}
 
 	omitted := map[string]bool{
@@ -640,14 +1166,17 @@ func TestAgentConfigFromAgentCoversPersistedFields(t *testing.T) {
 		"NamepoolNames":                true,
 		"OverlayDir":                   true,
 		"SourceDir":                    true,
+		"InheritedProvider":            true,
 		"InheritedDefaultSlingFormula": true,
 		"InheritedAppendFragments":     true,
 		"Implicit":                     true,
-		"Fallback":                     true,
 		"SleepAfterIdleSource":         true,
 		"PoolName":                     true,
 		"BindingName":                  true,
 		"PackName":                     true,
+		// Runtime-only provenance consumed inside internal/config.
+		"source": true,
+		"layout": true,
 		// v0.15.1 tombstones — still on Agent but intentionally not propagated
 		// by migrate (removed in v0.16).
 		"Skills":       true,

@@ -22,21 +22,29 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/gastownhall/gascity/internal/config"
+	"github.com/gastownhall/gascity/internal/configedit"
+	"github.com/gastownhall/gascity/internal/fsys"
 	helpers "github.com/gastownhall/gascity/test/acceptance/helpers"
+	"github.com/gastownhall/gascity/test/dolttest"
+	"github.com/gastownhall/gascity/test/tmuxtest"
 )
 
-var testEnvC *helpers.Env
+var (
+	testEnvC                *helpers.Env
+	attachedWorkflowPattern = regexp.MustCompile(`(?m)^Attached workflow (\S+)\b`)
+)
 
-const tierCAcceptanceConfig = `
-[session]
-startup_timeout = "3m"
-`
+const tierCStartupTimeout = "3m"
+
+var tierCClaudeArgsAppend = []string{"--allowedTools", "Bash,Edit,MultiEdit,Write"}
 
 func TestMain(m *testing.M) {
 	// Tier C needs real inference. Accept either:
@@ -59,7 +67,7 @@ func TestMain(m *testing.M) {
 	if err := os.Setenv("TMPDIR", tmpRoot); err != nil {
 		panic("acceptance-c: setting TMPDIR: " + err.Error())
 	}
-	tmpDir, err := os.MkdirTemp(tmpRoot, "gcac-*")
+	tmpDir, err := os.MkdirTemp(tmpRoot, fmt.Sprintf("gcac-%d-*", os.Getpid()))
 	if err != nil {
 		panic("acceptance-c: creating temp dir: " + err.Error())
 	}
@@ -75,6 +83,9 @@ func TestMain(m *testing.M) {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			panic("acceptance-c: " + err.Error())
 		}
+	}
+	if err := tmuxtest.ConfigureProcessEnv(filepath.Join(runtimeDir, "tmux")); err != nil {
+		panic("acceptance-c: configuring tmux test env: " + err.Error())
 	}
 	if err := helpers.WriteSupervisorConfig(gcHome); err != nil {
 		panic("acceptance-c: " + err.Error())
@@ -95,15 +106,14 @@ func TestMain(m *testing.M) {
 		panic("acceptance-c: " + err.Error())
 	}
 
-	// Force a token refresh before staging credentials. Claude Code
+	// Force a token refresh before staging OAuth credentials. Claude Code
 	// refreshes tokens in-memory but may not persist to .credentials.json,
 	// leaving the on-disk token expired. A quick --print call forces the
 	// refresh and (in newer versions) persists it.
-	if refreshOut, err := exec.Command("claude", "--print", "ok").CombinedOutput(); err != nil {
-		if hasEnvAuth {
-			panic(fmt.Sprintf("acceptance-c: provider preflight failed: %v\n%s", err, refreshOut))
+	if !hasEnvAuth {
+		if refreshOut, err := exec.Command("claude", "--print", "ok").CombinedOutput(); err != nil {
+			fmt.Fprintf(os.Stderr, "acceptance-c: OAuth preflight refresh failed: %v\n%s\n", err, refreshOut)
 		}
-		fmt.Fprintf(os.Stderr, "acceptance-c: OAuth preflight refresh failed: %v\n%s\n", err, refreshOut)
 	}
 
 	realHome, _ := os.UserHomeDir()
@@ -146,14 +156,26 @@ func TestMain(m *testing.M) {
 	}
 	testEnvC = testEnvC.With("DOLT_ROOT_PATH", gcHome) // dolt reads config from $DOLT_ROOT_PATH/.dolt/
 
+	if hasEnvAuth {
+		if err := preflightTierCClaudeEnvAuth(tmpDir, testEnvC); err != nil {
+			panic(err.Error())
+		}
+	}
+
 	// Ensure tmux is available.
 	if _, err := exec.LookPath("tmux"); err != nil {
 		panic("acceptance-c: tmux not found")
 	}
 
+	// Reap dolt orphans left by prior crashed runs, then guard this run so an
+	// interrupt / timeout / OOM does not leak a dolt sql-server (issue #3640).
+	dolttest.SweepStale(tmpRoot, "gcac-")
+	stopGuard := dolttest.Guard(tmpDir)
+
 	code := m.Run()
 
 	helpers.RunGC(testEnvC, "", "supervisor", "stop", "--wait") //nolint:errcheck
+	stopGuard()
 	os.Exit(code)
 }
 
@@ -174,7 +196,9 @@ func TestSwarm_SlingWorkCoderCommits(t *testing.T) {
 	// Init a swarm city.
 	c := helpers.NewCity(t, testEnvC)
 	c.InitFrom(filepath.Join(helpers.ExamplesDir(), "swarm"))
-	applyTierCAcceptanceConfig(c)
+	applyTierCAcceptanceConfig(t, c)
+	unregisterOut, unregisterErr := c.GC("unregister", c.Dir)
+	require.NoError(t, unregisterErr, "gc unregister after init: %s", unregisterOut)
 
 	// Add the rig via gc rig add (initializes beads, hooks, routes).
 	c.RigAdd(rigDir, "packs/swarm")
@@ -188,7 +212,7 @@ func TestSwarm_SlingWorkCoderCommits(t *testing.T) {
 	time.Sleep(15 * time.Second)
 
 	// Sling work to the coder pool.
-	out, err := c.GC("sling", rigName+"/coder", "Create a file called hello.txt with the text 'hello world'")
+	out, err := c.GC("sling", swarmRigAgent(rigName, "coder"), "Create a file named hello.txt in the current working directory (use a relative path, not an absolute path) with the text 'hello world'")
 	if err != nil {
 		t.Fatalf("gc sling: %v\n%s", err, out)
 	}
@@ -205,7 +229,7 @@ func TestSwarm_SlingWorkCoderCommits(t *testing.T) {
 		gitLog := gitCmd(t, rigDir, "log", "--oneline", "-10")
 		status, _ := c.GC("status")
 		rigBeads, _ := bdCmd(testEnvC, rigDir, "list", "--json", "--limit=50")
-		sessionDiag := gatherSessionDiagnostics(t, c, c.Dir, "repo/coder", "repo/committer")
+		sessionDiag := gatherSessionDiagnostics(t, c, c.Dir, swarmRigAgent(rigName, "coder"), swarmRigAgent(rigName, "committer"))
 		t.Fatalf("hello.txt not created within %s\ngit log:\n%s\nstatus:\n%s\nrig beads:\n%s\n%s", deadline, gitLog, status, rigBeads, sessionDiag)
 	}
 
@@ -231,6 +255,7 @@ func TestGastown_PolecatImplementsRefineryMerges(t *testing.T) {
 
 	// Add the rig via gc rig add (initializes beads, hooks, routes).
 	c.RigAdd(rigDir, "packs/gastown")
+	seedGastownClaudeProjects(t, c, rigName)
 
 	// Start with polecat suspended so we can verify the attached-formula
 	// queue invariants before any worker claims the work.
@@ -244,19 +269,20 @@ func TestGastown_PolecatImplementsRefineryMerges(t *testing.T) {
 	}, 2*time.Minute, 2*time.Second, "rig bead store did not become ready")
 
 	// Sling attached formula work while the pool is suspended.
-	out, err := c.GC("sling", rigName+"/polecat", "Create a file called feature.txt containing 'new feature'", "--on", "mol-polecat-work")
+	out, err := c.GC("sling", gastownRigAgent(rigName, "polecat"), "Create a file named feature.txt in the current working directory (use a relative path, not an absolute path) containing 'new feature'", "--on", "mol-polecat-work")
 	if err != nil {
 		t.Fatalf("gc sling: %v\n%s", err, out)
 	}
 	t.Logf("Slung work to polecat: %s", strings.TrimSpace(out))
+	attachedWorkflowID := parseAttachedWorkflowID(out)
 
-	routeKey := rigName + "/polecat"
+	routeKey := gastownRigAgent(rigName, "polecat")
 	readyOut, err := bdCmd(testEnvC, rigDir, "ready", "--metadata-field", "gc.routed_to="+routeKey, "--unassigned", "--json", "--limit=20")
 	require.NoError(t, err, "bd ready")
 	var ready []beadJSON
 	require.NoError(t, json.Unmarshal([]byte(readyOut), &ready), "unmarshal ready queue")
-	require.Len(t, ready, 1, "expected only the outer bead in the routed ready queue")
-	require.NotContains(t, ready[0].ID, ".", "expected outer bead id, not a step id")
+	require.Len(t, ready, 1, "expected only the routed source/workflow root in the ready queue")
+	require.NotContains(t, ready[0].ID, ".", "expected source/workflow root id, not a step id")
 
 	outerID := ready[0].ID
 	outerOut, err := bdCmd(testEnvC, rigDir, "show", outerID, "--json")
@@ -264,8 +290,11 @@ func TestGastown_PolecatImplementsRefineryMerges(t *testing.T) {
 	var outer []beadJSON
 	require.NoError(t, json.Unmarshal([]byte(outerOut), &outer), "unmarshal outer bead")
 	require.Len(t, outer, 1, "expected one outer bead")
-	moleculeID := metaString(outer[0].Metadata, "molecule_id")
-	require.NotEmpty(t, moleculeID, "outer bead should carry molecule_id metadata")
+	moleculeID := attachedRootID(outer[0])
+	if moleculeID == "" {
+		moleculeID = attachedWorkflowID
+	}
+	require.NotEmpty(t, moleculeID, "routed bead should carry or be the attached workflow/molecule root")
 
 	rootOut, err := bdCmd(testEnvC, rigDir, "show", moleculeID, "--json")
 	require.NoError(t, err, "bd show molecule root")
@@ -283,10 +312,10 @@ func TestGastown_PolecatImplementsRefineryMerges(t *testing.T) {
 	c.StartForeground()
 
 	// Poll for outcome: refinery must eventually merge the work to origin/main.
-	// 18 minutes: Synthetic-backed workers can take longer to start and
+	// 25 minutes: Synthetic-backed workers can take longer to start and
 	// complete the polecat -> witness -> refinery chain than the original
 	// Anthropic-backed budget this test was written around.
-	deadline := 18 * time.Minute
+	deadline := 25 * time.Minute
 	merged := pollForCondition(t, deadline, 15*time.Second, func() bool {
 		_ = gitCmd(t, rigDir, "fetch", "origin")
 		content := gitCmd(t, rigDir, "show", "origin/main:feature.txt")
@@ -300,9 +329,9 @@ func TestGastown_PolecatImplementsRefineryMerges(t *testing.T) {
 		originMain := gitCmd(t, rigDir, "log", "--oneline", "-5", "origin/main")
 		status, _ := c.GC("status")
 		outerFinal, _ := bdCmd(testEnvC, rigDir, "show", outerID, "--json")
-		refineryAssigned, _ := bdCmd(testEnvC, rigDir, "list", "--assignee=repo/refinery", "--json", "--limit=20")
-		refineryInProgress, _ := bdCmd(testEnvC, rigDir, "list", "--status=in_progress", "--assignee=repo/refinery", "--json", "--limit=20")
-		sessionDiag := gatherSessionDiagnostics(t, c, c.Dir, "mayor", "repo/witness", "repo/refinery", "repo/polecat")
+		refineryAssigned, _ := bdCmd(testEnvC, rigDir, "list", "--assignee="+gastownRigAgent(rigName, "refinery"), "--json", "--limit=20")
+		refineryInProgress, _ := bdCmd(testEnvC, rigDir, "list", "--status=in_progress", "--assignee="+gastownRigAgent(rigName, "refinery"), "--json", "--limit=20")
+		sessionDiag := gatherSessionDiagnostics(t, c, c.Dir, "mayor", gastownRigAgent(rigName, "witness"), gastownRigAgent(rigName, "refinery"), gastownRigAgent(rigName, "polecat"))
 		t.Fatalf("feature.txt was not merged to origin/main within %s\nbranches:\n%s\ngit log:\n%s\norigin/main:\n%s\nstatus:\n%s",
 			deadline, branches, gitLog, originMain, status+
 				"\nouter bead:\n"+outerFinal+
@@ -345,7 +374,7 @@ func TestGastown_PolecatLifecycle(t *testing.T) {
 	time.Sleep(15 * time.Second) // Wait for init.
 
 	// Sling a small, verifiable task.
-	out, err := c.GC("sling", rigName+"/polecat", "Add a function called Hello that prints 'hello world' to main.go")
+	out, err := c.GC("sling", gastownRigAgent(rigName, "polecat"), "Add a function called Hello that prints 'hello world' to main.go")
 	require.NoError(t, err, "gc sling: %s", out)
 	t.Logf("Slung work: %s", strings.TrimSpace(out))
 
@@ -390,14 +419,22 @@ func TestGastown_MayorDispatchPipeline(t *testing.T) {
 	c.RigAdd(rigDir, "packs/gastown")
 	seedGastownClaudeProjects(t, c, rigName)
 
-	// Limit pool sizes.
-	c.AppendToConfig("\n[[rigs.overrides]]\nagent = \"polecat\"\n[rigs.overrides.pool]\nmin = 1\nmax = 1\n")
+	// Keep polecat idle until the mayor creates routed work. A warm min=1
+	// polecat can see the fixture TODO and directly mutate the repo before the
+	// mayor dispatch path has anything to prove.
+	c.AppendToConfig("\n[[rigs.overrides]]\nagent = \"polecat\"\n[rigs.overrides.pool]\nmin = 0\nmax = 1\n")
 
 	c.StartWithSupervisor()
 	time.Sleep(15 * time.Second)
 
-	// Send mail to mayor asking to implement a feature.
-	out, err := c.GC("mail", "send", "mayor", "Please add a greet() function to app.py that prints 'hello'")
+	// Send durable mail, then notify the mayor so an idle session processes it.
+	dispatchTarget := gastownRigAgent(rigName, "polecat")
+	body := fmt.Sprintf(
+		"Create a rig work bead in rig %q for this task, then dispatch it with `gc sling %s <bead-id>`: add a greet() function to app.py that prints 'hello'. Do not edit the file directly as mayor.",
+		rigName,
+		dispatchTarget,
+	)
+	out, err := c.GC("mail", "send", "--notify", "mayor", "-s", "Dispatch app.py greet work to polecat", "-m", body)
 	if err != nil {
 		t.Fatalf("gc mail send: %v\n%s", err, out)
 	}
@@ -421,7 +458,7 @@ func TestGastown_MayorDispatchPipeline(t *testing.T) {
 		if mayorInboxErr != nil {
 			mayorInbox = strings.TrimSpace(mayorInbox + "\nERR: " + mayorInboxErr.Error())
 		}
-		sessionDiag := gatherSessionDiagnostics(t, c, c.Dir, "mayor", "repo/witness", "repo/refinery", "repo/polecat")
+		sessionDiag := gatherSessionDiagnostics(t, c, c.Dir, "mayor", gastownRigAgent(rigName, "witness"), gastownRigAgent(rigName, "refinery"), gastownRigAgent(rigName, "polecat"))
 		t.Fatalf("mayor did not dispatch work within %s\nstatus:\n%s\nrig beads:\n%s\nmayor inbox:\n%s\n%s", deadline, status, rigBeads, mayorInbox, sessionDiag)
 	}
 
@@ -434,7 +471,11 @@ func setupThrowawayRepo(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	originDir := filepath.Join(root, "origin.git")
-	repoDir := filepath.Join(root, "repo")
+	// Derive a unique name from the test name so each test gets a distinct
+	// Dolt DB prefix. All tests share the same DOLT_ROOT_PATH; a hardcoded
+	// "repo" name would give every test the "re" prefix, causing bd init to
+	// fail on pre-existing dirty tables when a prior test's supervisor crashed.
+	repoDir := filepath.Join(root, uniqueRigName(t.Name()))
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -452,19 +493,82 @@ func setupThrowawayRepo(t *testing.T) string {
 	return repoDir
 }
 
+// uniqueRigName returns a short rig directory name derived from the test name.
+// It produces a name of ≤3 chars (CamelCase initials of the last _-component),
+// which DeriveBeadsPrefix returns unchanged as the Dolt DB prefix. This ensures
+// tests sharing the same DOLT_ROOT_PATH get distinct databases and bd init cannot
+// encounter pre-existing dirty tables left by a previous test's crashed supervisor.
+func uniqueRigName(testName string) string {
+	// Use the last _-separated component, e.g. "TestGastown_PolecatLifecycle" → "PolecatLifecycle".
+	if i := strings.LastIndex(testName, "_"); i >= 0 {
+		testName = testName[i+1:]
+	} else if strings.HasPrefix(testName, "Test") {
+		testName = testName[4:]
+	}
+	// Extract CamelCase initials as lowercase.
+	var initials strings.Builder
+	for i, r := range testName {
+		if i == 0 || (r >= 'A' && r <= 'Z') {
+			if r >= 'A' && r <= 'Z' {
+				initials.WriteByte(byte(r - 'A' + 'a'))
+			} else {
+				initials.WriteRune(r)
+			}
+		}
+	}
+	abbrev := initials.String()
+	if abbrev == "" {
+		return "rig"
+	}
+	// ≤3 chars: DeriveBeadsPrefix returns it as-is → unique DB prefix.
+	// >3 chars: truncate to 3 (still unique among the small set of tests here).
+	if len(abbrev) > 3 {
+		abbrev = abbrev[:3]
+	}
+	return abbrev
+}
+
 func newGastownAcceptanceCity(t *testing.T) *helpers.City {
 	t.Helper()
 	c := helpers.NewCity(t, testEnvC)
 	c.InitFrom(filepath.Join(helpers.ExamplesDir(), "gastown"))
-	applyTierCAcceptanceConfig(c)
+	applyTierCAcceptanceConfig(t, c)
 	seedClaudeProjectState(t, c, filepath.Join(c.Dir, ".gc", "agents", "mayor"))
 	seedClaudeProjectState(t, c, filepath.Join(c.Dir, ".gc", "agents", "deacon"))
 	seedClaudeProjectState(t, c, filepath.Join(c.Dir, ".gc", "agents", "boot"))
 	return c
 }
 
-func applyTierCAcceptanceConfig(c *helpers.City) {
-	c.AppendToConfig(tierCAcceptanceConfig)
+func applyTierCAcceptanceConfig(t *testing.T, c *helpers.City) {
+	t.Helper()
+
+	err := configedit.NewEditor(fsys.OSFS{}, filepath.Join(c.Dir, "city.toml")).Edit(func(cfg *config.City) error {
+		cfg.Session.StartupTimeout = tierCStartupTimeout
+		if cfg.Providers == nil {
+			cfg.Providers = make(map[string]config.ProviderSpec, 1)
+		}
+		spec, ok := cfg.Providers["claude"]
+		if !ok {
+			base := config.BasePrefixBuiltin + "claude"
+			spec.Base = &base
+		}
+		spec.ArgsAppend = append([]string(nil), tierCClaudeArgsAppend...)
+		cfg.Providers["claude"] = spec
+		return nil
+	})
+	require.NoError(t, err, "applying Tier C acceptance config")
+}
+
+func swarmRigAgent(rigName, agent string) string {
+	return boundRigAgent(rigName, "swarm", agent)
+}
+
+func gastownRigAgent(rigName, agent string) string {
+	return boundRigAgent(rigName, "gastown", agent)
+}
+
+func boundRigAgent(rigName, binding, agent string) string {
+	return rigName + "/" + binding + "." + agent
 }
 
 func gitCmd(t *testing.T, dir string, args ...string) string {
@@ -509,6 +613,27 @@ func metaString(meta map[string]any, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(fmt.Sprint(v))
+}
+
+func attachedRootID(bead beadJSON) string {
+	if id := metaString(bead.Metadata, "molecule_id"); id != "" {
+		return id
+	}
+	if id := metaString(bead.Metadata, "workflow_id"); id != "" {
+		return id
+	}
+	if metaString(bead.Metadata, "gc.kind") == "workflow" || metaString(bead.Metadata, "gc.formula_contract") == "graph.v2" {
+		return bead.ID
+	}
+	return ""
+}
+
+func parseAttachedWorkflowID(output string) string {
+	match := attachedWorkflowPattern.FindStringSubmatch(output)
+	if len(match) != 2 {
+		return ""
+	}
+	return strings.TrimSpace(match[1])
 }
 
 func bdCmd(env *helpers.Env, dir string, args ...string) (string, error) {
@@ -623,6 +748,7 @@ func seedGastownClaudeProjects(t *testing.T, c *helpers.City, rigName string) {
 	for _, path := range []string{
 		filepath.Join(c.Dir, ".gc", "agents", rigName, "witness"),
 		filepath.Join(c.Dir, ".gc", "worktrees", rigName, "refinery"),
+		filepath.Join(c.Dir, ".gc", "worktrees", rigName, "polecats", "gastown.furiosa"),
 		filepath.Join(c.Dir, ".gc", "worktrees", rigName, "polecats", "polecat"),
 	} {
 		seedClaudeProjectState(t, c, path)
@@ -659,6 +785,128 @@ func tierCEnvAuth() (apiKey, authToken string, hasEnvAuth bool) {
 	authToken = strings.TrimSpace(os.Getenv("ANTHROPIC_AUTH_TOKEN"))
 	hasEnvAuth = apiKey != "" || authToken != ""
 	return apiKey, authToken, hasEnvAuth
+}
+
+func preflightTierCClaudeEnvAuth(tmpDir string, env *helpers.Env) error {
+	projectPath := filepath.Join(tmpDir, "refinery-preflight")
+	if err := os.MkdirAll(projectPath, 0o755); err != nil {
+		return fmt.Errorf("acceptance-c: creating refinery preflight project: %w", err)
+	}
+	if err := helpers.EnsureClaudeProjectState(env, projectPath); err != nil {
+		return fmt.Errorf("acceptance-c: seeding Claude state for refinery preflight: %w", err)
+	}
+
+	model := tierCClaudePreflightModel(env)
+	baseURL := strings.TrimRight(strings.TrimSpace(env.Get("ANTHROPIC_BASE_URL")), "/")
+	if strings.EqualFold(baseURL, "https://ollama.com") && model == "" {
+		return fmt.Errorf("acceptance-c: Ollama Claude preflight requires CLAUDE_CODE_SUBAGENT_MODEL or an ANTHROPIC_DEFAULT_* model")
+	}
+
+	const want = "refinery-kimi-ok"
+	args := make([]string, 0, 4)
+	if model != "" {
+		args = append(args, "--model", model)
+	}
+	args = append(args, "--print", "Reply exactly "+want)
+
+	claudePath, err := tierCLookPath(env.Get("PATH"), "claude")
+	if err != nil {
+		return fmt.Errorf("acceptance-c: resolving staged Claude provider: %w", err)
+	}
+	cmd := exec.Command(claudePath, args...)
+	cmd.Dir = projectPath
+	cmd.Env = env.List()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("acceptance-c: Claude env-auth preflight failed (project=refinery-preflight, base_url=%q, model=%q, auth_token_set=%t, api_key_set=%t, ollama_key_set=%t): %w\n%s",
+			baseURL,
+			model,
+			strings.TrimSpace(env.Get("ANTHROPIC_AUTH_TOKEN")) != "",
+			strings.TrimSpace(env.Get("ANTHROPIC_API_KEY")) != "",
+			strings.TrimSpace(env.Get("OLLAMA_API_KEY")) != "",
+			err,
+			tierCPreflightStreams(stdout.String(), stderr.String()),
+		)
+	}
+
+	if got := strings.TrimSpace(stdout.String()); got != want {
+		return fmt.Errorf("acceptance-c: Claude env-auth preflight returned %q, want %q (project=refinery-preflight, base_url=%q, model=%q)\n%s",
+			got,
+			want,
+			baseURL,
+			model,
+			tierCPreflightStreams(stdout.String(), stderr.String()),
+		)
+	}
+
+	displayModel := model
+	if displayModel == "" {
+		displayModel = "<provider default>"
+	}
+	displayBaseURL := baseURL
+	if displayBaseURL == "" {
+		displayBaseURL = "<provider default>"
+	}
+	fmt.Fprintf(os.Stderr, "acceptance-c: Claude env-auth preflight ok (project=refinery-preflight, base_url=%s, model=%s)\n", displayBaseURL, displayModel)
+	return nil
+}
+
+func tierCClaudePreflightModel(env *helpers.Env) string {
+	for _, key := range []string{
+		"CLAUDE_CODE_SUBAGENT_MODEL",
+		"ANTHROPIC_DEFAULT_SONNET_MODEL",
+		"ANTHROPIC_DEFAULT_OPUS_MODEL",
+		"ANTHROPIC_DEFAULT_HAIKU_MODEL",
+	} {
+		if v := strings.TrimSpace(env.Get(key)); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func tierCPreflightStreams(stdout, stderr string) string {
+	var b strings.Builder
+	if strings.TrimSpace(stdout) != "" {
+		b.WriteString("stdout:\n")
+		b.WriteString(stdout)
+		if !strings.HasSuffix(stdout, "\n") {
+			b.WriteString("\n")
+		}
+	}
+	if strings.TrimSpace(stderr) != "" {
+		b.WriteString("stderr:\n")
+		b.WriteString(stderr)
+		if !strings.HasSuffix(stderr, "\n") {
+			b.WriteString("\n")
+		}
+	}
+	out := b.String()
+	const limit = 4000
+	if len(out) <= limit {
+		return out
+	}
+	return out[:limit] + "\n... [preflight output truncated]\n"
+}
+
+func tierCLookPath(pathEnv, name string) (string, error) {
+	if strings.ContainsRune(name, os.PathSeparator) {
+		return name, nil
+	}
+	for _, dir := range filepath.SplitList(pathEnv) {
+		if dir == "" {
+			dir = "."
+		}
+		candidate := filepath.Join(dir, name)
+		info, err := os.Stat(candidate)
+		if err != nil || info.IsDir() || info.Mode()&0o111 == 0 {
+			continue
+		}
+		return candidate, nil
+	}
+	return "", exec.ErrNotFound
 }
 
 func stageTierCAcceptanceProviders(binDir, apiKey string) error {
@@ -730,6 +978,37 @@ func TestTierCEnvAuthDoesNotMirrorAuthTokenIntoAPIKey(t *testing.T) {
 	require.Empty(t, apiKey)
 	require.Equal(t, "synthetic-token", authToken)
 	require.True(t, hasEnvAuth)
+}
+
+func TestUniqueRigName(t *testing.T) {
+	cases := []struct {
+		testName string
+		want     string
+	}{
+		{"TestSwarm_SlingWorkCoderCommits", "swc"},
+		{"TestGastown_PolecatImplementsRefineryMerges", "pir"},
+		{"TestGastown_PolecatLifecycle", "pl"},
+		{"TestGastown_MayorDispatchPipeline", "mdp"},
+		{"TestStandalone", "s"}, // no underscore: strips "Test", single initial
+		{"", "rig"},             // empty input falls back to "rig"
+	}
+	for _, tc := range cases {
+		if got := uniqueRigName(tc.testName); got != tc.want {
+			t.Errorf("uniqueRigName(%q) = %q, want %q", tc.testName, got, tc.want)
+		}
+	}
+}
+
+func TestParseAttachedWorkflowID(t *testing.T) {
+	output := `Created pir-pgi — "Create a file called feature.txt containing 'new feature'"
+Attached workflow pir-swc (formula "mol-polecat-work") to pir-swc
+`
+	if got := parseAttachedWorkflowID(output); got != "pir-swc" {
+		t.Fatalf("parseAttachedWorkflowID() = %q, want pir-swc", got)
+	}
+	if got := parseAttachedWorkflowID("Created pir-pgi\n"); got != "" {
+		t.Fatalf("parseAttachedWorkflowID() = %q, want empty", got)
+	}
 }
 
 func stageClaudeOAuth(realHome, gcHome string) error {

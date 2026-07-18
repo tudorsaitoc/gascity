@@ -35,10 +35,10 @@ func TestTutorial02Agents(t *testing.T) {
 
 	var reviewTaskID string
 
-	t.Run("gc agent add --name reviewer --dir my-project", func(t *testing.T) {
-		out, err := ws.runShell("gc agent add --name reviewer --dir my-project", "")
+	t.Run("gc agent add --name reviewer", func(t *testing.T) {
+		out, err := ws.runShell("gc agent add --name reviewer", "")
 		if err != nil {
-			t.Fatalf("gc agent add --name reviewer --dir my-project: %v\n%s", err, out)
+			t.Fatalf("gc agent add --name reviewer: %v\n%s", err, out)
 		}
 		if !strings.Contains(out, "Scaffolded agent 'reviewer'") {
 			t.Fatalf("gc agent add output mismatch:\n%s", out)
@@ -55,12 +55,16 @@ EOF`
 		}
 	})
 
+	// Page step: register the reviewer's provider in city.toml's explicit
+	// provider catalog (a toml edit on the page, not a $-command).
+	registerTutorialReviewerProvider(t, myCity)
+
 	t.Run("gc prime", func(t *testing.T) {
 		out, err := ws.runShell("gc prime", "")
 		if err != nil {
 			t.Fatalf("gc prime: %v\n%s", err, out)
 		}
-		for _, want := range []string{"# Gas City Agent", "bd ready", "bd close <id>"} {
+		for _, want := range []string{"# Gas City Agent", "gc hook --claim --json", "bd show <id>", "bd close <id>", "Repeat until the queue is empty."} {
 			if !strings.Contains(out, want) {
 				t.Fatalf("gc prime missing %q:\n%s", want, out)
 			}
@@ -70,16 +74,16 @@ EOF`
 	t.Run("cat > agents/reviewer/prompt.template.md << 'EOF'", func(t *testing.T) {
 		cmd := `cat > agents/reviewer/prompt.template.md << 'EOF'
 # Code Reviewer Agent
-You are an agent in a Gas City workspace. Check for available work and execute it.
+You are an agent in a Gas City workspace. Claim available work and execute it.
 
 ## Your tools
-- ` + "`bd ready`" + ` — see available work items
+- ` + "`gc hook --claim --json`" + ` — find and atomically claim one work item
 - ` + "`bd show <id>`" + ` — see details of a work item
 - ` + "`bd close <id>`" + ` — mark work as done
 
 ## How to work
-1. Check for available work: ` + "`bd ready`" + `
-2. Pick a bead and execute the work described in its title
+1. Claim work: ` + "`gc hook --claim --json`" + `
+2. Read the claimed bead and execute the work described in its title
 3. When done, close it: ` + "`bd close <id>`" + `
 4. Check for more work. Repeat until the queue is empty.
 

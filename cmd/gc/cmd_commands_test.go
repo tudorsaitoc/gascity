@@ -99,6 +99,249 @@ echo "args=$*"
 	}
 }
 
+func TestRunDiscoveredCommand_ProjectsCanonicalExternalDoltEnv(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".beads"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, ".beads", "config.yaml"), strings.Join([]string{
+		"issue_prefix: ct",
+		"gc.endpoint_origin: city_canonical",
+		"gc.endpoint_status: verified",
+		"dolt.host: 127.0.0.1",
+		"dolt.port: 4406",
+		"dolt.user: city-user",
+		"",
+	}, "\n"))
+
+	packDir := filepath.Join(dir, "pack")
+	sourceDir := filepath.Join(packDir, "commands", "compact")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(sourceDir, "run.sh")
+	script := `#!/bin/sh
+echo "managed=$GC_DOLT_MANAGED_LOCAL"
+echo "host=$GC_DOLT_HOST"
+echo "port=$GC_DOLT_PORT"
+echo "user=$GC_DOLT_USER"
+echo "beadsport=$BEADS_DOLT_SERVER_PORT"
+`
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Stale ambient values from a parent session must lose to the city's
+	// canonical endpoint, exactly as they do on the order-dispatch path.
+	t.Setenv("GC_DOLT_PORT", "9999")
+	t.Setenv("GC_DOLT_MANAGED_LOCAL", "1")
+	t.Setenv("BEADS_DOLT_SERVER_PORT", "9999")
+
+	entry := config.DiscoveredCommand{
+		BindingName: "dolt",
+		PackName:    "dolt",
+		Command:     []string{"compact"},
+		RunScript:   scriptPath,
+		PackDir:     packDir,
+		SourceDir:   sourceDir,
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := runDiscoveredCommand(entry, dir, "testcity", nil, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	for _, want := range []string{
+		"managed=0",
+		"host=127.0.0.1",
+		"port=4406",
+		"user=city-user",
+		"beadsport=4406",
+	} {
+		if !strings.Contains(out, want+"\n") {
+			t.Fatalf("stdout missing %q, got:\n%s", want, out)
+		}
+	}
+}
+
+func TestRunDiscoveredCommand_KeepsAmbientDoltEnvWithoutScopeConfig(t *testing.T) {
+	dir := t.TempDir()
+	packDir := filepath.Join(dir, "pack")
+	sourceDir := filepath.Join(packDir, "commands", "compact")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(sourceDir, "run.sh")
+	script := `#!/bin/sh
+echo "port=$GC_DOLT_PORT"
+`
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Without an authoritative scope config the operator-seeded ambient
+	// value must pass through untouched.
+	t.Setenv("GC_DOLT_PORT", "7777")
+
+	entry := config.DiscoveredCommand{
+		BindingName: "dolt",
+		PackName:    "dolt",
+		Command:     []string{"compact"},
+		RunScript:   scriptPath,
+		PackDir:     packDir,
+		SourceDir:   sourceDir,
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := runDiscoveredCommand(entry, dir, "testcity", nil, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "port=7777\n") {
+		t.Fatalf("ambient GC_DOLT_PORT must pass through without scope config, got:\n%s", stdout.String())
+	}
+}
+
+func TestRunDiscoveredCommand_AmbientBeadsDoltPasswordLosesToCredentialsFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".beads"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, ".beads", "config.yaml"), strings.Join([]string{
+		"issue_prefix: ct",
+		"gc.endpoint_origin: city_canonical",
+		"gc.endpoint_status: verified",
+		"dolt.host: 127.0.0.1",
+		"dolt.port: 4406",
+		"dolt.user: city-user",
+		"",
+	}, "\n"))
+	credentialsPath := filepath.Join(dir, "credentials")
+	writeFile(t, credentialsPath, strings.Join([]string{
+		"[127.0.0.1:4406]",
+		"password = cred-file-pass",
+		"",
+	}, "\n"))
+
+	packDir := filepath.Join(dir, "pack")
+	sourceDir := filepath.Join(packDir, "commands", "compact")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(sourceDir, "run.sh")
+	script := `#!/bin/sh
+echo "password=$GC_DOLT_PASSWORD"
+echo "beadspass=$BEADS_DOLT_PASSWORD"
+`
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// A stale BEADS_DOLT_PASSWORD mirrored into the parent session for a
+	// different scope must not be treated as already-resolved auth for
+	// the city's canonical endpoint; the endpoint's credentials-file
+	// password must win. GC_DOLT_PASSWORD stays neutral so the operator
+	// override (read via os.Getenv) does not shadow the lookup.
+	t.Setenv("BEADS_DOLT_PASSWORD", "stale-cross-scope-pass")
+	t.Setenv("GC_DOLT_PASSWORD", "")
+	t.Setenv("BEADS_CREDENTIALS_FILE", credentialsPath)
+
+	entry := config.DiscoveredCommand{
+		BindingName: "dolt",
+		PackName:    "dolt",
+		Command:     []string{"compact"},
+		RunScript:   scriptPath,
+		PackDir:     packDir,
+		SourceDir:   sourceDir,
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := runDiscoveredCommand(entry, dir, "testcity", nil, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	for _, want := range []string{
+		"password=cred-file-pass",
+		"beadspass=cred-file-pass",
+	} {
+		if !strings.Contains(out, want+"\n") {
+			t.Fatalf("stdout missing %q, got:\n%s", want, out)
+		}
+	}
+}
+
+func TestRunDiscoveredCommand_RemovesAmbientDoltEnvDeletedByProjection(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".beads"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, ".beads", "config.yaml"), strings.Join([]string{
+		"issue_prefix: ct",
+		"gc.endpoint_origin: managed_city",
+		"",
+	}, "\n"))
+
+	packDir := filepath.Join(dir, "pack")
+	sourceDir := filepath.Join(packDir, "commands", "compact")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(sourceDir, "run.sh")
+	// ${VAR+set} distinguishes unset from set-but-empty: the projection
+	// must delete these keys, not blank them.
+	script := `#!/bin/sh
+echo "managed=$GC_DOLT_MANAGED_LOCAL"
+echo "gchost=${GC_DOLT_HOST+set}"
+echo "gcport=${GC_DOLT_PORT+set}"
+echo "mirrorhost=${BEADS_DOLT_SERVER_HOST+set}"
+`
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// A managed-local canonical city deletes the host key (and its
+	// BEADS mirror) instead of projecting a value; stale ambient
+	// entries must be stripped from the child environment, not passed
+	// through.
+	t.Setenv("GC_DOLT_HOST", "stale.example")
+	t.Setenv("GC_DOLT_PORT", "9999")
+	t.Setenv("BEADS_DOLT_SERVER_HOST", "stale.example")
+	t.Setenv("BEADS_CREDENTIALS_FILE", filepath.Join(dir, "no-credentials"))
+
+	entry := config.DiscoveredCommand{
+		BindingName: "dolt",
+		PackName:    "dolt",
+		Command:     []string{"compact"},
+		RunScript:   scriptPath,
+		PackDir:     packDir,
+		SourceDir:   sourceDir,
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := runDiscoveredCommand(entry, dir, "testcity", nil, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "managed=1\n") {
+		t.Fatalf("projection did not run (want managed=1), got:\n%s", out)
+	}
+	for _, want := range []string{
+		"gchost=",
+		"gcport=",
+		"mirrorhost=",
+	} {
+		if !strings.Contains(out, want+"\n") {
+			t.Fatalf("stale ambient key not removed (want %q line), got:\n%s", want, out)
+		}
+	}
+}
+
 func TestRunDiscoveredCommand_PrefersEntryPackDir(t *testing.T) {
 	dir := t.TempDir()
 	packDir := filepath.Join(dir, "actual-pack")
@@ -385,6 +628,220 @@ func TestTryDiscoveredCommandFallback_PrefersLongestMatch(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "sync:now") {
 		t.Fatalf("stdout missing longest-match execution, got:\n%s", stdout.String())
+	}
+}
+
+func TestTryDiscoveredCommandFallback_HelpFlagShowsHelpWithoutRunning(t *testing.T) {
+	dir := t.TempDir()
+	sourceDir := filepath.Join(dir, "pack", "commands", "status")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(sourceDir, "run.sh")
+	if err := os.WriteFile(scriptPath, []byte("#!/bin/sh\necho should-not-run\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	helpPath := filepath.Join(sourceDir, "help.md")
+	if err := os.WriteFile(helpPath, []byte("Status help from pack.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.City{
+		Workspace: config.Workspace{Name: "testcity"},
+		PackCommands: []config.DiscoveredCommand{{
+			BindingName: "gs",
+			PackName:    "mypack",
+			Command:     []string{"status"},
+			Description: "Show status",
+			RunScript:   scriptPath,
+			HelpFile:    helpPath,
+			SourceDir:   sourceDir,
+		}},
+	}
+
+	var stdout, stderr bytes.Buffer
+	ok := tryDiscoveredCommandFallback([]string{"gs", "status", "--help"}, cfg, dir, &stdout, &stderr)
+	if !ok {
+		t.Fatal("tryDiscoveredCommandFallback returned false, want true")
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "Status help from pack.") {
+		t.Fatalf("stdout missing discovered help, got:\n%s", out)
+	}
+	if strings.Contains(out, "should-not-run") {
+		t.Fatalf("help should not execute the discovered command, got:\n%s", out)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestTryDiscoveredCommandFallback_HelpAfterTerminatorPassesThrough(t *testing.T) {
+	dir := t.TempDir()
+	sourceDir := filepath.Join(dir, "pack", "commands", "status")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(sourceDir, "run.sh")
+	if err := os.WriteFile(scriptPath, []byte("#!/bin/sh\nprintf 'args=%s %s\\n' \"$1\" \"$2\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	helpPath := filepath.Join(sourceDir, "help.md")
+	if err := os.WriteFile(helpPath, []byte("Status help from pack.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.City{
+		Workspace: config.Workspace{Name: "testcity"},
+		PackCommands: []config.DiscoveredCommand{{
+			BindingName: "gs",
+			PackName:    "mypack",
+			Command:     []string{"status"},
+			Description: "Show status",
+			RunScript:   scriptPath,
+			HelpFile:    helpPath,
+			SourceDir:   sourceDir,
+		}},
+	}
+
+	var stdout, stderr bytes.Buffer
+	ok := tryDiscoveredCommandFallback([]string{"gs", "status", "--", "--help"}, cfg, dir, &stdout, &stderr)
+	if !ok {
+		t.Fatal("tryDiscoveredCommandFallback returned false, want true")
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "args=-- --help") {
+		t.Fatalf("stdout missing script passthrough args, got:\n%s", out)
+	}
+	if strings.Contains(out, "Status help from pack.") {
+		t.Fatalf("terminator should pass --help through to the script, got:\n%s", out)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestTryDiscoveredCommandFallback_NamespaceHelpListsChildren(t *testing.T) {
+	dir := t.TempDir()
+	repoSyncDir := filepath.Join(dir, "pack", "commands", "repo", "sync")
+	repoCleanDir := filepath.Join(dir, "pack", "commands", "repo", "clean")
+	for _, p := range []string{repoSyncDir, repoCleanDir} {
+		if err := os.MkdirAll(p, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(p, "run.sh"), []byte("#!/bin/sh\necho should-not-run\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cfg := &config.City{
+		Workspace: config.Workspace{Name: "testcity"},
+		PackCommands: []config.DiscoveredCommand{
+			{
+				BindingName: "gs",
+				PackName:    "mypack",
+				Command:     []string{"repo", "sync"},
+				Description: "Sync repo",
+				RunScript:   filepath.Join(repoSyncDir, "run.sh"),
+				SourceDir:   repoSyncDir,
+			},
+			{
+				BindingName: "gs",
+				PackName:    "mypack",
+				Command:     []string{"repo", "clean"},
+				Description: "Clean repo",
+				RunScript:   filepath.Join(repoCleanDir, "run.sh"),
+				SourceDir:   repoCleanDir,
+			},
+		},
+	}
+
+	var stdout, stderr bytes.Buffer
+	ok := tryDiscoveredCommandFallback([]string{"gs", "repo", "--help"}, cfg, dir, &stdout, &stderr)
+	if !ok {
+		t.Fatal("tryDiscoveredCommandFallback returned false, want true")
+	}
+	out := stdout.String()
+	for _, want := range []string{"Available commands for gs repo:", "clean", "Clean repo", "sync", "Sync repo"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("stdout missing %q, got:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "should-not-run") {
+		t.Fatalf("namespace help should not execute a discovered command, got:\n%s", out)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestPrintDiscoveredCommandHelpFallbacks(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		entry config.DiscoveredCommand
+		want  string
+	}{
+		{
+			name:  "description",
+			entry: config.DiscoveredCommand{Command: []string{"status"}, Description: "Show status"},
+			want:  "Show status\n",
+		},
+		{
+			name:  "generic",
+			entry: config.DiscoveredCommand{Command: []string{"repo", "sync"}},
+			want:  "Pack command: repo sync\n",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			printDiscoveredCommandHelp(&stdout, tc.entry)
+			if got := stdout.String(); got != tc.want {
+				t.Fatalf("stdout = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPrintDiscoveredCommandListFiltersPrefixAndSkipsExactNamespace(t *testing.T) {
+	entries := []config.DiscoveredCommand{
+		{Command: []string{"repo"}, Description: "Repo namespace"},
+		{Command: []string{"repo", "sync"}, Description: "Sync repo"},
+		{Command: []string{"repo", "clean"}, Description: "Clean repo"},
+		{Command: []string{"status"}, Description: "Show status"},
+	}
+
+	var stdout bytes.Buffer
+	printDiscoveredCommandList(&stdout, "gs", []string{"repo"}, entries)
+
+	out := stdout.String()
+	for _, want := range []string{
+		"Available commands for gs repo:",
+		"sync",
+		"Sync repo",
+		"clean",
+		"Clean repo",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("stdout missing %q, got:\n%s", want, out)
+		}
+	}
+	for _, notWant := range []string{"Repo namespace", "status", "Show status"} {
+		if strings.Contains(out, notWant) {
+			t.Fatalf("stdout unexpectedly contained %q, got:\n%s", notWant, out)
+		}
+	}
+}
+
+func TestDiscoveredCommandPrefixHelpers(t *testing.T) {
+	entries := []config.DiscoveredCommand{{Command: []string{"repo", "sync"}}}
+	if !discoveredCommandPrefixExists(entries, []string{"repo"}) {
+		t.Fatal("expected repo prefix to exist")
+	}
+	if discoveredCommandPrefixExists(entries, []string{"missing"}) {
+		t.Fatal("missing prefix unexpectedly exists")
+	}
+	if commandHasPrefix([]string{"repo"}, []string{"repo", "sync"}) {
+		t.Fatal("short command unexpectedly matched longer prefix")
 	}
 }
 

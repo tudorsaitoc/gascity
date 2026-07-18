@@ -45,8 +45,8 @@ var (
 const (
 	inferenceProbeTemplate    = "probe"
 	inferenceProbeManualID    = "probe-live"
-	inferenceProbePromptPath  = "prompts/worker-inference-probe.md"
 	inferenceSlingTarget      = inferenceProbeTemplate
+	inferenceDefaultPoolAgent = "default-pool"
 	namedSessionModeMetadata  = "configured_named_mode"
 	liveBootstrapTimeout      = 90 * time.Second
 	liveControlTimeout        = 45 * time.Second
@@ -59,16 +59,15 @@ const (
 var inferenceDisabledOrders = []string{
 	"beads-health",
 	"cross-rig-deps",
-	"dolt-gc-nudge",
 	"dolt-health",
 	"dolt-remotes-patrol",
 	"gate-sweep",
 	"mol-dog-backup",
 	"mol-dog-compactor",
 	"mol-dog-doctor",
-	"mol-dog-jsonl",
+	"jsonl-export",
 	"mol-dog-phantom-db",
-	"mol-dog-reaper",
+	"reaper",
 	"mol-dog-stale-db",
 	"orphan-sweep",
 	"prune-branches",
@@ -148,6 +147,7 @@ func TestWorkerInferenceSmoke(t *testing.T) {
 	})
 
 	if liveSetup.SetupError != "" {
+		t.Logf("SETUP ERROR: %s", liveSetup.SetupError)
 		reporter.Record(workertest.EnvironmentError(profileID, workertest.RequirementInferenceFreshSpawn, liveSetup.SetupError).WithEvidence(map[string]string{
 			"profile":  string(liveSetup.Profile),
 			"provider": liveSetup.Provider,
@@ -203,6 +203,54 @@ func TestWorkerInferenceSmoke(t *testing.T) {
 	transcriptEvidence["tail_activity"] = string(snapshot.TailState.Activity)
 	transcriptEvidence["logical_conversation_id"] = snapshot.LogicalConversationID
 	reporter.Require(t, workertest.Pass(profileID, workertest.RequirementInferenceTranscript, "live transcript was discovered and normalized after the completed task").WithEvidence(transcriptEvidence))
+}
+
+func TestWorkerInferenceTemplateStartupPrompt(t *testing.T) {
+	if testing.Short() {
+		t.Skip("WorkerInference: skipping in short mode")
+	}
+
+	profileID := workertest.ProfileID(liveSetup.Profile)
+	reporter := workertest.NewSuiteReporter(t, "worker-inference-template-startup", map[string]string{
+		"lane":        "live",
+		"profile":     string(liveSetup.Profile),
+		"provider":    liveSetup.Provider,
+		"auth_source": liveSetup.AuthSource,
+	})
+
+	if liveSetup.SetupError != "" {
+		reporter.Record(workertest.EnvironmentError(profileID, workertest.RequirementInferenceTemplateStartup, liveSetup.SetupError).WithEvidence(map[string]string{
+			"profile":  string(liveSetup.Profile),
+			"provider": liveSetup.Provider,
+		}))
+		t.FailNow()
+	}
+
+	outputRel := fmt.Sprintf("worker-template-startup-%s.txt", liveSetup.Provider)
+	outputText := fmt.Sprintf("%s template startup ok", liveSetup.Provider)
+	prompt := fmt.Sprintf("Create a file named %s containing exactly %q and nothing else.", outputRel, outputText)
+	run, spawnEvidence, taskEvidence, phase, err := runFreshManualSessionTurn(
+		t,
+		liveSetup.Provider,
+		inferenceProbeTemplate,
+		fmt.Sprintf("probe-template-%s", liveSetup.Provider),
+		prompt,
+		outputRel,
+	)
+	if err != nil {
+		evidence := mergeEvidence(spawnEvidence, taskEvidence)
+		if phase != "" {
+			evidence["failed_phase"] = phase
+		}
+		reporter.Record(liveFailureResult(profileID, workertest.RequirementInferenceTemplateStartup, err.Error(), evidence))
+		t.FailNow()
+	}
+	if strings.TrimSpace(run.OutputContents) != outputText {
+		reporter.Record(liveFailureResult(profileID, workertest.RequirementInferenceTemplateStartup, "manual template session output did not match the requested content", taskEvidence))
+		t.FailNow()
+	}
+
+	reporter.Require(t, workertest.Pass(profileID, workertest.RequirementInferenceTemplateStartup, "manual template session stayed alive after startup prompt delivery and completed a machine-checkable task").WithEvidence(mergeEvidence(spawnEvidence, taskEvidence)))
 }
 
 func TestWorkerInferenceWorkspaceTask(t *testing.T) {
@@ -285,6 +333,80 @@ func TestWorkerInferenceWorkspaceTask(t *testing.T) {
 		t.FailNow()
 	}
 	reporter.Require(t, workertest.Pass(profileID, workertest.RequirementInferenceWorkspaceTask, "live worker read workspace state and produced the expected machine-checkable output").WithEvidence(taskEvidence))
+}
+
+func TestWorkerInferenceDefaultPoolMolDoWork(t *testing.T) {
+	if testing.Short() {
+		t.Skip("WorkerInference: skipping in short mode")
+	}
+
+	profileID := workertest.ProfileID(liveSetup.Profile)
+	reporter := workertest.NewSuiteReporter(t, "worker-inference-default-pool-mol-do-work", map[string]string{
+		"lane":        "live",
+		"profile":     string(liveSetup.Profile),
+		"provider":    liveSetup.Provider,
+		"auth_source": liveSetup.AuthSource,
+	})
+
+	if liveSetup.SetupError != "" {
+		reporter.Record(workertest.EnvironmentError(profileID, workertest.RequirementInferenceFreshSpawn, liveSetup.SetupError).WithEvidence(map[string]string{
+			"profile":  string(liveSetup.Profile),
+			"provider": liveSetup.Provider,
+		}))
+		t.FailNow()
+	}
+
+	outputRel := fmt.Sprintf("worker-inference-default-mol-do-work-%s.txt", liveSetup.Provider)
+	expected := fmt.Sprintf("%s default pool mol-do-work ok", liveSetup.Provider)
+	prompt := fmt.Sprintf(
+		"Create a file named %s containing exactly %q and nothing else. This is a small verification task for the default pool worker prompt and the mol-do-work formula.",
+		outputRel,
+		expected,
+	)
+
+	run, spawnEvidence, taskEvidence, stage, err := runFreshInitDefaultPoolSlingWork(t, liveSetup.Provider, prompt, outputRel)
+	if taskEvidence == nil {
+		taskEvidence = map[string]string{}
+	}
+	taskEvidence["expected_output"] = expected
+	if err != nil {
+		requirement := workertest.RequirementInferenceFreshTask
+		evidence := taskEvidence
+		if stage == "spawn" {
+			requirement = workertest.RequirementInferenceFreshSpawn
+			evidence = spawnEvidence
+		}
+		reporter.Record(liveFailureResult(profileID, requirement, err.Error(), evidence))
+		t.FailNow()
+	}
+
+	reporter.Record(workertest.Pass(profileID, workertest.RequirementInferenceFreshSpawn, "default implicit provider pool session spawned for gc sling work").WithEvidence(spawnEvidence))
+	if strings.TrimSpace(run.OutputContents) != expected {
+		taskEvidence["actual_output"] = run.OutputContents
+		reporter.Record(liveFailureResult(profileID, workertest.RequirementInferenceFreshTask, "default pool mol-do-work output did not match requested content", taskEvidence))
+		t.FailNow()
+	}
+	if run.WorkBead.Status != "closed" {
+		taskEvidence["work_status"] = run.WorkBead.Status
+		reporter.Record(liveFailureResult(profileID, workertest.RequirementInferenceFreshTask, "default pool mol-do-work did not close the routed work bead", taskEvidence))
+		t.FailNow()
+	}
+	if got := metaString(run.WorkBead.Metadata, "gc.outcome"); got != "pass" {
+		taskEvidence["gc_outcome"] = got
+		reporter.Record(liveFailureResult(profileID, workertest.RequirementInferenceFreshTask, "default pool mol-do-work did not record gc.outcome=pass on the routed work bead", taskEvidence))
+		t.FailNow()
+	}
+	if got := metaString(run.WorkBead.Metadata, "molecule_id"); got != "" {
+		taskEvidence["molecule_id"] = got
+	} else {
+		slingOut := spawnEvidence["sling_out"]
+		if !strings.Contains(slingOut, "Attached workflow") || !strings.Contains(slingOut, `formula "mol-do-work"`) {
+			reporter.Record(liveFailureResult(profileID, workertest.RequirementInferenceFreshTask, "default pool sling work did not expose mol-do-work attachment evidence", taskEvidence))
+			t.FailNow()
+		}
+		taskEvidence["mol_do_work_attachment"] = "sling_out"
+	}
+	reporter.Require(t, workertest.Pass(profileID, workertest.RequirementInferenceFreshTask, "default pool prompt completed a mol-do-work assignment and closed the routed bead").WithEvidence(taskEvidence))
 }
 
 func TestWorkerInferenceContinuationSmoke(t *testing.T) {
@@ -726,7 +848,8 @@ func TestWorkerInferenceFreshResetIsolation(t *testing.T) {
 		)))
 		t.FailNow()
 	}
-	if historySubsequenceEnd(afterSnapshot.Entries, continuationComparableEntries(beforeSnapshot.Entries)) >= 0 {
+	if checksResetHistorySubsequence(liveSetup.Profile) &&
+		historySubsequenceEnd(afterSnapshot.Entries, continuationComparableEntries(beforeSnapshot.Entries)) >= 0 {
 		reporter.Record(liveFailureResult(profileID, workertest.RequirementInferenceFreshReset, "reset transcript still preserves the prior normalized conversation history", mergeEvidence(
 			spawnEvidence,
 			taskEvidence,
@@ -785,6 +908,10 @@ func TestWorkerInferenceFreshResetIsolation(t *testing.T) {
 		},
 	)
 	reporter.Require(t, workertest.Pass(profileID, workertest.RequirementInferenceFreshReset, "live worker reset preserved the bead but started a fresh logical conversation").WithEvidence(evidence))
+}
+
+func checksResetHistorySubsequence(profile workerpkg.Profile) bool {
+	return profile != workerpkg.ProfileAntigravityTmuxCLI
 }
 
 func TestWorkerInferenceMultiTurnWorkflow(t *testing.T) {
@@ -971,6 +1098,19 @@ func TestWorkerInferenceInterruptRecoverContinue(t *testing.T) {
 			"provider": liveSetup.Provider,
 		}))
 		t.FailNow()
+	}
+
+	if liveSetup.Profile == workerpkg.ProfileAntigravityTmuxCLI || liveSetup.Profile == workerpkg.ProfileMimoCodeTmuxCLI {
+		// Both CLIs deliver the replacement input but let the interrupted
+		// turn run to completion (mimocode verified live 2026-06-12, same
+		// behavior the Antigravity conformance runs recorded).
+		reporter.Record(workertest.Unsupported(profileID, workertest.RequirementInferenceInterruptRecoverContinue, fmt.Sprintf("%s CLI does not currently cancel an in-flight turn for interrupt_now", liveSetup.Provider)).WithEvidence(map[string]string{
+			"profile":       string(liveSetup.Profile),
+			"provider":      liveSetup.Provider,
+			"submit_intent": "interrupt_now",
+			"observed":      "replacement input is delivered, but the interrupted turn can continue to completion",
+		}))
+		return
 	}
 
 	harness, err := newLiveWorkerHandleHarness(t)
@@ -1314,6 +1454,10 @@ func runFreshInitSlingWork(t *testing.T, provider, prompt, outputRel string) (in
 	return runFreshInitSlingWorkWithSetup(t, provider, prompt, outputRel, nil)
 }
 
+func runFreshInitDefaultPoolSlingWork(t *testing.T, provider, prompt, outputRel string) (inferenceRun, map[string]string, map[string]string, string, error) {
+	return runFreshInitSlingWorkForTarget(t, provider, inferenceDefaultPoolAgent, prompt, outputRel, nil, false)
+}
+
 func newLiveCity(t *testing.T) *helpers.City {
 	t.Helper()
 
@@ -1354,8 +1498,18 @@ func installLiveProviderCommandOverrideWithArgs(cityDir, provider, command strin
 		return err
 	}
 	header := fmt.Sprintf("[providers.%s]", provider)
-	if strings.Contains(string(data), header) {
-		return fmt.Errorf("city.toml already defines %s", header)
+	text := string(data)
+	if strings.Contains(text, header) {
+		if provider == "antigravity" {
+			return appendLiveProviderEnvOverridesIfMissing(cityPath, text, provider, provider)
+		}
+		// gc init writes a thin builtin alias for the selected provider
+		// (#2949); replace it with the live override instead of failing.
+		stripped, ok := stripThinBuiltinAliasSection(text, provider)
+		if !ok {
+			return fmt.Errorf("city.toml already defines %s", header)
+		}
+		data = []byte(stripped)
 	}
 
 	var b strings.Builder
@@ -1390,7 +1544,250 @@ func installLiveProviderCommandOverrideWithArgs(cityDir, provider, command strin
 			fmt.Fprintf(&b, "args_append = [%s]\n", strings.Join(quoted, ", "))
 		}
 	}
+	writeLiveProviderEnvOverrides(&b, provider, provider)
 	return os.WriteFile(cityPath, []byte(b.String()), 0o644)
+}
+
+// stripThinBuiltinAliasSection removes the `[providers.<name>]` section that
+// `gc init` emits as a thin builtin alias (base = "builtin:<name>" plus
+// zero-value scalars). It returns ok=false when the section carries any other
+// configuration, so genuinely customized provider sections still fail loudly.
+func stripThinBuiltinAliasSection(text, provider string) (string, bool) {
+	header := fmt.Sprintf("[providers.%s]", provider)
+	lines := strings.Split(text, "\n")
+	start := -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == header {
+			start = i
+			break
+		}
+	}
+	if start == -1 {
+		return text, false
+	}
+	end := len(lines)
+	for i := start + 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(trimmed, "[") {
+			end = i
+			break
+		}
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		switch trimmed {
+		case fmt.Sprintf("base = %s", strconv.Quote("builtin:"+provider)), "ready_delay_ms = 0":
+			continue
+		default:
+			return text, false
+		}
+	}
+	return strings.Join(append(append([]string(nil), lines[:start]...), lines[end:]...), "\n"), true
+}
+
+func appendLiveProviderEnvOverridesIfMissing(cityPath, text, blockProvider, sourceProvider string) error {
+	if len(liveProviderEnvOverrides(sourceProvider)) == 0 {
+		return nil
+	}
+	envHeader := fmt.Sprintf("[providers.%s.env]", blockProvider)
+	if strings.Contains(text, envHeader) {
+		return nil
+	}
+
+	var b strings.Builder
+	b.WriteString(text)
+	if len(text) > 0 && text[len(text)-1] != '\n' {
+		b.WriteByte('\n')
+	}
+	b.WriteByte('\n')
+	writeLiveProviderEnvOverrides(&b, blockProvider, sourceProvider)
+	return os.WriteFile(cityPath, []byte(b.String()), 0o644)
+}
+
+func defaultPoolInferenceProviderName(provider string) string {
+	provider = strings.TrimSpace(provider)
+	if provider == "" {
+		provider = "live"
+	}
+	return provider + "-default-pool-no-skills"
+}
+
+func installNoSkillLiveProviderCommandOverride(cityDir, provider, sourceProvider, command string, processNames, argsAppend []string) error {
+	provider = strings.TrimSpace(provider)
+	sourceProvider = strings.TrimSpace(sourceProvider)
+	command = strings.TrimSpace(command)
+	if provider == "" || command == "" {
+		return nil
+	}
+
+	cityPath := filepath.Join(cityDir, "city.toml")
+	data, err := os.ReadFile(cityPath)
+	if err != nil {
+		return err
+	}
+	header := fmt.Sprintf("[providers.%s]", provider)
+	if strings.Contains(string(data), header) {
+		return fmt.Errorf("city.toml already defines %s", header)
+	}
+
+	var b strings.Builder
+	b.Write(data)
+	if len(data) > 0 && data[len(data)-1] != '\n' {
+		b.WriteByte('\n')
+	}
+	promptMode, promptFlag, readyDelay, args := noSkillLiveProviderDefaults(sourceProvider)
+	fmt.Fprintf(&b, "\n[providers.%s]\nbase = \"\"\ncommand = %s\npath_check = %s\nprompt_mode = %s\nready_delay_ms = %d\n", provider, strconv.Quote(command), strconv.Quote(command), strconv.Quote(promptMode), readyDelay)
+	if promptFlag != "" {
+		fmt.Fprintf(&b, "prompt_flag = %s\n", strconv.Quote(promptFlag))
+	}
+	if len(processNames) > 0 {
+		quoted := make([]string, 0, len(processNames))
+		for _, name := range processNames {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			quoted = append(quoted, strconv.Quote(name))
+		}
+		if len(quoted) > 0 {
+			fmt.Fprintf(&b, "process_names = [%s]\n", strings.Join(quoted, ", "))
+		}
+	}
+	args = append(args, argsAppend...)
+	quotedArgs := make([]string, 0, len(args))
+	for _, arg := range args {
+		arg = strings.TrimSpace(arg)
+		if arg == "" {
+			continue
+		}
+		quotedArgs = append(quotedArgs, strconv.Quote(arg))
+	}
+	if len(quotedArgs) > 0 {
+		fmt.Fprintf(&b, "args = [%s]\n", strings.Join(quotedArgs, ", "))
+	}
+	writeLiveProviderEnvOverrides(&b, provider, sourceProvider)
+	return os.WriteFile(cityPath, []byte(b.String()), 0o644)
+}
+
+func noSkillLiveProviderDefaults(provider string) (promptMode, promptFlag string, readyDelay int, args []string) {
+	switch strings.TrimSpace(provider) {
+	case "codex":
+		return "arg", "", 3000, []string{"--dangerously-bypass-approvals-and-sandbox", "--model", "gpt-5.5", "-c", "model_reasoning_effort=xhigh"}
+	case "gemini":
+		return "arg", "", 5000, []string{"--approval-mode", "yolo"}
+	case "opencode":
+		return "flag", "--prompt", 8000, nil
+	case "mimocode":
+		return "flag", "--prompt", 8000, []string{"--never-ask-questions"}
+	case "antigravity":
+		return "flag", "--prompt-interactive", 5000, []string{"--dangerously-skip-permissions"}
+	default:
+		return "arg", "", 10000, []string{"--dangerously-skip-permissions", "--effort", "max"}
+	}
+}
+
+func writeLiveProviderEnvOverrides(b *strings.Builder, blockProvider, sourceProvider string) {
+	blockProvider = strings.TrimSpace(blockProvider)
+	if blockProvider == "" {
+		return
+	}
+	for key, value := range liveProviderEnvOverrides(sourceProvider) {
+		fmt.Fprintf(b, "[providers.%s.env]\n%s = %s\n", blockProvider, key, strconv.Quote(value))
+	}
+}
+
+func liveProviderEnvOverrides(provider string) map[string]string {
+	if strings.TrimSpace(provider) != "antigravity" {
+		return nil
+	}
+	gcHome := ""
+	if liveEnv != nil {
+		gcHome = strings.TrimSpace(liveEnv.Get("GC_HOME"))
+	}
+	if gcHome == "" {
+		return nil
+	}
+	return map[string]string{"HOME": gcHome}
+}
+
+func applyLiveProviderRuntimeEnv(gcHome string, env *helpers.Env, profile workerpkg.Profile) {
+	if env == nil {
+		return
+	}
+	if profile == workerpkg.ProfileAntigravityTmuxCLI {
+		env.With("HOME", gcHome)
+	}
+}
+
+func installDefaultPoolInferenceGitBaseline(cityDir string) error {
+	if _, err := exec.LookPath("git"); err != nil {
+		return fmt.Errorf("git not found in PATH: %w", err)
+	}
+	ignorePath := filepath.Join(cityDir, ".gitignore")
+	ignore := strings.Join([]string{
+		".gc/",
+		"",
+	}, "\n")
+	if err := os.WriteFile(ignorePath, []byte(ignore), 0o644); err != nil {
+		return fmt.Errorf("writing .gitignore: %w", err)
+	}
+	for _, args := range [][]string{
+		{"init"},
+		{"config", "user.name", "Gas City Test"},
+		{"config", "user.email", "gc-test@test.local"},
+		{"add", ".gitignore", "city.toml"},
+		{"commit", "-m", "test: baseline default pool city"},
+	} {
+		cmd := exec.Command("git", append([]string{"-C", cityDir}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("git %s: %w\n%s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+		}
+	}
+	return nil
+}
+
+func installDefaultPoolInferenceAgent(cityDir, name, provider string) error {
+	name = strings.TrimSpace(name)
+	provider = strings.TrimSpace(provider)
+	if name == "" || provider == "" {
+		return fmt.Errorf("default pool inference agent requires name and provider")
+	}
+	agentPath := filepath.Join(cityDir, "agents", name, "agent.toml")
+	if _, err := os.Stat(agentPath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	cityPath := filepath.Join(cityDir, "city.toml")
+	data, err := os.ReadFile(cityPath)
+	if err != nil {
+		return err
+	}
+	if strings.Contains(string(data), "\nname = "+strconv.Quote(name)) {
+		return nil
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, `provider = %q
+prompt_template = %q
+default_sling_formula = "mol-do-work"
+min_active_sessions = 0
+max_active_sessions = 2
+`, provider, "agents/"+name+"/prompt.template.md")
+	if err := os.MkdirAll(filepath.Dir(agentPath), 0o755); err != nil {
+		return err
+	}
+	promptPath := filepath.Join(helpers.FindModuleRoot(), "internal", "bootstrap", "packs", "core", "assets", "prompts", "pool-worker.md")
+	prompt, err := os.ReadFile(promptPath)
+	if err != nil {
+		return fmt.Errorf("reading canonical pool-worker prompt: %w", err)
+	}
+	prompt = append(prompt, []byte("\n## Worker Inference Fixture\n\nFor file-writing tasks in this live inference test, create or update the requested file before closing the work bead.\n")...)
+	if err := os.WriteFile(filepath.Join(filepath.Dir(agentPath), "prompt.template.md"), []byte(prompt), 0o644); err != nil {
+		return err
+	}
+	return os.WriteFile(agentPath, []byte(b.String()), 0o644)
 }
 
 func setNamedSessionMode(cityDir, template, mode string) error {
@@ -1520,6 +1917,9 @@ func closeLiveSessionsByTemplate(cityDir, template string) error {
 	}
 	sessions, err := parseSessionListJSON(sessionsOut)
 	if err != nil {
+		if isBootstrapSessionListError(err) {
+			return nil
+		}
 		return err
 	}
 	store, err := openLiveCityStore(cityDir)
@@ -2059,9 +2459,17 @@ func startManagedInferenceSession(
 }
 
 func runFreshInitSlingWorkWithSetup(t *testing.T, provider, prompt, outputRel string, setupFn func(cityDir string) error) (inferenceRun, map[string]string, map[string]string, string, error) {
+	return runFreshInitSlingWorkForTarget(t, provider, inferenceSlingTarget, prompt, outputRel, setupFn, true)
+}
+
+func runFreshInitSlingWorkForTarget(t *testing.T, provider, slingTarget, prompt, outputRel string, setupFn func(cityDir string) error, installProbe bool) (inferenceRun, map[string]string, map[string]string, string, error) {
 	t.Helper()
 
 	c := newLiveCity(t)
+	slingTarget = strings.TrimSpace(slingTarget)
+	if slingTarget == "" {
+		slingTarget = provider
+	}
 	initArgs := []string{"init", "--skip-provider-readiness"}
 	if provider != "" {
 		initArgs = append(initArgs, "--provider", provider)
@@ -2095,14 +2503,39 @@ func runFreshInitSlingWorkWithSetup(t *testing.T, provider, prompt, outputRel st
 			"init_out":    strings.TrimSpace(initOut),
 		}, nil, "spawn", fmt.Errorf("seeding live provider state: %w", err)
 	}
-	if err := installInferenceProbeAgent(c.Dir, true); err != nil {
-		return inferenceRun{}, map[string]string{
-			"city_dir":    c.Dir,
-			"binary_path": liveSetup.BinaryPath,
-			"provider":    provider,
-			"output_rel":  outputRel,
-			"init_out":    strings.TrimSpace(initOut),
-		}, nil, "spawn", fmt.Errorf("installing worker inference probe agent: %w", err)
+	if installProbe {
+		if err := installInferenceProbeAgent(c.Dir, true); err != nil {
+			return inferenceRun{}, map[string]string{
+				"city_dir":    c.Dir,
+				"binary_path": liveSetup.BinaryPath,
+				"provider":    provider,
+				"output_rel":  outputRel,
+				"init_out":    strings.TrimSpace(initOut),
+			}, nil, "spawn", fmt.Errorf("installing worker inference probe agent: %w", err)
+		}
+	} else {
+		agentProvider := defaultPoolInferenceProviderName(provider)
+		if err := installNoSkillLiveProviderCommandOverride(c.Dir, agentProvider, provider, liveSetup.BinaryPath, liveSetup.ProcessNames, liveProviderArgsAppend()); err != nil {
+			return inferenceRun{}, map[string]string{
+				"city_dir":       c.Dir,
+				"binary_path":    liveSetup.BinaryPath,
+				"provider":       provider,
+				"agent_provider": agentProvider,
+				"sling_target":   slingTarget,
+				"output_rel":     outputRel,
+				"init_out":       strings.TrimSpace(initOut),
+			}, nil, "spawn", fmt.Errorf("installing no-skill live provider command override: %w", err)
+		}
+		if err := installDefaultPoolInferenceAgent(c.Dir, slingTarget, agentProvider); err != nil {
+			return inferenceRun{}, map[string]string{
+				"city_dir":     c.Dir,
+				"binary_path":  liveSetup.BinaryPath,
+				"provider":     provider,
+				"sling_target": slingTarget,
+				"output_rel":   outputRel,
+				"init_out":     strings.TrimSpace(initOut),
+			}, nil, "spawn", fmt.Errorf("installing default pool inference agent: %w", err)
+		}
 	}
 	if err := installLiveProviderCommandOverrideWithArgs(c.Dir, liveSetup.Provider, liveSetup.BinaryPath, liveSetup.ProcessNames, liveProviderArgsAppend()); err != nil {
 		return inferenceRun{}, map[string]string{
@@ -2113,45 +2546,59 @@ func runFreshInitSlingWorkWithSetup(t *testing.T, provider, prompt, outputRel st
 			"init_out":    strings.TrimSpace(initOut),
 		}, nil, "spawn", fmt.Errorf("installing live provider command override: %w", err)
 	}
-	if err := setNamedSessionMode(c.Dir, inferenceSlingTarget, "on_demand"); err != nil {
-		return inferenceRun{}, map[string]string{
-			"city_dir":     c.Dir,
-			"binary_path":  liveSetup.BinaryPath,
-			"provider":     provider,
-			"sling_target": inferenceSlingTarget,
-			"output_rel":   outputRel,
-			"init_out":     strings.TrimSpace(initOut),
-		}, nil, "spawn", fmt.Errorf("setting %s named session to on_demand: %w", inferenceSlingTarget, err)
+	if installProbe {
+		if err := setNamedSessionMode(c.Dir, slingTarget, "on_demand"); err != nil {
+			return inferenceRun{}, map[string]string{
+				"city_dir":     c.Dir,
+				"binary_path":  liveSetup.BinaryPath,
+				"provider":     provider,
+				"sling_target": slingTarget,
+				"output_rel":   outputRel,
+				"init_out":     strings.TrimSpace(initOut),
+			}, nil, "spawn", fmt.Errorf("setting %s named session to on_demand: %w", slingTarget, err)
+		}
 	}
 	if err := setAgentSuspended(c.Dir, "mayor", true); err != nil {
 		return inferenceRun{}, map[string]string{
 			"city_dir":     c.Dir,
 			"binary_path":  liveSetup.BinaryPath,
 			"provider":     provider,
-			"sling_target": inferenceSlingTarget,
+			"sling_target": slingTarget,
 			"output_rel":   outputRel,
 			"init_out":     strings.TrimSpace(initOut),
 		}, nil, "spawn", fmt.Errorf("suspending default mayor session: %w", err)
+	}
+	if !installProbe && setupFn == nil {
+		if err := installDefaultPoolInferenceGitBaseline(c.Dir); err != nil {
+			return inferenceRun{}, map[string]string{
+				"city_dir":     c.Dir,
+				"binary_path":  liveSetup.BinaryPath,
+				"provider":     provider,
+				"sling_target": slingTarget,
+				"output_rel":   outputRel,
+				"init_out":     strings.TrimSpace(initOut),
+			}, nil, "spawn", fmt.Errorf("preparing default pool git baseline: %w", err)
+		}
 	}
 	if err := closeLiveSessionsByTemplate(c.Dir, "mayor"); err != nil {
 		return inferenceRun{}, map[string]string{
 			"city_dir":     c.Dir,
 			"binary_path":  liveSetup.BinaryPath,
 			"provider":     provider,
-			"sling_target": inferenceSlingTarget,
+			"sling_target": slingTarget,
 			"output_rel":   outputRel,
 			"init_out":     strings.TrimSpace(initOut),
 		}, nil, "spawn", fmt.Errorf("closing stale mayor sessions before live start: %w", err)
 	}
-	if err := closeLiveSessionsByTemplate(c.Dir, inferenceSlingTarget); err != nil {
+	if err := closeLiveSessionsByTemplate(c.Dir, slingTarget); err != nil {
 		return inferenceRun{}, map[string]string{
 			"city_dir":     c.Dir,
 			"binary_path":  liveSetup.BinaryPath,
 			"provider":     provider,
-			"sling_target": inferenceSlingTarget,
+			"sling_target": slingTarget,
 			"output_rel":   outputRel,
 			"init_out":     strings.TrimSpace(initOut),
-		}, nil, "spawn", fmt.Errorf("closing stale %s sessions before live start: %w", inferenceSlingTarget, err)
+		}, nil, "spawn", fmt.Errorf("closing stale %s sessions before live start: %w", slingTarget, err)
 	}
 	_, _ = runGCWithTimeout(liveShutdownTimeout, liveEnv, "", "supervisor", "stop")
 	_, _ = runGCWithTimeout(liveShutdownTimeout, liveEnv, c.Dir, "stop", c.Dir)
@@ -2181,7 +2628,7 @@ func runFreshInitSlingWorkWithSetup(t *testing.T, provider, prompt, outputRel st
 		}, nil, "spawn", errors.New(detail)
 	}
 
-	out, err := runGCWithTimeout(liveControlTimeout, liveEnv, c.Dir, "sling", provider, prompt)
+	out, err := runGCWithTimeout(liveControlTimeout, liveEnv, c.Dir, "sling", slingTarget, prompt)
 	workBeadID := parseCreatedBeadID(out)
 	slingTimedOut := isRunTimeout(err)
 	if err != nil && !(slingTimedOut && workBeadID != "") {
@@ -2247,7 +2694,7 @@ func runFreshInitSlingWorkWithSetup(t *testing.T, provider, prompt, outputRel st
 			return false
 		}
 
-		detected, ok, detectErr := selectInferenceSpawnedSession(sessions, inferenceSlingTarget, func(name string) (bool, error) {
+		detected, ok, detectErr := selectSpawnedSessionForTemplate(sessions, slingTarget, slingTarget, func(name string) (bool, error) {
 			return tmuxSessionLive(c.Dir, name)
 		})
 		if detectErr != nil {
@@ -2281,6 +2728,7 @@ func runFreshInitSlingWorkWithSetup(t *testing.T, provider, prompt, outputRel st
 
 	outputPath := filepath.Join(c.Dir, outputRel)
 	hookNudgeDelivery := freshWorkerNudgeDelivery(provider)
+	taskTimeout := freshWorkerTaskTimeout(provider)
 	hookNudgeOut, hookNudgeErr := runGCWithTimeout(
 		liveControlTimeout,
 		liveEnv,
@@ -2290,12 +2738,12 @@ func runFreshInitSlingWorkWithSetup(t *testing.T, provider, prompt, outputRel st
 		"--delivery",
 		hookNudgeDelivery,
 		spawnedSession.SessionName,
-		"Check your hook for work assignments, complete the assigned work, and close the work bead.",
+		"Run gc hook --claim --drain-ack --json, complete the claimed work, close the work bead, and acknowledge drain.",
 	)
 	var lastWorkBead beadJSON
 	completed := false
 	if hookNudgeErr == nil {
-		completed = pollForCondition(6*time.Minute, 10*time.Second, func() bool {
+		completed = pollForCondition(taskTimeout, 10*time.Second, func() bool {
 			bead, beadErr := showBeadJSON(c.Dir, workBeadID)
 			if beadErr == nil {
 				lastWorkBead = bead
@@ -2342,6 +2790,7 @@ func runFreshInitSlingWorkWithSetup(t *testing.T, provider, prompt, outputRel st
 	spawnEvidence := map[string]string{
 		"city_dir":      c.Dir,
 		"provider":      provider,
+		"sling_target":  slingTarget,
 		"init_out":      strings.TrimSpace(initOut),
 		"start_out":     strings.TrimSpace(startOut),
 		"work_bead_id":  workBeadID,
@@ -2360,6 +2809,7 @@ func runFreshInitSlingWorkWithSetup(t *testing.T, provider, prompt, outputRel st
 	taskEvidence := map[string]string{
 		"city_dir":        c.Dir,
 		"provider":        provider,
+		"sling_target":    slingTarget,
 		"init_out":        strings.TrimSpace(initOut),
 		"start_out":       strings.TrimSpace(startOut),
 		"work_bead_id":    workBeadID,
@@ -2368,6 +2818,13 @@ func runFreshInitSlingWorkWithSetup(t *testing.T, provider, prompt, outputRel st
 		"session_name":    spawnedSession.SessionName,
 		"session_state":   spawnedSession.State,
 		"nudge_delivery":  hookNudgeDelivery,
+		"task_timeout":    taskTimeout.String(),
+	}
+	if strings.TrimSpace(lastWorkBead.ID) != "" {
+		taskEvidence["work_status"] = lastWorkBead.Status
+		taskEvidence["gc_outcome"] = metaString(lastWorkBead.Metadata, "gc.outcome")
+		taskEvidence["molecule_id"] = metaString(lastWorkBead.Metadata, "molecule_id")
+		taskEvidence["routed_to"] = metaString(lastWorkBead.Metadata, "gc.routed_to")
 	}
 	if trimmed := strings.TrimSpace(hookNudgeOut); trimmed != "" {
 		taskEvidence["hook_nudge_out"] = trimmed
@@ -2392,7 +2849,7 @@ func runFreshInitSlingWorkWithSetup(t *testing.T, provider, prompt, outputRel st
 		taskEvidence["status"] = lastStatus
 		taskEvidence["session_list"] = run.SessionList
 		taskEvidence["supervisor_logs"] = run.SupervisorLogs
-		return run, spawnEvidence, taskEvidence, "task", fmt.Errorf("live %s worker did not complete the routed task within 6m", provider)
+		return run, spawnEvidence, taskEvidence, "task", fmt.Errorf("live %s worker did not complete the routed task within %s", provider, taskTimeout)
 	}
 
 	return run, spawnEvidence, taskEvidence, "", nil
@@ -2405,17 +2862,46 @@ func freshWorkerNudgeDelivery(provider string) string {
 	return "wait-idle"
 }
 
+func freshWorkerTaskTimeout(provider string) time.Duration {
+	if strings.TrimSpace(provider) == "antigravity" {
+		return 12 * time.Minute
+	}
+	return 6 * time.Minute
+}
+
 func liveProviderArgsAppend() []string {
-	if liveSetup.Profile != workerpkg.ProfileOpenCodeTmuxCLI {
+	switch liveSetup.Profile {
+	case workerpkg.ProfileOpenCodeTmuxCLI:
+		return []string{"--model", liveOpenCodeModel()}
+	case workerpkg.ProfileMimoCodeTmuxCLI:
+		return []string{"--model", liveMimoCodeModel()}
+	case workerpkg.ProfilePiTmuxCLI:
+		return []string{"-e", "npm:pi-ollama-cloud", "--provider", "ollama-cloud", "--model", livePiModel()}
+	default:
 		return nil
 	}
-	return []string{"--model", liveOpenCodeModel()}
 }
 
 func liveOpenCodeModel() string {
 	model := strings.TrimSpace(os.Getenv("GC_WORKER_INFERENCE_OPENCODE_MODEL"))
 	if model == "" {
 		return defaultOpenCodeGeminiModel
+	}
+	return model
+}
+
+func liveMimoCodeModel() string {
+	model := strings.TrimSpace(os.Getenv("GC_WORKER_INFERENCE_MIMOCODE_MODEL"))
+	if model == "" {
+		return defaultMimoCodeModel
+	}
+	return model
+}
+
+func livePiModel() string {
+	model := strings.TrimSpace(os.Getenv("GC_WORKER_INFERENCE_PI_MODEL"))
+	if model == "" {
+		return defaultPiOllamaCloudModel
 	}
 	return model
 }
@@ -2450,7 +2936,7 @@ func runFreshManualSessionTurn(t *testing.T, provider, templateName, alias, prom
 			"init_out":   strings.TrimSpace(initOut),
 		}, nil, "spawn", fmt.Errorf("seeding live provider state: %w", err)
 	}
-	if err := installInferenceProbeAgent(c.Dir); err != nil {
+	if err := installInferenceProbeAgent(c.Dir, false); err != nil {
 		return inferenceSessionRun{}, map[string]string{
 			"city_dir":   c.Dir,
 			"provider":   provider,
@@ -2508,6 +2994,33 @@ func runFreshManualSessionTurn(t *testing.T, provider, templateName, alias, prom
 	_, _ = runGCWithTimeout(liveShutdownTimeout, liveEnv, c.Dir, "stop", c.Dir)
 	_, _ = waitForManagedDoltStopped(c.Dir, liveStopBarrierTimeout)
 
+	startOut, startErr := runGCWithTimeout(liveBootstrapTimeout, liveEnv, c.Dir, "start", c.Dir)
+	startTimedOut := isRunTimeout(startErr)
+	t.Cleanup(func() {
+		_, _ = runGCWithTimeout(liveShutdownTimeout, liveEnv, c.Dir, "stop", c.Dir)
+		_, _ = runGCWithTimeout(liveShutdownTimeout, liveEnv, "", "supervisor", "stop")
+		_, _ = waitForManagedDoltStopped(c.Dir, liveStopBarrierTimeout)
+	})
+
+	beadReady := pollForCondition(60*time.Second, 2*time.Second, func() bool {
+		_, err := bdCmd(liveEnv, c.Dir, "list", "--json", "--limit=1")
+		return err == nil
+	})
+	if !beadReady {
+		detail := beadStoreNotReadyDetail("bead store did not become ready before gc session new", startErr)
+		return inferenceSessionRun{}, map[string]string{
+			"city_dir":    c.Dir,
+			"provider":    provider,
+			"template":    templateName,
+			"alias":       alias,
+			"init_out":    strings.TrimSpace(initOut),
+			"start_out":   strings.TrimSpace(startOut),
+			"start_err":   strings.TrimSpace(errorString(startErr)),
+			"output_rel":  outputRel,
+			"failed_step": "bead_readiness",
+		}, nil, "spawn", errors.New(detail)
+	}
+
 	newOut, newErr := runGCWithTimeout(90*time.Second, liveEnv, c.Dir, "session", "new", templateName, "--alias", alias, "--no-attach")
 	sessionID := parseCreatedSessionID(newOut)
 	if newErr != nil {
@@ -2532,21 +3045,10 @@ func runFreshManualSessionTurn(t *testing.T, provider, templateName, alias, prom
 			"output_rel":  outputRel,
 		}, nil, "spawn", fmt.Errorf("gc session new output did not include a session id")
 	}
-
-	startOut, startErr := runGCWithTimeout(liveBootstrapTimeout, liveEnv, c.Dir, "start", c.Dir)
-	startTimedOut := isRunTimeout(startErr)
-	t.Cleanup(func() {
-		_, _ = runGCWithTimeout(liveShutdownTimeout, liveEnv, c.Dir, "stop", c.Dir)
-		_, _ = runGCWithTimeout(liveShutdownTimeout, liveEnv, "", "supervisor", "stop")
-		_, _ = waitForManagedDoltStopped(c.Dir, liveStopBarrierTimeout)
-	})
-
-	beadReady := pollForCondition(60*time.Second, 2*time.Second, func() bool {
-		_, err := bdCmd(liveEnv, c.Dir, "list", "--json", "--limit=1")
-		return err == nil
-	})
-	if !beadReady {
-		detail := beadStoreNotReadyDetail("bead store did not become ready after gc start", startErr)
+	_, _ = runGCWithTimeout(liveShutdownTimeout, liveEnv, c.Dir, "stop", c.Dir)
+	_, _ = waitForManagedDoltStopped(c.Dir, liveStopBarrierTimeout)
+	restartOut, restartErr := runGCWithTimeout(liveBootstrapTimeout, liveEnv, c.Dir, "start", c.Dir)
+	if restartErr != nil && !isRunTimeout(restartErr) {
 		return inferenceSessionRun{}, map[string]string{
 			"city_dir":    c.Dir,
 			"provider":    provider,
@@ -2556,9 +3058,26 @@ func runFreshManualSessionTurn(t *testing.T, provider, templateName, alias, prom
 			"init_out":    strings.TrimSpace(initOut),
 			"session_out": strings.TrimSpace(newOut),
 			"start_out":   strings.TrimSpace(startOut),
-			"start_err":   strings.TrimSpace(errorString(startErr)),
+			"restart_out": strings.TrimSpace(restartOut),
+			"restart_err": strings.TrimSpace(errorString(restartErr)),
 			"output_rel":  outputRel,
-		}, nil, "spawn", errors.New(detail)
+		}, nil, "spawn", fmt.Errorf("gc start after session new failed: %w", restartErr)
+	}
+	wakeOut, wakeErr := runGCWithTimeout(90*time.Second, liveEnv, c.Dir, "session", "wake", sessionID)
+	if wakeErr != nil {
+		return inferenceSessionRun{}, map[string]string{
+			"city_dir":    c.Dir,
+			"provider":    provider,
+			"template":    templateName,
+			"alias":       alias,
+			"session_id":  sessionID,
+			"init_out":    strings.TrimSpace(initOut),
+			"session_out": strings.TrimSpace(newOut),
+			"wake_out":    strings.TrimSpace(wakeOut),
+			"start_out":   strings.TrimSpace(startOut),
+			"restart_out": strings.TrimSpace(restartOut),
+			"output_rel":  outputRel,
+		}, nil, "spawn", fmt.Errorf("gc session wake failed: %w", wakeErr)
 	}
 
 	sessionInfo, statusOut, err := waitForSessionRunning(c.Dir, sessionID, "")
@@ -2571,7 +3090,9 @@ func runFreshManualSessionTurn(t *testing.T, provider, templateName, alias, prom
 			"session_id":  sessionID,
 			"init_out":    strings.TrimSpace(initOut),
 			"start_out":   strings.TrimSpace(startOut),
+			"restart_out": strings.TrimSpace(restartOut),
 			"session_out": strings.TrimSpace(newOut),
+			"wake_out":    strings.TrimSpace(wakeOut),
 			"status":      strings.TrimSpace(statusOut),
 			"output_rel":  outputRel,
 		}, nil, "spawn", err
@@ -3086,7 +3607,8 @@ func installInferenceProbeAgent(cityDir string, includeNamedSessionArgs ...bool)
 	if len(includeNamedSessionArgs) > 0 {
 		includeNamedSession = includeNamedSessionArgs[0]
 	}
-	promptPath := filepath.Join(cityDir, inferenceProbePromptPath)
+	agentDir := filepath.Join(cityDir, "agents", inferenceProbeTemplate)
+	promptPath := filepath.Join(agentDir, "prompt.template.md")
 	if err := os.MkdirAll(filepath.Dir(promptPath), 0o755); err != nil {
 		return err
 	}
@@ -3102,11 +3624,6 @@ When a later message asks you to recall prior turn context, use conversation mem
 		return err
 	}
 
-	maxActiveSessions := 1
-	if !includeNamedSession {
-		maxActiveSessions = 0
-	}
-
 	cityPath := filepath.Join(cityDir, "city.toml")
 	data, err := os.ReadFile(cityPath)
 	if err != nil {
@@ -3117,18 +3634,20 @@ When a later message asks you to recall prior turn context, use conversation mem
 		return err
 	}
 	var additions []string
-	if !strings.Contains(string(data), "\nname = \""+inferenceProbeTemplate+"\"") {
+	agentPath := filepath.Join(agentDir, "agent.toml")
+	if _, statErr := os.Stat(agentPath); os.IsNotExist(statErr) && !strings.Contains(string(data), "\nname = \""+inferenceProbeTemplate+"\"") {
 		sessionLine, err := inferenceProbeSessionLine(data)
 		if err != nil {
 			return err
 		}
-		additions = append(additions, fmt.Sprintf(`
-
-[[agent]]
-name = %q
-%sprompt_template = %q
-max_active_sessions = %d
-`, inferenceProbeTemplate, sessionLine, inferenceProbePromptPath, maxActiveSessions))
+		var agent strings.Builder
+		agent.WriteString(sessionLine)
+		fmt.Fprintf(&agent, "prompt_template = %q\nmax_active_sessions = 1\n", filepath.Join("agents", inferenceProbeTemplate, "prompt.template.md"))
+		if err := os.WriteFile(agentPath, []byte(agent.String()), 0o644); err != nil {
+			return err
+		}
+	} else if statErr != nil && !os.IsNotExist(statErr) {
+		return statErr
 	}
 	if includeNamedSession && !strings.Contains(string(data), "\n[[named_session]]\ntemplate = \""+inferenceProbeTemplate+"\"") {
 		additions = append(additions, fmt.Sprintf(`
@@ -3163,7 +3682,8 @@ func inferenceProbeSessionLine(data []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if strings.TrimSpace(cfg.Workspace.Provider) == "opencode" {
+	switch strings.TrimSpace(cfg.Workspace.Provider) {
+	case "kimi", "opencode", "mimocode", "pi", "antigravity":
 		return `session = "tmux"` + "\n", nil
 	}
 	return "", nil
@@ -3175,7 +3695,7 @@ func ensureInferenceProbeProviderHooks(data []byte) ([]byte, bool, error) {
 		return nil, false, err
 	}
 	provider := strings.TrimSpace(cfg.Workspace.Provider)
-	if provider != "gemini" && provider != "opencode" {
+	if provider != "gemini" && provider != "opencode" && provider != "mimocode" && provider != "pi" && provider != "antigravity" {
 		return data, false, nil
 	}
 	if stringListContains(cfg.Workspace.InstallAgentHooks, provider) {
@@ -3478,6 +3998,14 @@ func sessionStateSnapshot(cityDir, identity, expectedSessionName string, require
 		return liveSession, diag, nil
 	}
 	if !sessionStateCountsAsRunning(liveSession.State) {
+		if strings.EqualFold(strings.TrimSpace(liveSession.State), "asleep") {
+			if live, liveErr := tmuxSessionLive(cityDir, liveSession.SessionName); liveErr == nil && live {
+				// Wake/start transitions can briefly report the persisted session as
+				// asleep after tmux is already live; runtime liveness is authoritative
+				// for this acceptance helper's "running yet" check.
+				return liveSession, diag, nil
+			}
+		}
 		return liveSession, diag, fmt.Errorf("session %s not running yet", identity)
 	}
 	return liveSession, diag, nil
@@ -3681,8 +4209,13 @@ func sessionStateCountsAsRunning(state string) bool {
 }
 
 func selectInferenceSpawnedSession(sessions []sessionJSON, fallbackSessionName string, isSessionLive func(string) (bool, error)) (sessionJSON, bool, error) {
+	return selectSpawnedSessionForTemplate(sessions, inferenceSlingTarget, fallbackSessionName, isSessionLive)
+}
+
+func selectSpawnedSessionForTemplate(sessions []sessionJSON, template, fallbackSessionName string, isSessionLive func(string) (bool, error)) (sessionJSON, bool, error) {
+	template = strings.TrimSpace(template)
 	for _, session := range sessions {
-		if session.Template != inferenceSlingTarget {
+		if strings.TrimSpace(session.Template) != template {
 			continue
 		}
 		if strings.TrimSpace(session.SessionName) == "" {
@@ -3711,7 +4244,7 @@ func selectInferenceSpawnedSession(sessions []sessionJSON, fallbackSessionName s
 		return sessionJSON{}, false, nil
 	}
 	return sessionJSON{
-		Template:    inferenceSlingTarget,
+		Template:    template,
 		Alias:       fallbackSessionName,
 		State:       "active",
 		SessionName: fallbackSessionName,
@@ -3831,7 +4364,46 @@ func transcriptCandidatePaths(adapter workerpkg.SessionLogAdapter, profile worke
 	if profile == workerpkg.ProfileGeminiTmuxCLI {
 		candidates = append(candidates, geminiTranscriptCandidatePaths(adapter.SearchPaths, workDir)...)
 	}
+	if profile == workerpkg.ProfileAntigravityTmuxCLI {
+		candidates = append(candidates, antigravityTranscriptCandidatePaths(adapter.SearchPaths)...)
+	}
 	return uniqueNonEmptyPaths(candidates)
+}
+
+func antigravityTranscriptCandidatePaths(searchPaths []string) []string {
+	type candidate struct {
+		path    string
+		modTime time.Time
+	}
+	var candidates []candidate
+	for _, brainRoot := range searchPaths {
+		entries, err := os.ReadDir(brainRoot)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			path := filepath.Join(brainRoot, entry.Name(), ".system_generated", "logs", "transcript.jsonl")
+			info, err := os.Stat(path)
+			if err != nil {
+				continue
+			}
+			candidates = append(candidates, candidate{
+				path:    path,
+				modTime: info.ModTime(),
+			})
+		}
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].modTime.After(candidates[j].modTime)
+	})
+	paths := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		paths = append(paths, candidate.path)
+	}
+	return paths
 }
 
 func geminiTranscriptCandidatePaths(searchPaths []string, workDir string) []string {
@@ -4736,19 +5308,130 @@ func parseBeadListJSON(t *testing.T, out string) []beadJSON {
 }
 
 func parseSessionListJSON(out string) ([]sessionJSON, error) {
-	trimmed := strings.TrimSpace(out)
-	if trimmed == "" || trimmed == "null" {
-		return nil, nil
+	payloads := jsonPayloads(out)
+	if len(payloads) == 0 {
+		trimmed := strings.TrimSpace(out)
+		if trimmed == "" || trimmed == "null" {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("session list json payload not found in output: %s", truncateEvidence(trimmed, 500))
 	}
-	if idx := strings.Index(trimmed, "["); idx >= 0 {
-		trimmed = trimmed[idx:]
+
+	for _, payload := range payloads {
+		trimmed := strings.TrimSpace(string(payload))
+		if trimmed == "" || trimmed == "null" {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "[") {
+			var sessions []sessionJSON
+			dec := json.NewDecoder(strings.NewReader(trimmed))
+			if err := dec.Decode(&sessions); err != nil {
+				return nil, fmt.Errorf("unmarshal session list json: %w", err)
+			}
+			return sessions, nil
+		}
+		if !strings.HasPrefix(trimmed, "{") {
+			continue
+		}
+		var probe map[string]json.RawMessage
+		if err := json.Unmarshal(payload, &probe); err != nil {
+			return nil, fmt.Errorf("unmarshal session list json object: %w", err)
+		}
+		if _, ok := probe["sessions"]; !ok {
+			if _, ok := probe["ok"]; !ok {
+				continue
+			}
+		}
+		var envelope struct {
+			OK       *bool         `json:"ok"`
+			Sessions []sessionJSON `json:"sessions"`
+			Error    *struct {
+				Code     string `json:"code"`
+				Message  string `json:"message"`
+				ExitCode int    `json:"exit_code"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(payload, &envelope); err != nil {
+			return nil, fmt.Errorf("unmarshal session list json envelope: %w", err)
+		}
+		if envelope.OK != nil && !*envelope.OK {
+			if envelope.Error == nil {
+				return nil, sessionListCommandError{Message: "session list command failed"}
+			}
+			return nil, sessionListCommandError{
+				Code:     envelope.Error.Code,
+				Message:  envelope.Error.Message,
+				ExitCode: envelope.Error.ExitCode,
+			}
+		}
+		return envelope.Sessions, nil
 	}
-	var sessions []sessionJSON
-	dec := json.NewDecoder(strings.NewReader(trimmed))
-	if err := dec.Decode(&sessions); err != nil {
-		return nil, fmt.Errorf("unmarshal session list json: %w", err)
+
+	return nil, fmt.Errorf("session list json payload not found in output: %s", truncateEvidence(strings.TrimSpace(out), 500))
+}
+
+type sessionListCommandError struct {
+	Code     string
+	Message  string
+	ExitCode int
+}
+
+func (e sessionListCommandError) Error() string {
+	if e.Code == "" && e.Message == "" {
+		return "session list command failed"
 	}
-	return sessions, nil
+	if e.Code == "" {
+		return e.Message
+	}
+	if e.Message == "" {
+		return e.Code
+	}
+	return e.Code + ": " + e.Message
+}
+
+func isBootstrapSessionListError(err error) bool {
+	var listErr sessionListCommandError
+	if !errors.As(err, &listErr) {
+		return false
+	}
+	return listErr.Code == "session_list_failed" && strings.Contains(listErr.Message, `invalid issue type "session"`)
+}
+
+func jsonPayloads(out string) []json.RawMessage {
+	text := strings.TrimSpace(out)
+	var payloads []json.RawMessage
+	for start := nextJSONValueStart(text, 0); start >= 0 && start < len(text); start = nextJSONValueStart(text, start+1) {
+		dec := json.NewDecoder(strings.NewReader(text[start:]))
+		var raw json.RawMessage
+		if err := dec.Decode(&raw); err != nil {
+			continue
+		}
+		payloads = append(payloads, raw)
+		if offset := int(dec.InputOffset()); offset > 0 {
+			start += offset - 1
+		}
+	}
+	return payloads
+}
+
+func nextJSONValueStart(text string, from int) int {
+	for i := from; i < len(text); i++ {
+		switch text[i] {
+		case '{', '[':
+			return i
+		}
+	}
+	return -1
+}
+
+func truncateEvidence(text string, maxLen int) string {
+	if len(text) <= maxLen {
+		return text
+	}
+	if maxLen <= 3 {
+		return text[:maxLen]
+	}
+	return text[:maxLen-3] + "..."
 }
 
 func showBeadJSON(dir, beadID string) (beadJSON, error) {
@@ -4782,14 +5465,14 @@ type beadJSON struct {
 }
 
 type sessionJSON struct {
-	Template    string `json:"Template"`
-	Provider    string `json:"Provider"`
-	ID          string `json:"ID"`
-	Alias       string `json:"Alias"`
-	State       string `json:"State"`
-	SessionName string `json:"SessionName"`
-	SessionKey  string `json:"SessionKey"`
-	LastActive  string `json:"LastActive"`
+	Template    string `json:"template"`
+	Provider    string `json:"provider"`
+	ID          string `json:"id"`
+	Alias       string `json:"alias"`
+	State       string `json:"state"`
+	SessionName string `json:"session_name"`
+	SessionKey  string `json:"session_key"`
+	LastActive  string `json:"last_active"`
 }
 
 func metaString(meta map[string]any, key string) string {
@@ -5240,6 +5923,7 @@ func classifyLivePaneBlocked(paneTail string) *liveBlockedInteraction {
 			PaneTail: paneTail,
 		}
 	case containsAny(haystack,
+		"hit your limit",
 		"usage limit",
 		"approaching rate limits",
 		"usage limit reached",

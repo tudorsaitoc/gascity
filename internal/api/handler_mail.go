@@ -92,7 +92,7 @@ func (s *Server) resolveMailSendRecipientWithContext(ctx context.Context, recipi
 		if getErr != nil {
 			return "", getErr
 		}
-		address := apiSessionMailboxAddress(bead)
+		address := session.MailboxAddress(bead)
 		if address == "" {
 			return "", fmt.Errorf("session %q has no mailbox identity", recipient)
 		}
@@ -130,13 +130,21 @@ func (s *Server) resolveMailQueryRecipientsWithContext(ctx context.Context, reci
 		return []string{recipient}
 	}
 	if spec, ok, err := s.findNamedSessionSpecForTarget(store, recipient); err == nil && ok {
-		if recipients, listErr := s.mailRecipientsForNamedSession(store, spec); listErr == nil && len(recipients) > 0 {
-			return append(recipients, recipient)
+		if recipients, listErr := s.mailRecipientsForNamedSession(store, spec); listErr == nil {
+			recipients = uniqueNonEmptyMailRecipients(append(recipients, recipient))
+			if len(recipients) > 0 {
+				return recipients
+			}
 		}
 	}
 	resolved, err := s.resolveSessionTargetIDWithContext(ctx, store, recipient, apiSessionResolveOptions{})
 	if err != nil {
 		return []string{recipient}
+	}
+	if bead, getErr := store.Get(resolved); getErr == nil {
+		if recipients := session.MailboxAddressesIncludingRuntimeName(bead); len(recipients) > 0 {
+			return recipients
+		}
 	}
 	return []string{resolved}
 }
@@ -155,7 +163,9 @@ func (s *Server) mailRecipientsForNamedSession(store beads.Store, spec apiNamedS
 	if err != nil {
 		return nil, fmt.Errorf("listing named session mail recipients: %w", err)
 	}
-	recipients := make([]string, 0)
+	// The configured identity is a durable mailbox address even after a
+	// materialized session bead adds aliases, IDs, or runtime session names.
+	recipients := []string{identity}
 	seen := make(map[string]bool)
 	for _, b := range candidates {
 		if !session.IsSessionBeadOrRepairable(b) ||
@@ -167,8 +177,9 @@ func (s *Server) mailRecipientsForNamedSession(store beads.Store, spec apiNamedS
 			continue
 		}
 		seen[b.ID] = true
-		recipients = append(recipients, b.ID)
+		recipients = append(recipients, session.MailboxAddressesIncludingRuntimeName(b)...)
 	}
+	recipients = uniqueNonEmptyMailRecipients(recipients)
 	sort.Strings(recipients)
 	return recipients, nil
 }
@@ -204,38 +215,14 @@ type apiResolvedMailTarget struct {
 	recipients []string
 }
 
-func apiSessionMailboxAddress(b beads.Bead) string {
-	if alias := strings.TrimSpace(b.Metadata["alias"]); alias != "" {
-		return alias
-	}
-	if b.ID != "" {
-		return b.ID
-	}
-	return strings.TrimSpace(b.Metadata["session_name"])
-}
-
-func apiSessionMailboxAddresses(b beads.Bead) []string {
-	seen := map[string]bool{}
-	var addresses []string
-	add := func(value string) {
-		value = strings.TrimSpace(value)
-		if value == "" || seen[value] {
-			return
-		}
-		seen[value] = true
-		addresses = append(addresses, value)
-	}
-	add(apiSessionMailboxAddress(b))
-	add(b.ID)
-	for _, alias := range session.AliasHistory(b.Metadata) {
-		add(alias)
-	}
-	if len(addresses) == 0 {
-		add(strings.TrimSpace(b.Metadata["session_name"]))
-	}
-	return addresses
-}
-
+// WI-6 residual: this resolver stays on raw store.List + the bead-form mailbox
+// accessors (MailboxAddressesIncludingRuntimeName / MailboxAddress). Its per-
+// identity read is a METADATA-filtered ListQuery (configured_named_identity ==
+// identity), which the session front door's ListAll(opts) does not model — ListAll
+// carries only IncludeClosed/Sort/Live/Limit, not a metadata predicate. Converting
+// it needs an Info-taking mailbox twin fed by a metadata-filtered store list (the
+// HasOpenSessionNamed precedent), deferred to the WI-2 mail residual; until then the
+// codec stays confined to the bead-form accessors here.
 func (s *Server) resolveLiveConfiguredNamedMailTarget(store beads.Store, identifier string) (apiResolvedMailTarget, bool, error) {
 	identifier = apiNormalizeSessionTarget(identifier)
 	if store == nil || identifier == "" || identifier == "human" || strings.Contains(identifier, "/") {
@@ -272,11 +259,11 @@ func (s *Server) resolveLiveConfiguredNamedMailTarget(store beads.Store, identif
 		if identity == "" || session.TargetBasename(identity) != identifier {
 			continue
 		}
-		addresses := apiSessionMailboxAddresses(b)
+		addresses := session.MailboxAddressesIncludingRuntimeName(b)
 		if len(addresses) == 0 {
 			continue
 		}
-		display := apiSessionMailboxAddress(b)
+		display := session.MailboxAddress(b)
 		if display == "" {
 			display = addresses[0]
 		}
@@ -314,6 +301,10 @@ func (s *Server) configuredMailRecipientAddress(store beads.Store, identifier st
 }
 
 func mailInboxForRecipients(mp mail.Provider, recipients []string) ([]mail.Message, error) {
+	recipients = uniqueMailRecipients(recipients)
+	if inboxer, ok := mp.(mail.MultiRecipientInboxer); ok {
+		return inboxer.InboxRecipients(recipients)
+	}
 	return mailMessagesForRecipients(mp.Inbox, recipients)
 }
 
@@ -367,7 +358,7 @@ func uniqueMailRecipients(recipients []string) []string {
 		return []string{""}
 	}
 	seen := make(map[string]bool, len(recipients))
-	unique := recipients[:0]
+	unique := make([]string, 0, len(recipients))
 	for _, recipient := range recipients {
 		if seen[recipient] {
 			continue
@@ -377,6 +368,20 @@ func uniqueMailRecipients(recipients []string) []string {
 	}
 	if len(unique) == 0 {
 		return []string{""}
+	}
+	return unique
+}
+
+func uniqueNonEmptyMailRecipients(recipients []string) []string {
+	seen := make(map[string]bool, len(recipients))
+	unique := make([]string, 0, len(recipients))
+	for _, recipient := range recipients {
+		recipient = strings.TrimSpace(recipient)
+		if recipient == "" || seen[recipient] {
+			continue
+		}
+		seen[recipient] = true
+		unique = append(unique, recipient)
 	}
 	return unique
 }

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/gastownhall/gascity/internal/beads/contract"
 )
 
 func TestCustomTypesCheck_NoBeadsDir(t *testing.T) {
@@ -17,6 +19,22 @@ func TestCustomTypesCheck_NoBeadsDir(t *testing.T) {
 }
 
 func TestCustomTypesCheck_MissingTypes(t *testing.T) {
+	// Scrub inherited beads env so the `bd config get` subprocess below
+	// resolves to the empty .beads/ in the temp dir instead of an outer
+	// gc city's beads database. Without this, bd can reach a live dolt
+	// server (via GC_BEADS=bd + BEADS_DOLT_SERVER_PORT), reports all
+	// required types as present, and the check returns StatusOK —
+	// defeating the assertion. Clearing GC_BEADS and the dolt connection
+	// vars prevents bd from connecting even if testenv.init() has not
+	// yet added them to its LeakVectorVars scrub list.
+	for _, key := range []string{
+		"BEADS_DIR", "BEADS_ACTOR", "GC_BEADS_SCOPE_ROOT",
+		"GC_BEADS", "BEADS_DOLT_SERVER_PORT", "GC_DOLT_HOST", "GC_DOLT_PORT",
+		"BEADS_DOLT_SERVER_HOST",
+	} {
+		t.Setenv(key, "")
+	}
+
 	dir := t.TempDir()
 	beadsDir := filepath.Join(dir, ".beads")
 	if err := os.MkdirAll(beadsDir, 0o700); err != nil {
@@ -123,9 +141,9 @@ func TestMergeCustomTypes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := mergeCustomTypes(tc.current, tc.required)
+			got := contract.MergeCustomTypes(tc.current, tc.required)
 			if !reflect.DeepEqual(got, tc.want) {
-				t.Errorf("mergeCustomTypes(%v, %v) = %v, want %v",
+				t.Errorf("contract.MergeCustomTypes(%v, %v) = %v, want %v",
 					tc.current, tc.required, got, tc.want)
 			}
 		})
@@ -190,6 +208,7 @@ func TestCustomTypesCheck_RequiredTypesComplete(t *testing.T) {
 		"event": true, "gate": true, "merge-request": true,
 		"agent": true, "role": true, "rig": true,
 		"session": true, "spec": true, "convergence": true,
+		"step": true,
 	}
 	for _, typ := range RequiredCustomTypes {
 		if !expected[typ] {

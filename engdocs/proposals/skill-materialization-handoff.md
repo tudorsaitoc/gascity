@@ -167,10 +167,12 @@ Non-obvious lessons the future you should know:
 
 4. **Bootstrap pack cache path.** Bootstrap packs resolve to
    `<gcHome>/cache/repos/<GlobalRepoCacheDirName(source, commit)>/` — a
-   **single** directory component keyed on source+commit hash (not
-   `<gcHome>/cache/packs/<name>/` as an earlier spec draft said). Use
-   `config.ReadImplicitImports` + `config.GlobalRepoCachePath` from
-   the materializer (Phase 2A).
+   **single** directory component keyed by `config.RepoCacheKey` (not
+   `<gcHome>/cache/packs/<name>/` as an earlier spec draft said). The key
+   includes a separate bundled-synthetic namespace for built-in Gas City pack
+   imports so those caches do not collide with ordinary same-repo git
+   checkouts. Use `config.ReadImplicitImports` + `config.GlobalRepoCachePath`
+   from the materializer (Phase 2A).
 
 5. **Deletion-surface table in the spec is authoritative.** When
    removing code, trust the table in the spec's "No attachment
@@ -270,7 +272,7 @@ Don't commit on behalf of the user unless asked.
 - `cmd/gc/cmd_doctor.go`, `cmd_mcp.go`, `cmd_skill.go`,
   `cmd_skill_test.go`, `init_provider_readiness.go`, `pool.go`,
   `pool_test.go`
-- `docs/reference/cli.md`, `config.md`, `docs/schema/city-schema.json`
+- `docs/reference/cli.md`, `config.md`, `docs/reference/schema/city-schema.json`
 - `internal/bootstrap/bootstrap.go`, `bootstrap_test.go`
 - `internal/config/compose.go`, `compose_test.go`, `config.go`,
   `config_test.go`, `field_sync_test.go`, `implicit_test.go`, `pack.go`,

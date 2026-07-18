@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gastownhall/gascity/internal/pathutil"
 )
@@ -150,13 +151,21 @@ func ReadFile(path string, tailCompactions int) (*Session, error) {
 
 // ReadProviderFile reads a provider-specific transcript file.
 func ReadProviderFile(provider, path string, tailCompactions int) (*Session, error) {
-	switch providerFamily(provider) {
+	switch ProviderFamily(provider) {
 	case "codex":
 		return ReadCodexFile(path, tailCompactions)
 	case "gemini":
 		return ReadGeminiFile(path, tailCompactions)
+	case "kimi":
+		return ReadKimiFile(path, tailCompactions)
+	case "mimocode":
+		return ReadMimoCodeFile(path, tailCompactions)
 	case "opencode":
 		return ReadOpenCodeFile(path, tailCompactions)
+	case "pi":
+		return ReadPiFile(path, tailCompactions)
+	case "antigravity":
+		return ReadAntigravityFile(path, tailCompactions)
 	default:
 		return ReadFile(path, tailCompactions)
 	}
@@ -199,13 +208,21 @@ func ReadFileRaw(path string, tailCompactions int) (*Session, error) {
 // on each returned entry, so the Codex reader is sufficient for both raw and
 // conversation views.
 func ReadProviderFileRaw(provider, path string, tailCompactions int) (*Session, error) {
-	switch providerFamily(provider) {
+	switch ProviderFamily(provider) {
 	case "codex":
 		return ReadCodexFile(path, tailCompactions)
 	case "gemini":
 		return ReadGeminiFile(path, tailCompactions)
+	case "kimi":
+		return ReadKimiFile(path, tailCompactions)
+	case "mimocode":
+		return ReadMimoCodeFile(path, tailCompactions)
 	case "opencode":
 		return ReadOpenCodeFile(path, tailCompactions)
+	case "pi":
+		return ReadPiFile(path, tailCompactions)
+	case "antigravity":
+		return ReadAntigravityFileRaw(path, tailCompactions)
 	default:
 		return ReadFileRaw(path, tailCompactions)
 	}
@@ -269,32 +286,48 @@ func ReadFileRawOlder(path string, tailCompactions int, beforeMessageID string) 
 }
 
 // ReadProviderFileOlder reads an older page of a provider-specific transcript.
-// Codex sessions do not currently support message-ID pagination, so the full
-// provider transcript is returned.
+// Provider families without page-aware readers return the full provider
+// transcript.
 func ReadProviderFileOlder(provider, path string, tailCompactions int, beforeMessageID string) (*Session, error) {
-	switch providerFamily(provider) {
+	switch ProviderFamily(provider) {
 	case "codex":
 		return ReadCodexFile(path, tailCompactions)
 	case "gemini":
 		return ReadGeminiFile(path, tailCompactions)
+	case "kimi":
+		return ReadKimiFilePage(path, tailCompactions, beforeMessageID, "")
+	case "mimocode":
+		return ReadMimoCodeFile(path, tailCompactions)
 	case "opencode":
 		return ReadOpenCodeFile(path, tailCompactions)
+	case "pi":
+		return ReadPiFile(path, tailCompactions)
+	case "antigravity":
+		return ReadAntigravityFilePage(path, tailCompactions, beforeMessageID, "")
 	default:
 		return ReadFileOlder(path, tailCompactions, beforeMessageID)
 	}
 }
 
 // ReadProviderFileRawOlder reads an older page of a provider-specific raw
-// transcript. Codex sessions do not currently support message-ID pagination, so
-// the full provider transcript is returned.
+// transcript. Provider families without page-aware readers return the full
+// provider transcript.
 func ReadProviderFileRawOlder(provider, path string, tailCompactions int, beforeMessageID string) (*Session, error) {
-	switch providerFamily(provider) {
+	switch ProviderFamily(provider) {
 	case "codex":
 		return ReadCodexFile(path, tailCompactions)
 	case "gemini":
 		return ReadGeminiFile(path, tailCompactions)
+	case "kimi":
+		return ReadKimiFilePage(path, tailCompactions, beforeMessageID, "")
+	case "mimocode":
+		return ReadMimoCodeFile(path, tailCompactions)
 	case "opencode":
 		return ReadOpenCodeFile(path, tailCompactions)
+	case "pi":
+		return ReadPiFile(path, tailCompactions)
+	case "antigravity":
+		return ReadAntigravityFileRawPage(path, tailCompactions, beforeMessageID, "")
 	default:
 		return ReadFileRawOlder(path, tailCompactions, beforeMessageID)
 	}
@@ -357,32 +390,48 @@ func ReadFileRawNewer(path string, tailCompactions int, afterMessageID string) (
 }
 
 // ReadProviderFileNewer reads a newer page of a provider-specific transcript.
-// Codex sessions do not currently support message-ID pagination, so the full
-// provider transcript is returned.
+// Provider families without page-aware readers return the full provider
+// transcript.
 func ReadProviderFileNewer(provider, path string, tailCompactions int, afterMessageID string) (*Session, error) {
-	switch providerFamily(provider) {
+	switch ProviderFamily(provider) {
 	case "codex":
 		return ReadCodexFile(path, tailCompactions)
 	case "gemini":
 		return ReadGeminiFile(path, tailCompactions)
+	case "kimi":
+		return ReadKimiFilePage(path, tailCompactions, "", afterMessageID)
+	case "mimocode":
+		return ReadMimoCodeFile(path, tailCompactions)
 	case "opencode":
 		return ReadOpenCodeFile(path, tailCompactions)
+	case "pi":
+		return ReadPiFile(path, tailCompactions)
+	case "antigravity":
+		return ReadAntigravityFilePage(path, tailCompactions, "", afterMessageID)
 	default:
 		return ReadFileNewer(path, tailCompactions, afterMessageID)
 	}
 }
 
 // ReadProviderFileRawNewer reads a newer page of a provider-specific raw
-// transcript. Codex sessions do not currently support message-ID pagination, so
-// the full provider transcript is returned.
+// transcript. Provider families without page-aware readers return the full
+// provider transcript.
 func ReadProviderFileRawNewer(provider, path string, tailCompactions int, afterMessageID string) (*Session, error) {
-	switch providerFamily(provider) {
+	switch ProviderFamily(provider) {
 	case "codex":
 		return ReadCodexFile(path, tailCompactions)
 	case "gemini":
 		return ReadGeminiFile(path, tailCompactions)
+	case "kimi":
+		return ReadKimiFilePage(path, tailCompactions, "", afterMessageID)
+	case "mimocode":
+		return ReadMimoCodeFile(path, tailCompactions)
 	case "opencode":
 		return ReadOpenCodeFile(path, tailCompactions)
+	case "pi":
+		return ReadPiFile(path, tailCompactions)
+	case "antigravity":
+		return ReadAntigravityFileRawPage(path, tailCompactions, "", afterMessageID)
 	default:
 		return ReadFileRawNewer(path, tailCompactions, afterMessageID)
 	}
@@ -512,29 +561,40 @@ func sliceAtCompactBoundaries(messages []*Entry, tailCompactions int, beforeMess
 	}
 }
 
-// FindSessionFile searches for the most recently modified JSONL session
-// file matching the given working directory. It tries slug-based lookup
-// (Claude) across all search paths, then falls back to CWD-based lookup
-// (Codex). Returns "" if no match is found.
+// FindSessionFile searches for the most recently modified JSONL session file
+// matching the given working directory. It tries slug-based lookup (Claude)
+// across all search paths, then falls back to CWD-based providers that do not
+// expose stable IDs for generic auto lookup.
 func FindSessionFile(searchPaths []string, workDir string) string {
 	// Try slug-based lookup first (Claude: {searchPath}/{slug}/*.jsonl).
 	if path := findSlugSessionFile(searchPaths, workDir); path != "" {
 		return path
 	}
 	// Fall back to Codex CWD-based lookup.
-	return FindCodexSessionFile(searchPaths, workDir)
+	if path := FindCodexSessionFile(searchPaths, workDir); path != "" {
+		return path
+	}
+	return FindPiSessionFile(searchPaths, workDir)
 }
 
 // FindSessionFileForProvider resolves the best available transcript file for a
 // specific provider.
 func FindSessionFileForProvider(searchPaths []string, provider, workDir string) string {
-	switch providerFamily(provider) {
+	switch ProviderFamily(provider) {
 	case "codex":
 		return FindCodexSessionFile(searchPaths, workDir)
 	case "gemini":
 		return FindGeminiSessionFile(searchPaths, workDir)
+	case "kimi":
+		return FindKimiSessionFile(searchPaths, workDir)
+	case "mimocode":
+		return FindMimoCodeSessionFile(searchPaths, workDir)
 	case "opencode":
 		return FindOpenCodeSessionFile(searchPaths, workDir)
+	case "pi":
+		return FindPiSessionFile(searchPaths, workDir)
+	case "antigravity":
+		return FindAntigravitySessionFile(searchPaths, workDir)
 	case "", "auto":
 		return FindSessionFile(searchPaths, workDir)
 	default:
@@ -547,13 +607,21 @@ func FindSessionFileForProvider(searchPaths []string, provider, workDir string) 
 // silently jumping to an unrelated transcript that merely shares the same
 // workdir while still allowing canonical provider fallback files.
 func FindProviderFallbackSessionFile(searchPaths []string, provider, workDir string) string {
-	switch providerFamily(provider) {
+	switch ProviderFamily(provider) {
 	case "codex":
 		return FindCodexSessionFile(searchPaths, workDir)
 	case "gemini":
 		return FindGeminiSessionFile(searchPaths, workDir)
+	case "kimi":
+		return FindKimiSessionFile(searchPaths, workDir)
+	case "mimocode":
+		return FindMimoCodeSessionFile(searchPaths, workDir)
 	case "opencode":
 		return FindOpenCodeSessionFile(searchPaths, workDir)
+	case "pi":
+		return FindPiSessionFile(searchPaths, workDir)
+	case "antigravity":
+		return FindAntigravitySessionFile(searchPaths, workDir)
 	default:
 		return findClaudeLatestSessionFile(searchPaths, workDir)
 	}
@@ -700,19 +768,477 @@ func FindCodexSessionFile(searchPaths []string, workDir string) string {
 	return bestPath
 }
 
-// findCodexSessionFileIn searches a Codex sessions directory for the most
-// recent session matching workDir. Scans date directories in reverse
-// chronological order for efficiency. Also recurses into symlinked
-// subdirectories that aren't date components (e.g., aimux session roots).
-func findCodexSessionFileIn(sessDir, workDir string) string {
-	entries, err := os.ReadDir(sessDir)
+// FindCodexSessionFileNear resolves a codex rollout transcript with a
+// strictly bounded lookup: it opens only the local-date day directories
+// (YYYY/MM/DD) intersecting [anchor-1m, anchor+window] under each merged
+// codex root (plus symlinked extra roots, one level), filters files by the
+// rollout filename timestamp ("rollout-2006-01-02T15-04-05-<uuid>.jsonl",
+// written in local time by the codex CLI) falling inside that window with a
+// 1-hour DST-fold tolerance on both sides, and confirms candidates via the
+// session_meta cwd on the first line. Exactly one physically distinct cwd
+// match is returned; multiple matches are refused as ambiguous (mirroring
+// Manager.TranscriptPath's same-workdir guard) and zero matches, a zero
+// anchor, or a non-positive window return "". Unlike
+// FindCodexSessionFile it never walks the full date tree, so it is safe to
+// call inside a prompt operation.
+//
+// "Local time" means the codex CLI's local time at write: filenames are
+// parsed in THIS process's time.Local, so when the codex process ran under
+// a different timezone than gc (containerized agents, or a host TZ change
+// between write and read) the parsed timestamp shifts by the offset and an
+// otherwise-valid rollout falls outside the window — discovery then returns
+// "" and telemetry silently records nothing, consistent with the bounded
+// best-effort contract.
+func FindCodexSessionFileNear(searchPaths []string, workDir string, anchor time.Time, window time.Duration) string {
+	if workDir == "" || anchor.IsZero() || window <= 0 {
+		return ""
+	}
+	start := anchor.Add(-time.Minute)
+	end := anchor.Add(window)
+	var matches []string
+	seen := make(map[string]bool)
+	for _, root := range mergeCodexSearchPaths(searchPaths) {
+		collectCodexRolloutsNear(root, workDir, start, end, true, seen, &matches)
+		if len(matches) > 1 {
+			return ""
+		}
+	}
+	if len(matches) != 1 {
+		return ""
+	}
+	return matches[0]
+}
+
+// appendCodexRolloutMatch appends path to matches unless its physical
+// identity was already seen. One rollout is commonly reachable through two
+// lexical paths (a configured root holding the aimux symlink AND the
+// symlink's target listed directly); without physical dedup that single file
+// would trip the ambiguity refusal. EvalSymlinks is used for identity
+// comparison only — the FIRST lexical path is kept so the paired extractor's
+// lexical containment validation still passes. On resolve error the lexical
+// path itself is the identity.
+func appendCodexRolloutMatch(path string, seen map[string]bool, matches *[]string) {
+	key := path
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		key = resolved
+	}
+	if seen[key] {
+		return
+	}
+	seen[key] = true
+	*matches = append(*matches, path)
+}
+
+// collectCodexRolloutsNear appends in-window cwd-matching rollouts under one
+// codex root to matches, deduplicated by physical identity via
+// appendCodexRolloutMatch (seen is shared across roots by the caller).
+// followExtraRoots permits one level of recursion into symlinked non-date
+// roots (aimux-managed accounts), matching findCodexSessionFileIn's
+// treatment of them. Recursion keeps the symlink-LEXICAL path
+// (root/<link>/...) rather than the resolved target: the paired extractor
+// (ExtractCodexTailUsageFromSearchPaths) validates containment lexically
+// against the merged search roots, so a resolved path outside them would be
+// discovered here only to be rejected there.
+//
+// The filename-timestamp filter accepts a 1-hour tolerance on both sides of
+// [start, end]: during the autumn DST fold the wall time embedded in the
+// filename is ambiguous and time.ParseInLocation can resolve it 1h off, so a
+// genuinely in-window rollout would otherwise fail the exact filter. The cwd
+// confirmation still guards attribution. The day-dir iteration is likewise
+// padded by one calendar day on each side — the tolerance can cross local
+// midnight, and startOfLocalDay in zones whose DST transition falls AT
+// midnight (e.g. America/Santiago) can land on 23:00 of the previous day and
+// skip the final calendar day; ENOENT readdirs are free.
+func collectCodexRolloutsNear(root, workDir string, start, end time.Time, followExtraRoots bool, seen map[string]bool, matches *[]string) {
+	tolStart := start.Add(-time.Hour)
+	tolEnd := end.Add(time.Hour)
+	firstDay := startOfLocalDay(start.In(time.Local)).AddDate(0, 0, -1)
+	lastDay := startOfLocalDay(end.In(time.Local)).AddDate(0, 0, 1)
+	for day := firstDay; !day.After(lastDay); day = day.AddDate(0, 0, 1) {
+		dayDir := filepath.Join(root, day.Format("2006"), day.Format("01"), day.Format("02"))
+		entries, err := os.ReadDir(dayDir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			ts, ok := codexRolloutFilenameTime(e.Name())
+			if !ok || ts.Before(tolStart) || ts.After(tolEnd) {
+				continue
+			}
+			path := filepath.Join(dayDir, e.Name())
+			if codexSessionCWD(path) == workDir {
+				appendCodexRolloutMatch(path, seen, matches)
+				if len(*matches) > 1 {
+					return
+				}
+			}
+		}
+	}
+	if !followExtraRoots {
+		return
+	}
+	rootEntries, err := os.ReadDir(root)
+	if err != nil {
+		return
+	}
+	for _, e := range rootEntries {
+		if e.Type()&os.ModeSymlink == 0 {
+			continue
+		}
+		name := e.Name()
+		if len(name) == 4 && name >= "2000" && name <= "2099" {
+			continue
+		}
+		// os.ReadDir follows the symlink on its own; non-directory or
+		// dangling links simply fail every ReadDir in the recursion.
+		collectCodexRolloutsNear(filepath.Join(root, name), workDir, start, end, false, seen, matches)
+		if len(*matches) > 1 {
+			return
+		}
+	}
+}
+
+// codexByIDDayDirCap bounds the day directories scanned per root by
+// FindCodexSessionFileByID (~ one year plus padding). Ranges larger than the
+// cap scan only the most recent cap days, iterating backward from the
+// newest, so a pathologically old notBefore cannot turn the keyed lookup
+// into an unbounded readdir sweep.
+const codexByIDDayDirCap = 370
+
+// FindCodexSessionFileByID resolves a codex rollout transcript by session
+// identity: the codex CLI names rollouts
+// "rollout-<localtime>-<session-uuid>.jsonl" where the uuid suffix equals
+// the session_meta payload.id, so a captured session id keys the file
+// directly — including resumed sessions, which APPEND to the original
+// rollout whose filename timestamp predates any later wake. Local-day dirs
+// (same year/month/day layout and one-level symlinked extra roots as
+// collectCodexRolloutsNear) from one day before notBefore through one day
+// after notAfter are enumerated newest-first, capped at codexByIDDayDirCap
+// per root; candidates match by FILENAME ONLY (no file opens), deduplicate
+// by physical identity (keeping the first lexical path so the paired
+// extractor's lexical containment validation still passes), and multiple
+// distinct physical matches are refused as ambiguous. The single match is
+// confirmed via the session_meta cwd exactly like FindCodexSessionFileNear
+// before being returned; empty inputs or a zero notAfter return "".
+func FindCodexSessionFileByID(searchPaths []string, workDir, sessionID string, notBefore, notAfter time.Time) string {
+	workDir = strings.TrimSpace(workDir)
+	sessionID = strings.TrimSpace(sessionID)
+	if workDir == "" || sessionID == "" || notAfter.IsZero() {
+		return ""
+	}
+	suffix := "-" + sessionID + ".jsonl"
+	firstDay := startOfLocalDay(notBefore.In(time.Local)).AddDate(0, 0, -1)
+	lastDay := startOfLocalDay(notAfter.In(time.Local)).AddDate(0, 0, 1)
+	if lastDay.Before(firstDay) {
+		return ""
+	}
+	var matches []string
+	seen := make(map[string]bool)
+	for _, root := range mergeCodexSearchPaths(searchPaths) {
+		collectCodexRolloutsByID(root, suffix, firstDay, lastDay, true, seen, &matches)
+		if len(matches) > 1 {
+			return ""
+		}
+	}
+	if len(matches) != 1 {
+		return ""
+	}
+	if codexSessionCWD(matches[0]) != workDir {
+		return ""
+	}
+	return matches[0]
+}
+
+// collectCodexRolloutsByID appends rollouts whose filename carries the
+// "rollout-" prefix and the keyed "-<sessionID>.jsonl" suffix under one
+// codex root, deduplicated by physical identity via appendCodexRolloutMatch
+// (seen is shared across roots by the caller). Day dirs are scanned newest
+// first so the per-root codexByIDDayDirCap drops the oldest days of an
+// oversized range. followExtraRoots permits one level of recursion into
+// symlinked non-date roots, mirroring collectCodexRolloutsNear.
+func collectCodexRolloutsByID(root, suffix string, firstDay, lastDay time.Time, followExtraRoots bool, seen map[string]bool, matches *[]string) {
+	scanned := 0
+	for day := lastDay; !day.Before(firstDay) && scanned < codexByIDDayDirCap; day = day.AddDate(0, 0, -1) {
+		scanned++
+		dayDir := filepath.Join(root, day.Format("2006"), day.Format("01"), day.Format("02"))
+		entries, err := os.ReadDir(dayDir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			name := e.Name()
+			if !strings.HasPrefix(name, "rollout-") || !strings.HasSuffix(name, suffix) {
+				continue
+			}
+			appendCodexRolloutMatch(filepath.Join(dayDir, name), seen, matches)
+			if len(*matches) > 1 {
+				return
+			}
+		}
+	}
+	if !followExtraRoots {
+		return
+	}
+	rootEntries, err := os.ReadDir(root)
+	if err != nil {
+		return
+	}
+	for _, e := range rootEntries {
+		if e.Type()&os.ModeSymlink == 0 {
+			continue
+		}
+		name := e.Name()
+		if len(name) == 4 && name >= "2000" && name <= "2099" {
+			continue
+		}
+		// os.ReadDir follows the symlink on its own; non-directory or
+		// dangling links simply fail every ReadDir in the recursion.
+		collectCodexRolloutsByID(filepath.Join(root, name), suffix, firstDay, lastDay, false, seen, matches)
+		if len(*matches) > 1 {
+			return
+		}
+	}
+}
+
+// codexRolloutFilenameTime parses the local-time timestamp embedded in a
+// codex rollout filename ("rollout-2006-01-02T15-04-05-<uuid>.jsonl").
+func codexRolloutFilenameTime(name string) (time.Time, bool) {
+	const prefix = "rollout-"
+	const layout = "2006-01-02T15-04-05"
+	if !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, ".jsonl") {
+		return time.Time{}, false
+	}
+	rest := name[len(prefix):]
+	if len(rest) < len(layout) {
+		return time.Time{}, false
+	}
+	ts, err := time.ParseInLocation(layout, rest[:len(layout)], time.Local)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return ts, true
+}
+
+// startOfLocalDay truncates t to local midnight.
+func startOfLocalDay(t time.Time) time.Time {
+	year, month, day := t.Date()
+	return time.Date(year, month, day, 0, 0, 0, 0, time.Local)
+}
+
+// CodexSessionCandidate is a Codex transcript whose session metadata matches a
+// requested workdir.
+type CodexSessionCandidate struct {
+	Path      string
+	WorkDir   string
+	StartedAt time.Time
+	ModTime   time.Time
+}
+
+// FindCodexSessionFileByIDNoWindow resolves a Codex transcript by provider
+// session ID without a creation/wake window. Codex names rollouts
+// "rollout-<localtime>-<session-uuid>.jsonl", so the id keys the file by its
+// exact filename suffix. The scan walks date directories newest-first and
+// returns the first "rollout-*-<sessionID>.jsonl" whose session_meta cwd equals
+// workDir; only that matched transcript is opened, so cost scales with matches
+// rather than with total Codex history. A session id containing path separators
+// or ".." is rejected. Callers that have a creation/wake window should prefer
+// FindCodexSessionFileByID, which bounds the scan by date and refuses ambiguous
+// matches.
+func FindCodexSessionFileByIDNoWindow(searchPaths []string, workDir, sessionID string) string {
+	workDir = strings.TrimSpace(workDir)
+	sessionID = strings.TrimSpace(sessionID)
+	if workDir == "" || sessionID == "" || strings.Contains(sessionID, "..") || strings.ContainsAny(sessionID, `/\`) {
+		return ""
+	}
+	suffix := "-" + sessionID + ".jsonl"
+	seen := make(map[string]bool)
+	for _, root := range mergeCodexSearchPaths(searchPaths) {
+		if path := findCodexRolloutBySuffixIn(root, workDir, suffix, seen); path != "" {
+			return path
+		}
+	}
+	return ""
+}
+
+// findCodexRolloutBySuffixIn walks a Codex sessions directory newest-first and
+// returns the first "rollout-*<suffix>" transcript whose session_meta cwd
+// matches workDir. It recurses into symlinked non-date roots (aimux account
+// roots) like findCodexSessionFileIn, guarding against symlink cycles via seen.
+func findCodexRolloutBySuffixIn(sessDir, workDir, suffix string, seen map[string]bool) string {
+	cleaned := filepath.Clean(sessDir)
+	if seen[cleaned] {
+		return ""
+	}
+	seen[cleaned] = true
+	yearDirs, extraRoots := splitCodexSessionRoots(cleaned)
+	sort.Sort(sort.Reverse(sort.StringSlice(yearDirs)))
+	for _, year := range yearDirs {
+		yearDir := filepath.Join(cleaned, year)
+		for _, month := range listDirsReverse(yearDir) {
+			monthDir := filepath.Join(yearDir, month)
+			for _, day := range listDirsReverse(monthDir) {
+				if path := findCodexRolloutBySuffixInDir(filepath.Join(monthDir, day), workDir, suffix); path != "" {
+					return path
+				}
+			}
+		}
+	}
+	for _, root := range extraRoots {
+		resolved, err := filepath.EvalSymlinks(filepath.Join(cleaned, root))
+		if err != nil {
+			continue
+		}
+		if path := findCodexRolloutBySuffixIn(resolved, workDir, suffix, seen); path != "" {
+			return path
+		}
+	}
+	return ""
+}
+
+// findCodexRolloutBySuffixInDir returns the first rollout in dir whose name
+// carries suffix and whose session_meta cwd matches workDir.
+func findCodexRolloutBySuffixInDir(dir, workDir, suffix string) string {
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return ""
 	}
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasPrefix(name, "rollout-") || !strings.HasSuffix(name, suffix) {
+			continue
+		}
+		path := filepath.Join(dir, name)
+		if codexSessionCWD(path) == workDir {
+			return path
+		}
+	}
+	return ""
+}
 
-	// Separate date-tree roots (YYYY dirs) from symlinked session roots.
-	var yearDirs []string
-	var extraRoots []string
+// FindCodexSessionFileInTimeWindow resolves a Codex transcript whose metadata
+// start time uniquely falls inside [start, end). A zero end leaves the window
+// open-ended. If the window matches zero or multiple transcripts, it returns
+// empty to preserve same-workdir ambiguity guards. The disk scan is bounded to
+// the date directories overlapping the window (padded one day for local-time
+// skew) so cost scales with the window, not with total Codex history, and
+// physical duplicates reachable through more than one merged root are counted
+// once.
+func FindCodexSessionFileInTimeWindow(searchPaths []string, workDir string, start, end time.Time) string {
+	if start.IsZero() {
+		return ""
+	}
+	workDir = strings.TrimSpace(workDir)
+	if workDir == "" {
+		return ""
+	}
+	firstDay := startOfLocalDay(start.In(time.Local)).AddDate(0, 0, -1)
+	lastDay := startOfLocalDay(start.In(time.Local)).AddDate(0, 0, 1)
+	if !end.IsZero() {
+		lastDay = startOfLocalDay(end.In(time.Local)).AddDate(0, 0, 1)
+	}
+	if lastDay.Before(firstDay) {
+		return ""
+	}
+	var candidates []CodexSessionCandidate
+	seen := make(map[string]bool)
+	for _, root := range mergeCodexSearchPaths(searchPaths) {
+		collectCodexCandidatesInDays(root, workDir, firstDay, lastDay, true, seen, &candidates)
+	}
+	windowStart := start.Add(-2 * time.Second)
+	match := ""
+	for _, candidate := range candidates {
+		candidateTime := codexCandidateSortTime(candidate)
+		if candidateTime.IsZero() || candidateTime.Before(windowStart) {
+			continue
+		}
+		if !end.IsZero() && !candidateTime.Before(end) {
+			continue
+		}
+		if match != "" {
+			return ""
+		}
+		match = candidate.Path
+	}
+	return match
+}
+
+// collectCodexCandidatesInDays appends Codex candidates matching workDir whose
+// date directory falls within [firstDay, lastDay], newest day first and capped
+// at codexByIDDayDirCap so an oversized range cannot become an unbounded sweep.
+// Physical duplicates (symlink aliases across merged roots) are dropped via
+// seen. followExtraRoots permits one level of recursion into symlinked non-date
+// roots, mirroring collectCodexRolloutsByID.
+func collectCodexCandidatesInDays(root, workDir string, firstDay, lastDay time.Time, followExtraRoots bool, seen map[string]bool, out *[]CodexSessionCandidate) {
+	scanned := 0
+	for day := lastDay; !day.Before(firstDay) && scanned < codexByIDDayDirCap; day = day.AddDate(0, 0, -1) {
+		scanned++
+		dayDir := filepath.Join(root, day.Format("2006"), day.Format("01"), day.Format("02"))
+		appendCodexCandidatesFromDir(dayDir, workDir, seen, out)
+	}
+	if !followExtraRoots {
+		return
+	}
+	_, extraRoots := splitCodexSessionRoots(root)
+	for _, name := range extraRoots {
+		resolved, err := filepath.EvalSymlinks(filepath.Join(root, name))
+		if err != nil {
+			continue
+		}
+		collectCodexCandidatesInDays(resolved, workDir, firstDay, lastDay, false, seen, out)
+	}
+}
+
+// appendCodexCandidatesFromDir appends every Codex transcript in dir whose
+// session_meta cwd matches workDir, deduplicated by physical file identity via
+// seen so a rollout reachable through more than one root is counted once.
+func appendCodexCandidatesFromDir(dir, workDir string, seen map[string]bool, out *[]CodexSessionCandidate) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		key := path
+		if resolved, err := filepath.EvalSymlinks(path); err == nil {
+			key = resolved
+		}
+		if seen[key] {
+			continue
+		}
+		candidate, ok := codexSessionCandidate(path)
+		if !ok || candidate.WorkDir != workDir {
+			continue
+		}
+		seen[key] = true
+		*out = append(*out, candidate)
+	}
+}
+
+func codexCandidateSortTime(candidate CodexSessionCandidate) time.Time {
+	if !candidate.StartedAt.IsZero() {
+		return candidate.StartedAt
+	}
+	return candidate.ModTime
+}
+
+// splitCodexSessionRoots reads a Codex sessions directory and separates
+// four-digit year directories (the YYYY/MM/DD date tree) from symlinked
+// non-date roots (aimux-managed account roots). Entries that are neither a
+// directory nor a symlink are ignored, and a read error yields empty slices.
+func splitCodexSessionRoots(dir string) (yearDirs, extraRoots []string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, nil
+	}
 	for _, e := range entries {
 		if !e.IsDir() && e.Type()&os.ModeSymlink == 0 {
 			continue
@@ -721,10 +1247,18 @@ func findCodexSessionFileIn(sessDir, workDir string) string {
 		if len(name) == 4 && name >= "2000" && name <= "2099" {
 			yearDirs = append(yearDirs, name)
 		} else if e.Type()&os.ModeSymlink != 0 {
-			// Symlinked directory — treat as an additional session root.
 			extraRoots = append(extraRoots, name)
 		}
 	}
+	return yearDirs, extraRoots
+}
+
+// findCodexSessionFileIn searches a Codex sessions directory for the most
+// recent session matching workDir. Scans date directories in reverse
+// chronological order for efficiency. Also recurses into symlinked
+// subdirectories that aren't date components (e.g., aimux session roots).
+func findCodexSessionFileIn(sessDir, workDir string) string {
+	yearDirs, extraRoots := splitCodexSessionRoots(sessDir)
 
 	// Scan year dirs in reverse chronological order.
 	sort.Sort(sort.Reverse(sort.StringSlice(yearDirs)))
@@ -734,9 +1268,7 @@ func findCodexSessionFileIn(sessDir, workDir string) string {
 
 	// Scan symlinked session roots (aimux-managed accounts).
 	for _, root := range extraRoots {
-		rootDir := filepath.Join(sessDir, root)
-		// Resolve symlink to get the actual directory.
-		resolved, err := filepath.EvalSymlinks(rootDir)
+		resolved, err := filepath.EvalSymlinks(filepath.Join(sessDir, root))
 		if err != nil {
 			continue
 		}
@@ -809,30 +1341,68 @@ func findCodexSessionInDir(dir, workDir string) string {
 // extracts the cwd from the session_meta payload. Returns "" if the file
 // can't be read or doesn't contain a session_meta entry.
 func codexSessionCWD(path string) string {
+	candidate, ok := codexSessionCandidate(path)
+	if !ok {
+		return ""
+	}
+	return candidate.WorkDir
+}
+
+func codexSessionCandidate(path string) (CodexSessionCandidate, bool) {
 	f, err := os.Open(path)
 	if err != nil {
-		return ""
+		return CodexSessionCandidate{}, false
 	}
 	defer f.Close() //nolint:errcheck // read-only
 
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	if !scanner.Scan() {
-		return ""
+		return CodexSessionCandidate{}, false
 	}
 	var meta struct {
-		Type    string `json:"type"`
-		Payload struct {
-			CWD string `json:"cwd"`
+		Type      string `json:"type"`
+		Timestamp string `json:"timestamp"`
+		Payload   struct {
+			CWD       string `json:"cwd"`
+			Timestamp string `json:"timestamp"`
 		} `json:"payload"`
 	}
 	if err := json.Unmarshal(scanner.Bytes(), &meta); err != nil {
-		return ""
+		return CodexSessionCandidate{}, false
 	}
 	if meta.Type != "session_meta" {
-		return ""
+		return CodexSessionCandidate{}, false
 	}
-	return meta.Payload.CWD
+	info, _ := os.Stat(path)
+	var modTime time.Time
+	if info != nil {
+		modTime = info.ModTime()
+	}
+	startedAt := parseCodexSessionTime(meta.Payload.Timestamp)
+	if startedAt.IsZero() {
+		startedAt = parseCodexSessionTime(meta.Timestamp)
+	}
+	return CodexSessionCandidate{
+		Path:      path,
+		WorkDir:   meta.Payload.CWD,
+		StartedAt: startedAt,
+		ModTime:   modTime,
+	}, true
+}
+
+func parseCodexSessionTime(raw string) time.Time {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}
+	}
+	if parsed, err := time.Parse(time.RFC3339Nano, raw); err == nil {
+		return parsed
+	}
+	if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
+		return parsed
+	}
+	return time.Time{}
 }
 
 // listDirsReverse returns directory names sorted in reverse lexicographic
@@ -882,6 +1452,26 @@ func DefaultGeminiSearchPaths() []string {
 	return []string{filepath.Join(home, ".gemini", "tmp")}
 }
 
+// DefaultKimiSearchPaths returns the default search paths for Kimi Code
+// session files (~/.kimi/sessions).
+func DefaultKimiSearchPaths() []string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	return []string{filepath.Join(home, ".kimi", "sessions")}
+}
+
+// DefaultAntigravitySearchPaths returns the default search paths for Antigravity JSONL
+// session files (~/.gemini/antigravity-cli/brain).
+func DefaultAntigravitySearchPaths() []string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	return []string{filepath.Join(home, ".gemini", "antigravity-cli", "brain")}
+}
+
 // MergeSearchPaths merges default paths with user-configured extra paths,
 // expanding ~ and deduplicating.
 func MergeSearchPaths(extraPaths []string) []string {
@@ -894,6 +1484,14 @@ func mergeCodexSearchPaths(extraPaths []string) []string {
 
 func mergeGeminiSearchPaths(extraPaths []string) []string {
 	return mergePaths(DefaultGeminiSearchPaths(), extraPaths)
+}
+
+func mergePiSearchPaths(extraPaths []string) []string {
+	return mergePaths(DefaultPiSearchPaths(), extraPaths)
+}
+
+func mergeAntigravitySearchPaths(extraPaths []string) []string {
+	return mergePaths(DefaultAntigravitySearchPaths(), extraPaths)
 }
 
 func mergePaths(defaults, extras []string) []string {
@@ -920,15 +1518,24 @@ func mergePaths(defaults, extras []string) []string {
 	return result
 }
 
-func providerFamily(provider string) string {
+// ProviderFamily returns the canonical transcript provider family for provider.
+func ProviderFamily(provider string) string {
 	p := strings.ToLower(strings.TrimSpace(provider))
 	switch {
 	case strings.Contains(p, "codex"):
 		return "codex"
 	case strings.Contains(p, "gemini"):
 		return "gemini"
+	case strings.Contains(p, "kimi"):
+		return "kimi"
+	case strings.Contains(p, "mimocode"):
+		return "mimocode"
 	case strings.Contains(p, "opencode"):
 		return "opencode"
+	case strings.Contains(p, "antigravity"):
+		return "antigravity"
+	case p == "pi" || strings.HasPrefix(p, "pi/") || strings.HasSuffix(p, "/pi") || strings.HasSuffix(p, "-pi") || strings.Contains(p, "-pi/"):
+		return "pi"
 	default:
 		return p
 	}

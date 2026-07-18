@@ -1,6 +1,8 @@
 {
   "skipDangerousModePermissionPrompt": true,
+  "enableAllProjectMcpServers": true,
   "editorMode": "normal",
+  "awaySummaryEnabled": false,
   "hooks": {
     "SessionStart": [
       {
@@ -8,7 +10,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\" && GC_MANAGED_SESSION_HOOK=1 GC_HOOK_EVENT_NAME=SessionStart gc prime --hook"
+            "command": "export PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\" && GC_MANAGED_SESSION_HOOK=1 GC_HOOK_EVENT_NAME=SessionStart gc prime --hook --hook-format codex"
           }
         ]
       }
@@ -30,11 +32,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\" && gc nudge drain --inject"
+            "command": "export PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\" && gc hook run --timeout 15s --timeout-exit-code 0 -- nudge drain --inject"
           },
           {
             "type": "command",
-            "command": "export PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\" && gc mail check --inject"
+            "command": "export PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\" && gc hook run --timeout 15s --timeout-exit-code 0 -- mail check --inject"
           }
         ]
       }

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -179,13 +180,18 @@ func doBeadsCityEndpoint(fs fsys.FS, cityPath string, opts cityEndpointOptions, 
 			managedStopScript = strings.TrimPrefix(provider, "exec:")
 			configuredProvider := configuredBeadsProviderValue(cityPath)
 			if (configuredProvider == "" || configuredProvider == "bd") && execProviderBase(provider) == "gc-beads-bd" {
-				if err := MaterializeBuiltinPacks(cityPath); err != nil {
+				if err := EnsureBuiltinRuntimeAssets(cityPath, os.Stderr); err != nil {
 					fmt.Fprintf(stderr, "%s: materialize managed provider: %v\n", name, err) //nolint:errcheck
 					return 1
 				}
 				managedStopScript = gcBeadsBdScriptPath(cityPath)
 			}
-			managedStopEnv = append([]string(nil), providerLifecycleProcessEnv(cityPath, provider)...)
+			providerEnv, err := providerLifecycleProcessEnvWithError(cityPath, provider)
+			if err != nil {
+				fmt.Fprintf(stderr, "%s: building managed provider env: %v\n", name, err) //nolint:errcheck
+				return 1
+			}
+			managedStopEnv = append([]string(nil), providerEnv...)
 		}
 	}
 
@@ -229,7 +235,7 @@ func doBeadsCityEndpoint(fs fsys.FS, cityPath string, opts cityEndpointOptions, 
 			writeCityEndpointRollbackError(fs, stderr, snapshots, name, "stopping managed local provider", err)
 			return 1
 		}
-		if err := clearManagedDoltRuntimeStateIfOwned(cityPath); err != nil {
+		if err := clearManagedDoltRuntimeStateUnlessPostgres(cityPath); err != nil {
 			writeCityEndpointRollbackError(fs, stderr, snapshots, name, "clearing managed runtime state", err)
 			return 1
 		}
@@ -349,12 +355,12 @@ func validateCityExternalEndpointChange(cityPath string, targetState contract.Co
 
 func snapshotCityTopologyFiles(fs fsys.FS, cityPath string, plans []cityRigEndpointPlan) ([]fileSnapshot, error) {
 	snapshots := make([]fileSnapshot, 0, len(plans)+3)
-	cityToml, err := snapshotOptionalFile(fs, filepath.Join(cityPath, "city.toml"))
+	cityToml, err := snapshotResolvedFile(fs, filepath.Join(cityPath, "city.toml"))
 	if err != nil {
 		return nil, err
 	}
 	snapshots = append(snapshots, cityToml)
-	siteToml, err := snapshotOptionalFile(fs, config.SiteBindingPath(cityPath))
+	siteToml, err := snapshotResolvedFile(fs, config.SiteBindingPath(cityPath))
 	if err != nil {
 		return nil, err
 	}
@@ -394,7 +400,7 @@ func snapshotCityManagedPortFiles(fs fsys.FS, cityPath string, plans []cityRigEn
 			continue
 		}
 		seen[path] = struct{}{}
-		snap, err := snapshotOptionalFile(fs, path)
+		snap, err := snapshotResolvedFile(fs, path)
 		if err != nil {
 			return nil, err
 		}
@@ -455,8 +461,21 @@ func syncCityEndpointCompatConfig(fs fsys.FS, cityPath, tomlPath string, cfg *co
 func syncCityManagedPortArtifacts(fs fsys.FS, cityPath string, cityState contract.ConfigState, plans []cityRigEndpointPlan) error {
 	managedPort := ""
 	if cityState.EndpointOrigin == contract.EndpointOriginManagedCity {
+		owned, err := managedDoltLifecycleOwned(cityPath)
+		if err != nil {
+			return fmt.Errorf("determining managed dolt ownership for port artifact sync: %w", err)
+		}
+		if !owned {
+			return nil
+		}
 		port, err := readManagedRuntimePublishedPort(cityPath)
-		if err == nil {
+		if err != nil {
+			if os.IsNotExist(err) {
+				managedPort = ""
+			} else {
+				return fmt.Errorf("reading managed runtime published port: %w", err)
+			}
+		} else {
 			managedPort = port
 		}
 	}

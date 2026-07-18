@@ -1,7 +1,11 @@
 package dispatch
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/gastownhall/gascity/internal/beads"
 )
@@ -122,6 +126,7 @@ func TestProcessRetryEvalRetriesPassMissingRequiredOutputJSON(t *testing.T) {
 			"gc.max_attempts":         "3",
 			"gc.on_exhausted":         "hard_fail",
 			"gc.outcome":              "pass",
+			"gc.output_json_schema":   "review-quorum.lane.v1",
 			"gc.output_json_required": "true",
 		},
 	})
@@ -177,6 +182,490 @@ func TestProcessRetryEvalRetriesPassMissingRequiredOutputJSON(t *testing.T) {
 	}
 	if run2.ID == "" {
 		t.Fatal("missing retry run 2")
+	}
+}
+
+func TestClassifyRetryAttemptRetriesInvalidRequiredOutputJSON(t *testing.T) {
+	t.Parallel()
+
+	got := classifyRetryAttempt(beads.Bead{
+		Metadata: map[string]string{
+			"gc.outcome":              "pass",
+			"gc.output_json_required": "true",
+			"gc.output_json":          "/tmp/gc.output_json.pretty.json",
+		},
+	})
+	want := retryEvalResult{Outcome: "transient", Reason: "invalid_required_output_json"}
+	if got != want {
+		t.Fatalf("classifyRetryAttempt() = %+v, want %+v", got, want)
+	}
+}
+
+func TestClassifyRetryAttemptWithPostconditionsRequiresArtifact(t *testing.T) {
+	t.Parallel()
+
+	worktree := t.TempDir()
+	path := filepath.Join(worktree, "codex-review.md")
+	store := beads.NewMemStore()
+	subject := beads.Bead{
+		Metadata: map[string]string{
+			"gc.outcome":           "pass",
+			"gc.required_artifact": path,
+			"work_dir":             worktree,
+		},
+	}
+
+	got, err := classifyRetryAttemptWithPostconditions(store, subject, ProcessOptions{})
+	if err != nil {
+		t.Fatalf("classifyRetryAttemptWithPostconditions: %v", err)
+	}
+	want := retryEvalResult{Outcome: "transient", Reason: "missing_required_artifact"}
+	if got != want {
+		t.Fatalf("missing artifact classify = %+v, want %+v", got, want)
+	}
+
+	if err := os.WriteFile(path, []byte("review\n"), 0o644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+	got, err = classifyRetryAttemptWithPostconditions(store, subject, ProcessOptions{})
+	if err != nil {
+		t.Fatalf("classifyRetryAttemptWithPostconditions after artifact write: %v", err)
+	}
+	want = retryEvalResult{Outcome: "pass"}
+	if got != want {
+		t.Fatalf("present artifact classify = %+v, want %+v", got, want)
+	}
+}
+
+func TestClassifyRetryAttemptWithPostconditionsRejectsRelativeArtifactSymlinkOutsideWorktree(t *testing.T) {
+	t.Parallel()
+
+	worktree := t.TempDir()
+	outsideDir := t.TempDir()
+	outsidePath := filepath.Join(outsideDir, "outside.md")
+	if err := os.WriteFile(outsidePath, []byte("outside review\n"), 0o644); err != nil {
+		t.Fatalf("write outside artifact: %v", err)
+	}
+	linkPath := filepath.Join(worktree, "codex-review.md")
+	if err := os.Symlink(outsidePath, linkPath); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	got, err := classifyRetryAttemptWithPostconditions(beads.NewMemStore(), beads.Bead{
+		Metadata: map[string]string{
+			"gc.outcome":           "pass",
+			"gc.required_artifact": "codex-review.md",
+			"work_dir":             worktree,
+		},
+	}, ProcessOptions{})
+	if err != nil {
+		t.Fatalf("classifyRetryAttemptWithPostconditions error = %v, want nil", err)
+	}
+	want := retryEvalResult{Outcome: "transient", Reason: "required_artifact_outside_worktree"}
+	if got != want {
+		t.Fatalf("classifyRetryAttemptWithPostconditions() = %+v, want %+v", got, want)
+	}
+}
+
+func TestClassifyRetryAttemptWithPostconditionsResolvesReviewArtifactTemplate(t *testing.T) {
+	t.Parallel()
+
+	store := beads.NewMemStore()
+	worktree := t.TempDir()
+	source := mustCreateWorkflowBead(t, store, beads.Bead{
+		Title: "source",
+		Type:  "convoy",
+		Metadata: map[string]string{
+			"work_dir": worktree,
+		},
+	})
+	root := mustCreateWorkflowBead(t, store, beads.Bead{
+		Title: "workflow",
+		Type:  "task",
+		Metadata: map[string]string{
+			"gc.kind":            "workflow",
+			"gc.input_convoy_id": source.ID,
+		},
+	})
+	reviewPath := filepath.Join(worktree, ".gc", "reviews", root.ID, "attempt-2", "codex-review.md")
+	if err := os.MkdirAll(filepath.Dir(reviewPath), 0o755); err != nil {
+		t.Fatalf("mkdir review dir: %v", err)
+	}
+	if err := os.WriteFile(reviewPath, []byte("review\n"), 0o644); err != nil {
+		t.Fatalf("write review artifact: %v", err)
+	}
+
+	got, err := classifyRetryAttemptWithPostconditions(store, beads.Bead{
+		Metadata: map[string]string{
+			"gc.outcome":           "pass",
+			"gc.root_bead_id":      root.ID,
+			"gc.attempt":           "2",
+			"gc.required_artifact": "{worktree}/.gc/reviews/{root}/attempt-{attempt}/codex-review.md",
+		},
+	}, ProcessOptions{})
+	if err != nil {
+		t.Fatalf("classifyRetryAttemptWithPostconditions: %v", err)
+	}
+	want := retryEvalResult{Outcome: "pass"}
+	if got != want {
+		t.Fatalf("classifyRetryAttemptWithPostconditions() = %+v, want %+v", got, want)
+	}
+}
+
+func TestClassifyRetryAttemptWithPostconditionsSurfacesRequiredArtifactStoreError(t *testing.T) {
+	t.Parallel()
+
+	base := beads.NewMemStore()
+	root := mustCreateWorkflowBead(t, base, beads.Bead{
+		Title: "workflow",
+		Type:  "task",
+		Metadata: map[string]string{
+			"gc.kind": "workflow",
+		},
+	})
+	backendErr := errors.New("invalid connection: i/o timeout")
+	store := failGetStore{
+		Store:  base,
+		failID: root.ID,
+		err:    backendErr,
+	}
+
+	_, err := classifyRetryAttemptWithPostconditions(store, beads.Bead{
+		Metadata: map[string]string{
+			"gc.outcome":           "pass",
+			"gc.root_bead_id":      root.ID,
+			"gc.required_artifact": "codex-review.md",
+		},
+	}, ProcessOptions{})
+	if !errors.Is(err, backendErr) {
+		t.Fatalf("classifyRetryAttemptWithPostconditions error = %v, want backend error", err)
+	}
+}
+
+func TestClassifyRetryAttemptWithPostconditionsStoreErrorIsTransientControllerError(t *testing.T) {
+	t.Parallel()
+
+	base := beads.NewMemStore()
+	root := mustCreateWorkflowBead(t, base, beads.Bead{
+		Title: "workflow",
+		Type:  "task",
+		Metadata: map[string]string{
+			"gc.kind": "workflow",
+		},
+	})
+	backendErr := errors.New("backend store unavailable")
+	store := failGetStore{
+		Store:  base,
+		failID: root.ID,
+		err:    backendErr,
+	}
+
+	_, err := classifyRetryAttemptWithPostconditions(store, beads.Bead{
+		Metadata: map[string]string{
+			"gc.outcome":           "pass",
+			"gc.root_bead_id":      root.ID,
+			"gc.required_artifact": "codex-review.md",
+		},
+	}, ProcessOptions{})
+	if !errors.Is(err, backendErr) {
+		t.Fatalf("classifyRetryAttemptWithPostconditions error = %v, want backend error", err)
+	}
+	if !IsTransientControllerError(err) {
+		t.Fatalf("IsTransientControllerError(%v) = false, want true", err)
+	}
+}
+
+func TestClassifyRetryAttemptWithPostconditionsMissingRequiredArtifactContextStaysTransient(t *testing.T) {
+	t.Parallel()
+
+	got, err := classifyRetryAttemptWithPostconditions(beads.NewMemStore(), beads.Bead{
+		Metadata: map[string]string{
+			"gc.outcome":           "pass",
+			"gc.root_bead_id":      "missing-root",
+			"gc.required_artifact": "codex-review.md",
+		},
+	}, ProcessOptions{})
+	if err != nil {
+		t.Fatalf("classifyRetryAttemptWithPostconditions error = %v, want nil", err)
+	}
+	want := retryEvalResult{Outcome: "transient", Reason: "missing_required_artifact_context"}
+	if got != want {
+		t.Fatalf("classifyRetryAttemptWithPostconditions() = %+v, want %+v", got, want)
+	}
+}
+
+func TestClassifyRetryAttemptWithPostconditionsRejectsArtifactOutsideWorktreeBeforeStat(t *testing.T) {
+	t.Parallel()
+
+	store := beads.NewMemStore()
+	worktree := t.TempDir()
+	source := mustCreateWorkflowBead(t, store, beads.Bead{
+		Title: "source",
+		Type:  "convoy",
+		Metadata: map[string]string{
+			"work_dir": worktree,
+		},
+	})
+	root := mustCreateWorkflowBead(t, store, beads.Bead{
+		Title: "workflow",
+		Type:  "task",
+		Metadata: map[string]string{
+			"gc.input_convoy_id": source.ID,
+		},
+	})
+
+	for _, tc := range []struct {
+		name string
+		path string
+	}{
+		{name: "relative traversal", path: "../outside.md"},
+		{name: "absolute outside", path: filepath.Join(filepath.Dir(worktree), "outside.md")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var statCalls int
+			got, err := classifyRetryAttemptWithPostconditions(store, beads.Bead{
+				Metadata: map[string]string{
+					"gc.outcome":           "pass",
+					"gc.root_bead_id":      root.ID,
+					"gc.required_artifact": tc.path,
+				},
+			}, ProcessOptions{
+				RequiredArtifactStat: func(string) (os.FileInfo, error) {
+					statCalls++
+					return fakeFileInfo{size: 10}, nil
+				},
+			})
+			if err != nil {
+				t.Fatalf("classifyRetryAttemptWithPostconditions error = %v, want nil", err)
+			}
+			want := retryEvalResult{Outcome: "transient", Reason: "required_artifact_outside_worktree"}
+			if got != want {
+				t.Fatalf("classifyRetryAttemptWithPostconditions() = %+v, want %+v", got, want)
+			}
+			if statCalls != 0 {
+				t.Fatalf("artifact stat calls = %d, want 0", statCalls)
+			}
+		})
+	}
+}
+
+func TestClassifyRetryAttemptWithPostconditionsRejectsAbsoluteArtifactSymlinkOutsideWorktree(t *testing.T) {
+	t.Parallel()
+
+	worktree := t.TempDir()
+	outsideDir := t.TempDir()
+	outsidePath := filepath.Join(outsideDir, "outside.md")
+	if err := os.WriteFile(outsidePath, []byte("review\n"), 0o644); err != nil {
+		t.Fatalf("write outside artifact: %v", err)
+	}
+	linkPath := filepath.Join(worktree, "review.md")
+	if err := os.Symlink(outsidePath, linkPath); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+
+	got, err := classifyRetryAttemptWithPostconditions(beads.NewMemStore(), beads.Bead{
+		Metadata: map[string]string{
+			"gc.outcome":           "pass",
+			"gc.required_artifact": linkPath,
+			"work_dir":             worktree,
+		},
+	}, ProcessOptions{})
+	if err != nil {
+		t.Fatalf("classifyRetryAttemptWithPostconditions error = %v, want nil", err)
+	}
+	want := retryEvalResult{Outcome: "transient", Reason: "required_artifact_outside_worktree"}
+	if got != want {
+		t.Fatalf("classifyRetryAttemptWithPostconditions() = %+v, want %+v", got, want)
+	}
+}
+
+func TestClassifyRetryAttemptWithPostconditionsUsesRequiredArtifactStatOption(t *testing.T) {
+	t.Parallel()
+
+	worktree := t.TempDir()
+	path := filepath.Join(worktree, "review.md")
+	var statPath string
+	got, err := classifyRetryAttemptWithPostconditions(beads.NewMemStore(), beads.Bead{
+		Metadata: map[string]string{
+			"gc.outcome":           "pass",
+			"gc.required_artifact": path,
+			"work_dir":             worktree,
+		},
+	}, ProcessOptions{
+		RequiredArtifactStat: func(path string) (os.FileInfo, error) {
+			statPath = path
+			return fakeFileInfo{size: 10}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("classifyRetryAttemptWithPostconditions error = %v, want nil", err)
+	}
+	if got != (retryEvalResult{Outcome: "pass"}) {
+		t.Fatalf("classifyRetryAttemptWithPostconditions() = %+v, want pass", got)
+	}
+	if statPath != path {
+		t.Fatalf("stat path = %q, want %q", statPath, path)
+	}
+}
+
+func TestClassifyRetryAttemptWithPostconditionsRequiredArtifactEdgeReasons(t *testing.T) {
+	t.Parallel()
+
+	worktree := t.TempDir()
+	emptyPath := filepath.Join(worktree, "empty.md")
+	if err := os.WriteFile(emptyPath, nil, 0o644); err != nil {
+		t.Fatalf("write empty artifact: %v", err)
+	}
+
+	for _, tc := range []struct {
+		name   string
+		path   string
+		reason string
+	}{
+		{name: "empty file", path: emptyPath, reason: "empty_required_artifact"},
+		{name: "directory", path: worktree, reason: "empty_required_artifact"},
+		{name: "unresolved template", path: "{worktree}/{step}/review.md", reason: "unresolved_required_artifact_template"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := classifyRetryAttemptWithPostconditions(beads.NewMemStore(), beads.Bead{
+				Metadata: map[string]string{
+					"gc.outcome":           "pass",
+					"gc.required_artifact": tc.path,
+					"work_dir":             worktree,
+				},
+			}, ProcessOptions{})
+			if err != nil {
+				t.Fatalf("classifyRetryAttemptWithPostconditions error = %v, want nil", err)
+			}
+			want := retryEvalResult{Outcome: "transient", Reason: tc.reason}
+			if got != want {
+				t.Fatalf("classifyRetryAttemptWithPostconditions() = %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
+func TestRequiredArtifactTemplatesTreatsSingularAsOnePath(t *testing.T) {
+	t.Parallel()
+
+	got := requiredArtifactTemplates(map[string]string{
+		"gc.required_artifact":  "dir/file,with-comma.md",
+		"gc.required_artifacts": "first.md, second.md\nthird.md",
+	})
+	want := []string{"dir/file,with-comma.md", "first.md", "second.md", "third.md"}
+	if len(got) != len(want) {
+		t.Fatalf("requiredArtifactTemplates() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("requiredArtifactTemplates()[%d] = %q, want %q (all: %v)", i, got[i], want[i], got)
+		}
+	}
+}
+
+type fakeFileInfo struct {
+	size  int64
+	isDir bool
+}
+
+func (f fakeFileInfo) Name() string       { return "artifact" }
+func (f fakeFileInfo) Size() int64        { return f.size }
+func (f fakeFileInfo) Mode() os.FileMode  { return 0o644 }
+func (f fakeFileInfo) ModTime() time.Time { return time.Time{} }
+func (f fakeFileInfo) IsDir() bool        { return f.isDir }
+func (f fakeFileInfo) Sys() any           { return nil }
+
+type failGetStore struct {
+	beads.Store
+	failID string
+	err    error
+}
+
+func (s failGetStore) Get(id string) (beads.Bead, error) {
+	if id == s.failID {
+		return beads.Bead{}, s.err
+	}
+	return s.Store.Get(id)
+}
+
+func TestProcessRetryEvalTransientAppendErrorStaysOpenForRetry(t *testing.T) {
+	t.Parallel()
+
+	base := beads.NewMemStore()
+	root := mustCreateWorkflowBead(t, base, beads.Bead{
+		Title: "workflow",
+		Type:  "task",
+		Metadata: map[string]string{
+			"gc.kind":             "workflow",
+			"gc.formula_contract": "graph.v2",
+		},
+	})
+	logical := mustCreateWorkflowBead(t, base, beads.Bead{
+		Title: "review",
+		Type:  "task",
+		Metadata: map[string]string{
+			"gc.kind":         "retry",
+			"gc.root_bead_id": root.ID,
+			"gc.step_ref":     "demo.review",
+			"gc.max_attempts": "3",
+			"gc.on_exhausted": "hard_fail",
+		},
+	})
+	run1 := mustCreateWorkflowBead(t, base, beads.Bead{
+		Title:  "review attempt 1",
+		Type:   "task",
+		Status: "closed",
+		Metadata: map[string]string{
+			"gc.kind":               "retry-run",
+			"gc.root_bead_id":       root.ID,
+			"gc.step_ref":           "demo.review.run.1",
+			"gc.logical_bead_id":    logical.ID,
+			"gc.attempt":            "1",
+			"gc.max_attempts":       "3",
+			"gc.on_exhausted":       "hard_fail",
+			"gc.outcome":            "fail",
+			"gc.failure_class":      "transient",
+			"gc.failure_reason":     "rate_limited",
+			"gc.routed_to":          "polecat",
+			"gc.session_affinity":   "require",
+			"gc.continuation_group": "main",
+		},
+	})
+	eval1 := mustCreateWorkflowBead(t, base, beads.Bead{
+		Title: "review eval 1",
+		Type:  "task",
+		Metadata: map[string]string{
+			"gc.kind":            "retry-eval",
+			"gc.root_bead_id":    root.ID,
+			"gc.step_ref":        "demo.review.eval.1",
+			"gc.logical_bead_id": logical.ID,
+			"gc.attempt":         "1",
+			"gc.max_attempts":    "3",
+			"gc.on_exhausted":    "hard_fail",
+		},
+	})
+	mustDepAdd(t, base, logical.ID, eval1.ID, "blocks")
+	mustDepAdd(t, base, eval1.ID, run1.ID, "blocks")
+
+	store := &failOnceCreateStore{
+		Store: base,
+		err:   errors.New("creating retry run bead: invalid connection: i/o timeout"),
+	}
+	_, err := ProcessControl(store, mustGetBead(t, store, eval1.ID), ProcessOptions{})
+	if !errors.Is(err, ErrControlPending) {
+		t.Fatalf("ProcessControl(retry-eval append) error = %v, want %v", err, ErrControlPending)
+	}
+
+	after := mustGetBead(t, store, eval1.ID)
+	if after.Status != "open" {
+		t.Fatalf("eval status = %q, want open", after.Status)
+	}
+	if after.Metadata["gc.controller_error_class"] != "transient" || after.Metadata["gc.controller_retryable"] != "true" {
+		t.Fatalf("controller retry metadata = %v, want transient retryable", after.Metadata)
 	}
 }
 
@@ -515,6 +1004,12 @@ func TestProcessRetryEvalTransientRetriesAndRecyclesPoolSession(t *testing.T) {
 	if run2.Assignee != "" {
 		t.Fatalf("run2 assignee = %q, want empty for pooled retry", run2.Assignee)
 	}
+	if run2.Metadata["gc.session_affinity"] != "" {
+		t.Fatalf("run2 gc.session_affinity = %q, want cleared with pooled retry assignee", run2.Metadata["gc.session_affinity"])
+	}
+	if run2.Metadata["gc.continuation_group"] != "" {
+		t.Fatalf("run2 gc.continuation_group = %q, want cleared with pooled retry assignee", run2.Metadata["gc.continuation_group"])
+	}
 	if got := run2.Metadata["gc.retry_from"]; got != run1.ID {
 		t.Fatalf("run2 gc.retry_from = %q, want %s", got, run1.ID)
 	}
@@ -527,6 +1022,116 @@ func TestProcessRetryEvalTransientRetriesAndRecyclesPoolSession(t *testing.T) {
 	}
 	if len(logicalDeps) != 1 || logicalDeps[0].DependsOnID != eval2.ID {
 		t.Fatalf("logical deps = %+v, want only current retry eval %s", logicalDeps, eval2.ID)
+	}
+}
+
+// TestProcessRetryEvalTransientPreservesPinnedSessionAffinity covers the
+// preserve half of the clear/preserve rule: a retry whose previous attempt has
+// a concrete non-pool (pinned) assignee must keep both the assignee and the
+// session-affinity metadata, so shared-drain co-location survives the retry.
+// The pooled counterpart that clears affinity is
+// TestProcessRetryEvalTransientRetriesAndRecyclesPoolSession.
+func TestProcessRetryEvalTransientPreservesPinnedSessionAffinity(t *testing.T) {
+	t.Parallel()
+
+	store := newStrictCloseStore()
+	root := mustCreateWorkflowBead(t, store, beads.Bead{
+		Title: "workflow",
+		Type:  "task",
+		Metadata: map[string]string{
+			"gc.kind":             "workflow",
+			"gc.formula_contract": "graph.v2",
+		},
+	})
+	logical := mustCreateWorkflowBead(t, store, beads.Bead{
+		Title: "review",
+		Type:  "task",
+		Metadata: map[string]string{
+			"gc.kind":         "retry",
+			"gc.root_bead_id": root.ID,
+			"gc.step_ref":     "demo.review",
+			"gc.max_attempts": "3",
+			"gc.on_exhausted": "hard_fail",
+		},
+	})
+	run1 := mustCreateWorkflowBead(t, store, beads.Bead{
+		Title:    "review attempt 1",
+		Type:     "task",
+		Status:   "closed",
+		Assignee: "reviewer-mc-7",
+		Metadata: map[string]string{
+			"gc.kind":               "retry-run",
+			"gc.root_bead_id":       root.ID,
+			"gc.step_ref":           "demo.review.run.1",
+			"gc.logical_bead_id":    logical.ID,
+			"gc.attempt":            "1",
+			"gc.max_attempts":       "3",
+			"gc.on_exhausted":       "hard_fail",
+			"gc.outcome":            "fail",
+			"gc.failure_class":      "transient",
+			"gc.failure_reason":     "rate_limited",
+			"gc.continuation_group": "review-fixes",
+			"gc.session_affinity":   "require",
+		},
+	})
+	eval1 := mustCreateWorkflowBead(t, store, beads.Bead{
+		Title: "review eval 1",
+		Type:  "task",
+		Metadata: map[string]string{
+			"gc.kind":            "retry-eval",
+			"gc.root_bead_id":    root.ID,
+			"gc.step_ref":        "demo.review.eval.1",
+			"gc.logical_bead_id": logical.ID,
+			"gc.attempt":         "1",
+			"gc.max_attempts":    "3",
+			"gc.on_exhausted":    "hard_fail",
+		},
+	})
+	mustDepAdd(t, store, logical.ID, eval1.ID, "blocks")
+	mustDepAdd(t, store, eval1.ID, run1.ID, "blocks")
+
+	var recycled []string
+	result, err := ProcessControl(store, eval1, ProcessOptions{
+		RecycleSession: func(subject beads.Bead) error {
+			recycled = append(recycled, subject.Assignee)
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("ProcessControl(retry-eval transient pinned): %v", err)
+	}
+	if !result.Processed || result.Action != "retry" {
+		t.Fatalf("result = %+v, want processed retry", result)
+	}
+	// A pinned (non-pool) retry stays on its named session, so no recycle fires.
+	if len(recycled) != 0 {
+		t.Fatalf("recycled = %v, want none for pinned retry", recycled)
+	}
+
+	var run2 beads.Bead
+	all, err := store.ListOpen()
+	if err != nil {
+		t.Fatalf("ListOpen(): %v", err)
+	}
+	for _, bead := range all {
+		if bead.Metadata["gc.step_ref"] == "demo.review.run.2" {
+			run2 = bead
+		}
+	}
+	if run2.ID == "" {
+		t.Fatalf("missing retry attempt bead run2")
+	}
+	if run2.Assignee != "reviewer-mc-7" {
+		t.Fatalf("run2 assignee = %q, want preserved reviewer-mc-7", run2.Assignee)
+	}
+	if run2.Metadata["gc.session_affinity"] != "require" {
+		t.Fatalf("run2 gc.session_affinity = %q, want preserved require for pinned retry", run2.Metadata["gc.session_affinity"])
+	}
+	if run2.Metadata["gc.continuation_group"] != "review-fixes" {
+		t.Fatalf("run2 gc.continuation_group = %q, want preserved review-fixes for pinned retry", run2.Metadata["gc.continuation_group"])
+	}
+	if got := run2.Metadata["gc.retry_from"]; got != run1.ID {
+		t.Fatalf("run2 gc.retry_from = %q, want %s", got, run1.ID)
 	}
 }
 

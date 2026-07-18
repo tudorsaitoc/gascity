@@ -3,6 +3,7 @@ package k8s
 import (
 	"encoding/base64"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -53,6 +54,41 @@ func projectedPodWorkDir(cfg runtime.Config) string {
 		}
 	}
 	return podWorkDir
+}
+
+// agentCommandB64 resolves the agent command, remaps controller-side city path
+// references to the pod-side /workspace, and returns its base64 form. Shared by
+// buildPod (the pod entrypoint) and Relaunch (respawn over execInPod) so the
+// entrypoint launch and a relaunch produce a byte-identical command.
+func agentCommandB64(cfg runtime.Config) string {
+	cmd := cfg.Command
+	if cmd == "" {
+		cmd = "/bin/bash"
+	}
+	// The controller expands {{.ConfigDir}} templates using its own city path
+	// (e.g. /city/packs/...) but pods have files at /workspace/....
+	if ctrlCity := controllerCityPath(cfg.Env); ctrlCity != "" {
+		cmd = strings.ReplaceAll(cmd, ctrlCity, "/workspace")
+	}
+	return base64.StdEncoding.EncodeToString([]byte(cmd))
+}
+
+// buildRespawnCommand builds the in-pod shell command that respawns the agent in
+// the existing tmux "main" session (respawn-pane -k), reusing the warm pod. When
+// LINUX_USERNAME is set the entrypoint runs tmux under `su - <user>`, so the
+// respawn is wrapped in the same su to reach that user's tmux socket.
+func buildRespawnCommand(cfg runtime.Config) string {
+	cmdB64 := agentCommandB64(cfg)
+	if user := cfg.Env["LINUX_USERNAME"]; user != "" {
+		return fmt.Sprintf(
+			`CMD=$(echo '%s' | base64 -d) && su - %s -c "cd %s && tmux respawn-pane -k -t %s \"$CMD\""`,
+			cmdB64, user, projectedPodWorkDir(cfg), tmuxSession,
+		)
+	}
+	return fmt.Sprintf(
+		`CMD=$(echo '%s' | base64 -d) && tmux respawn-pane -k -t %s "$CMD"`,
+		cmdB64, tmuxSession,
+	)
 }
 
 func projectedPodStoreRoot(cfg runtime.Config, podWorkDir string) string {
@@ -174,18 +210,9 @@ func buildPod(name string, cfg runtime.Config, p *Provider) (*corev1.Pod, error)
 	podWorkDir := projectedPodWorkDir(cfg)
 	ctrlCity := controllerCityPath(cfg.Env)
 
-	// Build the command the agent runs. Base64-encode to avoid quoting issues.
-	agentCmd := cfg.Command
-	if agentCmd == "" {
-		agentCmd = "/bin/bash"
-	}
-	// Remap controller-side city path references to pod-side /workspace.
-	// The controller expands {{.ConfigDir}} templates using its own city path
-	// (e.g. /city/packs/...) but pods have files at /workspace/....
-	if ctrlCity != "" {
-		agentCmd = strings.ReplaceAll(agentCmd, ctrlCity, "/workspace")
-	}
-	cmdB64 := base64.StdEncoding.EncodeToString([]byte(agentCmd))
+	// Build the agent command (base64-encoded to avoid quoting issues) — shared
+	// with the relaunch path so the entrypoint and a respawn launch identically.
+	cmdB64 := agentCommandB64(cfg)
 
 	// Pod entrypoint: wait for workspace ready → pre_start → tmux → keepalive.
 	// Each pre_start command is base64-encoded and decoded at runtime to prevent
@@ -322,6 +349,14 @@ func buildPod(name string, cfg runtime.Config, p *Provider) (*corev1.Pod, error)
 		},
 	}
 
+	// Apply optional scheduling fields.
+	pod.Spec.NodeSelector = maps.Clone(p.nodeSelector)
+	pod.Spec.Tolerations = cloneTolerations(p.tolerations)
+	if p.affinity != nil {
+		pod.Spec.Affinity = p.affinity.DeepCopy()
+	}
+	pod.Spec.PriorityClassName = p.priorityClassName
+
 	// Add init container when staging is needed (skip when prebaked).
 	if !p.prebaked && needsStaging(cfg, ctrlCity) {
 		initVolMounts := []corev1.VolumeMount{
@@ -342,6 +377,20 @@ func buildPod(name string, cfg runtime.Config, p *Provider) (*corev1.Pod, error)
 	}
 
 	return pod, nil
+}
+
+func cloneTolerations(in []corev1.Toleration) []corev1.Toleration {
+	if len(in) == 0 {
+		return nil
+	}
+	out := append([]corev1.Toleration(nil), in...)
+	for i := range out {
+		if in[i].TolerationSeconds != nil {
+			seconds := *in[i].TolerationSeconds
+			out[i].TolerationSeconds = &seconds
+		}
+	}
+	return out
 }
 
 // agentSecurityContext returns a container security context.
@@ -446,6 +495,9 @@ func buildPodEnv(cfgEnv map[string]string, podWorkDir, managedServiceHost, manag
 // via init container.
 func needsStaging(cfg runtime.Config, ctrlCity string) bool {
 	if cfg.OverlayDir != "" {
+		return true
+	}
+	if len(cfg.PackOverlayDirs) > 0 {
 		return true
 	}
 	if len(cfg.CopyFiles) > 0 {

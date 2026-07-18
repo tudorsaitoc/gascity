@@ -140,15 +140,21 @@ func (h *SessionHandle) Kill(ctx context.Context) (err error) {
 
 // Close permanently ends the worker session.
 func (h *SessionHandle) Close(ctx context.Context) (err error) {
+	_, err = h.CloseDetailed(ctx)
+	return err
+}
+
+// CloseDetailed permanently ends the worker session and reports cleanup artifacts.
+func (h *SessionHandle) CloseDetailed(ctx context.Context) (result sessionpkg.CloseResult, err error) {
 	event := h.beginOperationEvent(ctx, workerOperationClose)
 	defer func() { event.finish(err) }()
 
 	id := h.currentSessionID()
 	if id == "" {
-		return nil
+		return result, nil
 	}
-	err = h.manager.Close(id)
-	return err
+	result, err = h.manager.CloseDetailed(id)
+	return result, err
 }
 
 // Rename updates the user-facing session title.
@@ -192,7 +198,7 @@ func (h *SessionHandle) State(ctx context.Context) (State, error) {
 	}
 
 	switch info.State {
-	case sessionpkg.StateCreating:
+	case sessionpkg.StateStartPending, sessionpkg.StateCreating:
 		state.Phase = PhaseStarting
 		return state, nil
 	case sessionpkg.StateDraining:
@@ -251,6 +257,9 @@ func (h *SessionHandle) Message(ctx context.Context, req MessageRequest) (result
 	defer func() {
 		event.payload.Queued = boolPointer(result.Queued)
 		event.finish(err)
+		if err == nil {
+			h.recordInvocationTelemetry(ctx)
+		}
 	}()
 
 	if strings.TrimSpace(req.Text) == "" {
@@ -292,6 +301,9 @@ func (h *SessionHandle) Nudge(ctx context.Context, req NudgeRequest) (result Nud
 	defer func() {
 		event.payload.Delivered = boolPointer(result.Delivered)
 		event.finish(err)
+		if err == nil {
+			h.recordInvocationTelemetry(ctx)
+		}
 	}()
 
 	if strings.TrimSpace(req.Text) == "" {
@@ -370,18 +382,19 @@ func (h *SessionHandle) ensureSessionID() (string, error) {
 }
 
 func (h *SessionHandle) createDeferredLocked() (sessionpkg.Info, error) {
-	info, err := h.manager.CreateAliasedBeadOnlyNamedWithMetadata(
-		h.session.Alias,
-		h.session.ExplicitName,
-		h.session.Template,
-		h.session.Title,
-		h.session.Command,
-		h.session.WorkDir,
-		h.session.Provider,
-		h.session.Transport,
-		h.session.Resume,
-		cloneStringMap(h.session.Metadata),
-	)
+	info, err := h.manager.CreateSession(context.Background(), sessionpkg.CreateOptions{
+		BeadOnly:     true,
+		Alias:        h.session.Alias,
+		ExplicitName: h.session.ExplicitName,
+		Template:     h.session.Template,
+		Title:        h.session.Title,
+		Command:      h.session.Command,
+		WorkDir:      h.session.WorkDir,
+		Provider:     h.session.Provider,
+		Transport:    h.session.Transport,
+		Resume:       h.session.Resume,
+		ExtraMeta:    cloneStringMap(h.session.Metadata),
+	})
 	if err != nil {
 		return sessionpkg.Info{}, err
 	}
@@ -390,21 +403,20 @@ func (h *SessionHandle) createDeferredLocked() (sessionpkg.Info, error) {
 }
 
 func (h *SessionHandle) createStartedLocked(ctx context.Context) (sessionpkg.Info, error) {
-	info, err := h.manager.CreateAliasedNamedWithTransportAndMetadata(
-		ctx,
-		h.session.Alias,
-		h.session.ExplicitName,
-		h.session.Template,
-		h.session.Title,
-		h.session.Command,
-		h.session.WorkDir,
-		h.session.Provider,
-		h.session.Transport,
-		cloneStringMap(h.session.Env),
-		h.session.Resume,
-		cloneRuntimeConfig(h.session.Hints),
-		cloneStringMap(h.session.Metadata),
-	)
+	info, err := h.manager.CreateSession(ctx, sessionpkg.CreateOptions{
+		Alias:        h.session.Alias,
+		ExplicitName: h.session.ExplicitName,
+		Template:     h.session.Template,
+		Title:        h.session.Title,
+		Command:      h.session.Command,
+		WorkDir:      h.session.WorkDir,
+		Provider:     h.session.Provider,
+		Transport:    h.session.Transport,
+		Env:          cloneStringMap(h.session.Env),
+		Resume:       h.session.Resume,
+		Hints:        cloneRuntimeConfig(h.session.Hints),
+		ExtraMeta:    cloneStringMap(h.session.Metadata),
+	})
 	if err != nil {
 		return sessionpkg.Info{}, err
 	}
@@ -419,11 +431,13 @@ func (h *SessionHandle) currentSessionID() string {
 }
 
 func (h *SessionHandle) startCommand(id string) (string, error) {
-	info, err := h.manager.Get(id)
+	info, pr, err := sessionRecordViaManager(h.manager, id)
 	if err != nil {
 		return "", err
 	}
-	if info.State == sessionpkg.StateCreating && h.session.Resume.SessionIDFlag != "" && strings.TrimSpace(info.SessionKey) != "" {
+	if firstProviderSessionStart(info.State, pr.Metadata) &&
+		h.session.Resume.SessionIDFlag != "" &&
+		strings.TrimSpace(info.SessionKey) != "" {
 		command := strings.TrimSpace(info.Command)
 		if command == "" {
 			command = strings.TrimSpace(h.session.Command)
@@ -456,6 +470,18 @@ func (h *SessionHandle) startCommand(id string) (string, error) {
 		resumeInfo.ResumeCommand = resumeCommand
 	}
 	return sessionpkg.BuildResumeCommand(resumeInfo), nil
+}
+
+func firstProviderSessionStart(state sessionpkg.State, metadata map[string]string) bool {
+	switch state {
+	case sessionpkg.StateStartPending, sessionpkg.StateCreating:
+	default:
+		return false
+	}
+	if strings.TrimSpace(metadata["creation_complete_at"]) != "" {
+		return false
+	}
+	return strings.TrimSpace(metadata["started_config_hash"]) == ""
 }
 
 func (h *SessionHandle) providerLabel() string {

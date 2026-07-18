@@ -1,10 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gastownhall/gascity/internal/beads"
@@ -12,190 +8,46 @@ import (
 )
 
 const (
-	nudgeBeadType  = "chore"
+	nudgeBeadType = "chore"
+	// nudgeBeadLabel is the label applied to queued-nudge beads. coordclass
+	// mirrors this string privately (as labelNudge) for store routing; the two
+	// must stay in sync.
 	nudgeBeadLabel = "gc:nudge"
 )
 
 type nudgeReference = nudgequeue.Reference
 
-func openNudgeBeadStore(cityPath string) beads.Store {
-	store, err := openCityStoreAt(cityPath)
+// openNudgeBeadStore is a test seam (mirrors the injectable vars in
+// cmd_nudge.go) so tests can substitute a fake store and assert that
+// per-tick poll helpers close every store they open. Tests that replace this
+// package variable must stay serial; do not use t.Parallel in those tests.
+// It routes the opened work store through resolveNudgesStore and returns the
+// strongly-typed beads.NudgesStore so the nudges class is statically visible to
+// every leaf nudge-bead helper; the wrapper carries the same underlying store
+// value (identity to the work store until the nudges class relocates).
+var openNudgeBeadStore = func(cityPath string) beads.NudgesStore {
+	store, err := openStoreAtForCity(cityPath, cityPath)
 	if err != nil {
-		return nil
+		return beads.NudgesStore{}
 	}
-	return store
+	return beads.NudgesStore{Store: resolveNudgesStore(store, nil, cityPath, nil)}
 }
 
-func findQueuedNudgeBead(store beads.Store, nudgeID string) (beads.Bead, bool, error) {
-	return findNudgeBead(store, nudgeID, false)
+// nudgeFrontDoor wraps a strongly-typed nudges store as the nudge object's
+// front door (internal/nudgequeue.Store). The bead is a SHADOW of the flock'd
+// state.json queue; the front door confines the Item<->Bead codec, leaving these
+// cmd/gc helpers as thin adapters that keep the methods callable inside the
+// withNudgeQueueState transaction.
+func nudgeFrontDoor(store beads.NudgesStore) *nudgequeue.Store {
+	return nudgequeue.NewStore(store)
 }
 
-func findAnyQueuedNudgeBead(store beads.Store, nudgeID string) (beads.Bead, bool, error) {
-	return findNudgeBead(store, nudgeID, true)
+func ensureQueuedNudgeBead(store beads.NudgesStore, item queuedNudge) (string, bool, error) {
+	return nudgeFrontDoor(store).Save(item)
 }
 
-func findNudgeBead(store beads.Store, nudgeID string, includeClosed bool) (beads.Bead, bool, error) {
-	if store == nil || nudgeID == "" {
-		return beads.Bead{}, false, nil
-	}
-	opts := []beads.QueryOpt(nil)
-	if includeClosed {
-		opts = append(opts, beads.IncludeClosed)
-	}
-	items, err := store.List(beads.ListQuery{
-		Label:         "nudge:" + nudgeID,
-		IncludeClosed: beads.HasOpt(opts, beads.IncludeClosed),
-		Sort:          beads.SortCreatedDesc,
-	})
-	if err != nil {
-		return beads.Bead{}, false, err
-	}
-	var fallback beads.Bead
-	hasFallback := false
-	for _, item := range items {
-		if item.Status != "closed" {
-			return item, true, nil
-		}
-		if !includeClosed {
-			continue
-		}
-		if isTerminalNudgeState(item.Metadata["state"]) {
-			return item, true, nil
-		}
-		if !hasFallback {
-			fallback = item
-			hasFallback = true
-		}
-	}
-	if includeClosed && hasFallback {
-		return fallback, true, nil
-	}
-	return beads.Bead{}, false, nil
-}
-
-func ensureQueuedNudgeBead(store beads.Store, item queuedNudge) (string, bool, error) {
-	if store == nil {
-		return "", false, nil
-	}
-	existing, ok, err := findQueuedNudgeBead(store, item.ID)
-	if err != nil {
-		return "", false, err
-	}
-	if ok {
-		return existing.ID, false, nil
-	}
-	meta := map[string]string{
-		"nudge_id":           item.ID,
-		"agent":              item.Agent,
-		"session_id":         item.SessionID,
-		"continuation_epoch": item.ContinuationEpoch,
-		"state":              "queued",
-		"source":             item.Source,
-		"message":            item.Message,
-		"deliver_after":      item.DeliverAfter.UTC().Format(time.RFC3339),
-		"expires_at":         item.ExpiresAt.UTC().Format(time.RFC3339),
-		"reference_json":     marshalNudgeReference(item.Reference),
-		"last_attempt_at":    formatOptionalTime(item.LastAttemptAt),
-		"last_error":         item.LastError,
-		"terminal_reason":    "",
-		"commit_boundary":    "",
-		"terminal_at":        "",
-	}
-	created, err := store.Create(beads.Bead{
-		Title: "nudge:" + item.ID,
-		Type:  nudgeBeadType,
-		Labels: []string{
-			nudgeBeadLabel,
-			"agent:" + item.Agent,
-			"nudge:" + item.ID,
-			"source:" + item.Source,
-		},
-		Metadata: meta,
-	})
-	if err != nil {
-		return "", false, err
-	}
-	return created.ID, true, nil
-}
-
-func markQueuedNudgeTerminal(store beads.Store, item queuedNudge, state, reason, commitBoundary string, now time.Time) error {
-	if store == nil {
-		return nil
-	}
-	update := map[string]string{
-		"state":           state,
-		"last_attempt_at": formatOptionalTime(item.LastAttemptAt),
-		"last_error":      item.LastError,
-		"terminal_reason": reason,
-		"commit_boundary": commitBoundary,
-		"terminal_at":     now.UTC().Format(time.RFC3339),
-	}
-
-	tryTerminalize := func(beadID string) error {
-		if beadID == "" {
-			return beads.ErrNotFound
-		}
-		if err := store.SetMetadataBatch(beadID, update); err != nil {
-			if isMissingQueuedNudgeBeadErr(err, beadID) {
-				return beads.ErrNotFound
-			}
-			return err
-		}
-		if err := store.Close(beadID); err != nil {
-			if isMissingQueuedNudgeBeadErr(err, beadID) {
-				return beads.ErrNotFound
-			}
-			return err
-		}
-		return nil
-	}
-
-	if err := tryTerminalize(item.BeadID); err == nil {
-		return nil
-	} else if !errors.Is(err, beads.ErrNotFound) {
-		return err
-	}
-
-	b, ok, err := findAnyQueuedNudgeBead(store, item.ID)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return nil
-	}
-	if err := tryTerminalize(b.ID); err != nil && !errors.Is(err, beads.ErrNotFound) {
-		return err
-	}
-	return nil
-}
-
-func isMissingQueuedNudgeBeadErr(err error, beadID string) bool {
-	if err == nil {
-		return false
-	}
-	if errors.Is(err, beads.ErrNotFound) {
-		return true
-	}
-	beadID = strings.ToLower(strings.TrimSpace(beadID))
-	if beadID == "" {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "no issue found matching "+strings.ToLower(strconv.Quote(beadID))) ||
-		strings.Contains(msg, "error resolving "+beadID+": no issue found") ||
-		strings.Contains(msg, "ambiguous id") ||
-		strings.Contains(msg, "use more characters to disambiguate")
-}
-
-func marshalNudgeReference(ref *nudgeReference) string {
-	if ref == nil {
-		return ""
-	}
-	data, err := json.Marshal(ref)
-	if err != nil {
-		return ""
-	}
-	return string(data)
+func markQueuedNudgeTerminal(store beads.NudgesStore, item queuedNudge, state, reason, commitBoundary string, now time.Time) error {
+	return nudgeFrontDoor(store).Terminalize(item, state, reason, commitBoundary, now)
 }
 
 func formatOptionalTime(ts time.Time) string {

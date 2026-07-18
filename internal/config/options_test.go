@@ -1001,7 +1001,7 @@ func TestCompleteResumeCommandDefaultsSubcommandOrdersMultipleMissingDefaults(t 
 		{
 			Key: "model",
 			Choices: []OptionChoice{
-				{Value: "gpt-5.3-codex-spark", FlagArgs: []string{"--model", "gpt-5.3-codex-spark"}},
+				{Value: "gpt-5.3-codex", FlagArgs: []string{"--model", "gpt-5.3-codex"}},
 			},
 		},
 		{
@@ -1012,7 +1012,7 @@ func TestCompleteResumeCommandDefaultsSubcommandOrdersMultipleMissingDefaults(t 
 		},
 	}
 	defaults := map[string]string{
-		"model":  "gpt-5.3-codex-spark",
+		"model":  "gpt-5.3-codex",
 		"effort": "medium",
 	}
 
@@ -1023,7 +1023,7 @@ func TestCompleteResumeCommandDefaultsSubcommandOrdersMultipleMissingDefaults(t 
 		schema,
 		defaults,
 	)
-	want := "codex resume --model gpt-5.3-codex-spark -c model_reasoning_effort=medium {{.SessionKey}}"
+	want := "codex resume --model gpt-5.3-codex -c model_reasoning_effort=medium {{.SessionKey}}"
 	if got != want {
 		t.Fatalf("completeResumeCommandDefaults() = %q, want %q", got, want)
 	}
@@ -1034,11 +1034,11 @@ func TestCompleteResumeCommandDefaultsSubcommandUsesSessionResumeToken(t *testin
 		{
 			Key: "model",
 			Choices: []OptionChoice{
-				{Value: "gpt-5.3-codex-spark", FlagArgs: []string{"--model", "gpt-5.3-codex-spark"}},
+				{Value: "gpt-5.3-codex", FlagArgs: []string{"--model", "gpt-5.3-codex"}},
 			},
 		},
 	}
-	defaults := map[string]string{"model": "gpt-5.3-codex-spark"}
+	defaults := map[string]string{"model": "gpt-5.3-codex"}
 
 	got := completeResumeCommandDefaults(
 		"aimux run resume codex -- resume {{.SessionKey}}",
@@ -1047,7 +1047,7 @@ func TestCompleteResumeCommandDefaultsSubcommandUsesSessionResumeToken(t *testin
 		schema,
 		defaults,
 	)
-	want := "aimux run resume codex -- resume --model gpt-5.3-codex-spark {{.SessionKey}}"
+	want := "aimux run resume codex -- resume --model gpt-5.3-codex {{.SessionKey}}"
 	if got != want {
 		t.Fatalf("completeResumeCommandDefaults() = %q, want %q", got, want)
 	}
@@ -1139,6 +1139,55 @@ func TestBuiltinProviders_GeminiHasNilArgsAndOptionDefaults(t *testing.T) {
 	if gemini.OptionDefaults["permission_mode"] != "unrestricted" {
 		t.Errorf("gemini OptionDefaults[permission_mode] = %q, want unrestricted",
 			gemini.OptionDefaults["permission_mode"])
+	}
+}
+
+func TestBuiltinProviders_OpenCodeHasModelOptions(t *testing.T) {
+	builtins := BuiltinProviders()
+	opencode := builtins["opencode"]
+
+	tests := []struct {
+		name  string
+		model string
+		args  []string
+	}{
+		{name: "Default"},
+		{name: "DeepSeek V4 Flash Free", model: "opencode/deepseek-v4-flash-free", args: []string{"--model", "opencode/deepseek-v4-flash-free"}},
+		{name: "Nemotron 3 Super Free", model: "opencode/nemotron-3-super-free", args: []string{"--model", "opencode/nemotron-3-super-free"}},
+		{name: "Big Pickle", model: "opencode/big-pickle", args: []string{"--model", "opencode/big-pickle"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !schemaHasChoice(opencode.OptionsSchema, "model", tt.model) {
+				t.Fatalf("opencode OptionsSchema missing model choice %q", tt.model)
+			}
+			args, metadata, err := ResolveOptions(opencode.OptionsSchema, map[string]string{
+				"model": tt.model,
+			}, nil)
+			if err != nil {
+				t.Fatalf("ResolveOptions(opencode model %q): %v", tt.model, err)
+			}
+			if !reflect.DeepEqual(args, tt.args) {
+				t.Fatalf("model args = %v, want %v", args, tt.args)
+			}
+			if metadata["opt_model"] != tt.model {
+				t.Fatalf("metadata[opt_model] = %q, want %q", metadata["opt_model"], tt.model)
+			}
+
+			if tt.model == "" {
+				return
+			}
+			legacy := normalizeProviderLayerArgsForSchema(ProviderSpec{
+				Args: []string{"-m", tt.model},
+			}, opencode.OptionsSchema)
+			if len(legacy.Args) != 0 {
+				t.Fatalf("normalized legacy args = %v, want empty", legacy.Args)
+			}
+			if legacy.OptionDefaults["model"] != tt.model {
+				t.Fatalf("inferred model = %q, want %q", legacy.OptionDefaults["model"], tt.model)
+			}
+		})
 	}
 }
 

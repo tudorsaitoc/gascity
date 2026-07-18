@@ -23,7 +23,7 @@ import (
 // yields the authoritative contract for every HTTP endpoint the control
 // plane exposes.
 func TestOpenAPISpecInSync(t *testing.T) {
-	sm := api.NewSupervisorMux(emptyTestResolver{}, nil, false, "", time.Time{})
+	sm := api.NewSupervisorMux(emptyTestResolver{}, nil, false, "", "", time.Time{})
 	req := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
 	rec := httptest.NewRecorder()
 	sm.ServeHTTP(rec, req)
@@ -44,13 +44,13 @@ func TestOpenAPISpecInSync(t *testing.T) {
 
 	// Every tracked copy of the spec must match the live server. The internal
 	// copy (internal/api/openapi.json) feeds the Go client generator. The
-	// docs copies (docs/schema/openapi.{json,txt}) are what Mintlify publishes
-	// for external consumers. All three must agree or external readers see a
-	// different contract than the code enforces.
+	// docs/reference/schema/openapi.json is the published docs artifact. The
+	// .txt copy is a compatibility mirror kept in sync with the served JSON
+	// contract.
 	tracked := []string{
 		"openapi.json",
-		filepath.Join("..", "..", "docs", "schema", "openapi.json"),
-		filepath.Join("..", "..", "docs", "schema", "openapi.txt"),
+		filepath.Join("..", "..", "docs", "reference", "schema", "openapi.json"),
+		filepath.Join("..", "..", "docs", "reference", "schema", "openapi.txt"),
 	}
 	for _, specPath := range tracked {
 		onDisk, err := os.ReadFile(specPath)
@@ -68,8 +68,8 @@ func TestOpenAPISpecInSync(t *testing.T) {
 
 func TestEventsSchemaPublished(t *testing.T) {
 	root := filepath.Join("..", "..")
-	jsonPath := filepath.Join(root, "docs", "schema", "events.json")
-	txtPath := filepath.Join(root, "docs", "schema", "events.txt")
+	jsonPath := filepath.Join(root, "docs", "reference", "schema", "events.json")
+	txtPath := filepath.Join(root, "docs", "reference", "schema", "events.txt")
 
 	jsonData, err := os.ReadFile(jsonPath)
 	if err != nil {
@@ -113,7 +113,7 @@ func TestEventsSchemaPublished(t *testing.T) {
 		}
 	}
 
-	openAPIData, err := os.ReadFile(filepath.Join(root, "docs", "schema", "openapi.json"))
+	openAPIData, err := os.ReadFile(filepath.Join(root, "docs", "reference", "schema", "openapi.json"))
 	if err != nil {
 		t.Fatalf("read openapi.json: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestEventsSchemaPublished(t *testing.T) {
 }
 
 func TestAsyncAcceptedRequestIDDescriptionsNameTypedResultEvents(t *testing.T) {
-	sm := api.NewSupervisorMux(emptyTestResolver{}, nil, false, "", time.Time{})
+	sm := api.NewSupervisorMux(emptyTestResolver{}, nil, false, "", "", time.Time{})
 	req := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
 	rec := httptest.NewRecorder()
 	sm.ServeHTTP(rec, req)
@@ -186,7 +186,7 @@ func TestAsyncAcceptedRequestIDDescriptionsNameTypedResultEvents(t *testing.T) {
 }
 
 func TestOrderResponseSchemaKeepsMigrationFieldsOptional(t *testing.T) {
-	sm := api.NewSupervisorMux(emptyTestResolver{}, nil, false, "", time.Time{})
+	sm := api.NewSupervisorMux(emptyTestResolver{}, nil, false, "", "", time.Time{})
 	req := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
 	rec := httptest.NewRecorder()
 	sm.ServeHTTP(rec, req)

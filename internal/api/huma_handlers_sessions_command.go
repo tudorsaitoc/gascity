@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/danielgtaylor/huma/v2"
+	"github.com/gastownhall/gascity/internal/api/apierr"
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/runtime"
@@ -35,23 +35,23 @@ type sessionCommandableWaiter interface {
 }
 
 func (s *Server) humaHandleSessionCreate(ctx context.Context, input *SessionCreateInput) (*SessionCreateOutput, error) {
-	store := s.state.CityBeadStore()
-	if store == nil {
-		return nil, huma.Error503ServiceUnavailable("no bead store configured")
+	store := s.state.SessionsBeadStore()
+	if store.Store == nil {
+		return nil, apierr.ServiceUnavailable.Msg("no bead store configured")
 	}
 
 	body := input.Body
 	if body.LegacySessionName != nil {
-		return nil, huma.Error400BadRequest("session_name is no longer accepted; use alias")
+		return nil, apierr.InvalidRequest.Msg("session_name is no longer accepted; use alias")
 	}
 
 	kind := body.Kind
 	name := body.Name
 	if name == "" {
-		return nil, huma.Error400BadRequest("name is required")
+		return nil, apierr.InvalidRequest.Msg("name is required")
 	}
 	if kind != "agent" && kind != "provider" {
-		return nil, huma.Error400BadRequest("kind must be 'agent' or 'provider'")
+		return nil, apierr.InvalidRequest.Msg("kind must be 'agent' or 'provider'")
 	}
 
 	if kind == "provider" {
@@ -62,24 +62,24 @@ func (s *Server) humaHandleSessionCreate(ctx context.Context, input *SessionCrea
 	resolved, workDir, transport, template, err := s.resolveSessionTemplateWithBareNameFallback(name)
 	if err != nil {
 		if errors.Is(err, errSessionTemplateNotFound) {
-			return nil, huma.Error404NotFound("agent '" + name + "' not found")
+			return nil, apierr.AgentNotFound.Msg("agent '" + name + "' not found")
 		}
-		return nil, huma.Error500InternalServerError(err.Error())
+		return nil, apierr.Internal.Msg(err.Error())
 	}
 	transport, err = validateSessionTransport(resolved, transport, s.state.SessionProvider())
 	if err != nil {
-		return nil, huma.Error503ServiceUnavailable(err.Error())
+		return nil, apierr.ServiceUnavailable.Msg(err.Error())
 	}
 
 	if len(body.Options) > 0 {
 		if len(resolved.OptionsSchema) == 0 {
-			return nil, huma.Error400BadRequest("agent '" + name + "' does not accept options")
+			return nil, apierr.InvalidRequest.Msg("agent '" + name + "' does not accept options")
 		}
 		if _, optErr := config.ResolveExplicitOptions(resolved.OptionsSchema, body.Options); optErr != nil {
 			if errors.Is(optErr, config.ErrUnknownOption) {
-				return nil, huma.Error400BadRequest(optErr.Error())
+				return nil, apierr.InvalidRequest.Msg(optErr.Error())
 			}
-			return nil, huma.Error400BadRequest(optErr.Error())
+			return nil, apierr.InvalidRequest.Msg(optErr.Error())
 		}
 	}
 
@@ -94,11 +94,11 @@ func (s *Server) humaHandleSessionCreate(ctx context.Context, input *SessionCrea
 	}
 	cfg := s.state.Config()
 	if cfg == nil {
-		return nil, huma.Error500InternalServerError("no city config loaded")
+		return nil, apierr.Internal.Msg("no city config loaded")
 	}
 	createCtx, err := s.resolveAgentCreateContext(template, alias)
 	if err != nil {
-		return nil, huma.Error500InternalServerError(err.Error())
+		return nil, apierr.Internal.Msg(err.Error())
 	}
 	agentCfg := createCtx.Agent
 	alias = createCtx.Alias
@@ -108,7 +108,7 @@ func (s *Server) humaHandleSessionCreate(ctx context.Context, input *SessionCrea
 
 	launchCommand, err := config.BuildProviderLaunchCommandWithoutOptions(s.state.CityPath(), resolved, transport)
 	if err != nil {
-		return nil, huma.Error500InternalServerError(err.Error())
+		return nil, apierr.Internal.Msg(err.Error())
 	}
 	command := launchCommand.Command
 	extraMeta := sessionTemplateOverridesMetadata(body.Options, body.Message)
@@ -117,18 +117,18 @@ func (s *Server) humaHandleSessionCreate(ctx context.Context, input *SessionCrea
 	}
 	extraMeta["agent_name"] = workDirQualifiedName
 	extraMeta["session_origin"] = "manual"
-	mcpServers, err := s.sessionMCPServers(template, resolved.Name, workDirQualifiedName, workDir, transport, kind)
+	mcpServers, err := s.sessionMCPServers(template, resolved.Name, workDirQualifiedName, workDir, transport, kind, nil)
 	if err != nil {
-		return nil, huma.Error500InternalServerError(err.Error())
+		return nil, apierr.Internal.Msg(err.Error())
 	}
 
 	reqID, reqIDErr := newRequestID()
 	if reqIDErr != nil {
-		return nil, huma.Error500InternalServerError(reqIDErr.Error())
+		return nil, apierr.Internal.Msg(reqIDErr.Error())
 	}
 	eventCursor, cursorErr := s.currentCityEventCursor()
 	if cursorErr != nil {
-		return nil, huma.Error500InternalServerError(cursorErr.Error())
+		return nil, apierr.Internal.Msg(cursorErr.Error())
 	}
 
 	go func() {
@@ -142,6 +142,7 @@ func (s *Server) humaHandleSessionCreate(ctx context.Context, input *SessionCrea
 			}
 		}
 		resolvedCfg, cfgErr := resolvedSessionConfigForProvider(
+			s.state.CityPath(),
 			alias,
 			explicitName,
 			template,
@@ -157,7 +158,7 @@ func (s *Server) humaHandleSessionCreate(ctx context.Context, input *SessionCrea
 			s.emitSessionCreateFailed(reqID, "create_failed", cfgErr.Error())
 			return
 		}
-		handle, handleErr := s.newResolvedWorkerSessionHandle(store, resolvedCfg)
+		handle, handleErr := s.newResolvedWorkerSessionHandle(store.Store, resolvedCfg)
 		if handleErr != nil {
 			s.emitSessionCreateFailed(reqID, "create_failed", handleErr.Error())
 			return
@@ -174,15 +175,15 @@ func (s *Server) humaHandleSessionCreate(ctx context.Context, input *SessionCrea
 			reservationIDs = append(reservationIDs, workDirQualifiedName)
 		}
 		createErr := session.WithCitySessionIdentifierLocks(s.state.CityPath(), reservationIDs, func() error {
-			if aliasErr := session.EnsureAliasAvailableWithConfig(store, s.state.Config(), alias, ""); aliasErr != nil {
+			if aliasErr := session.EnsureAliasAvailableWithConfig(store.Store, s.state.Config(), alias, ""); aliasErr != nil {
 				return aliasErr
 			}
 			if reserveConcreteIdentity && workDirQualifiedName != alias {
-				if aliasErr := session.EnsureAliasAvailableWithConfig(store, s.state.Config(), workDirQualifiedName, ""); aliasErr != nil {
+				if aliasErr := session.EnsureAliasAvailableWithConfig(store.Store, s.state.Config(), workDirQualifiedName, ""); aliasErr != nil {
 					return aliasErr
 				}
 			}
-			if nameErr := session.EnsureSessionNameAvailableWithConfig(store, s.state.Config(), explicitName, ""); nameErr != nil {
+			if nameErr := session.EnsureSessionNameAvailableWithConfig(store.Store, s.state.Config(), explicitName, ""); nameErr != nil {
 				return nameErr
 			}
 			var err error
@@ -207,7 +208,7 @@ func (s *Server) humaHandleSessionCreate(ctx context.Context, input *SessionCrea
 		resp := sessionToResponse(info, s.state.Config())
 		resp.Kind = "agent"
 		s.emitSessionCreateSucceeded(reqID, resp)
-		s.persistSessionMeta(store, info.ID, "agent", body.ProjectID, nil)
+		s.persistSessionMeta(store, info.ID, body.ProjectID, nil)
 		if !waitForCommandable {
 			s.state.Poke()
 		}
@@ -227,10 +228,10 @@ func (s *Server) humaHandleSessionCreate(ctx context.Context, input *SessionCrea
 
 // humaCreateProviderSession handles the "provider" kind session creation.
 
-func (s *Server) humaCreateProviderSession(_ context.Context, store beads.Store, body sessionCreateBody, providerName string) (*SessionCreateOutput, error) {
+func (s *Server) humaCreateProviderSession(_ context.Context, store beads.SessionStore, body sessionCreateBody, providerName string) (*SessionCreateOutput, error) {
 	cfg := s.state.Config()
 	if cfg == nil {
-		return nil, huma.Error503ServiceUnavailable("city config not loaded yet")
+		return nil, apierr.ServiceUnavailable.Msg("city config not loaded yet")
 	}
 	resolved, err := config.ResolveProvider(
 		&config.Agent{Provider: providerName},
@@ -240,26 +241,26 @@ func (s *Server) humaCreateProviderSession(_ context.Context, store beads.Store,
 	)
 	if err != nil {
 		if errors.Is(err, config.ErrProviderNotInPATH) {
-			return nil, huma.Error503ServiceUnavailable(err.Error())
+			return nil, apierr.ServiceUnavailable.Msg(err.Error())
 		}
 		if errors.Is(err, config.ErrProviderNotFound) {
-			return nil, huma.Error404NotFound("provider '" + providerName + "' not found")
+			return nil, apierr.ProviderNotFound.Msg("provider '" + providerName + "' not found")
 		}
-		return nil, huma.Error500InternalServerError(err.Error())
+		return nil, apierr.Internal.Msg(err.Error())
 	}
 
 	var optMeta map[string]string
 	if len(body.Options) > 0 && len(resolved.OptionsSchema) == 0 {
-		return nil, huma.Error400BadRequest("provider '" + providerName + "' does not accept options")
+		return nil, apierr.InvalidRequest.Msg("provider '" + providerName + "' does not accept options")
 	}
 	if len(resolved.OptionsSchema) > 0 {
 		var optErr error
 		_, optMeta, optErr = config.ResolveOptions(resolved.OptionsSchema, body.Options, resolved.EffectiveDefaults)
 		if optErr != nil {
 			if errors.Is(optErr, config.ErrUnknownOption) {
-				return nil, huma.Error400BadRequest(optErr.Error())
+				return nil, apierr.InvalidRequest.Msg(optErr.Error())
 			}
-			return nil, huma.Error400BadRequest(optErr.Error())
+			return nil, apierr.InvalidRequest.Msg(optErr.Error())
 		}
 	}
 
@@ -269,10 +270,10 @@ func (s *Server) humaCreateProviderSession(_ context.Context, store beads.Store,
 		title = resolved.Name
 	}
 	if body.Async && strings.TrimSpace(body.Message) != "" {
-		return nil, huma.Error400BadRequest("message is not supported with async session creation; create the session, then POST /v0/session/{id}/messages")
+		return nil, apierr.InvalidRequest.Msg("message is not supported with async session creation; create the session, then POST /v0/session/{id}/messages")
 	}
 	if body.Async {
-		return nil, huma.Error400BadRequest("async session creation is only supported for configured agent templates")
+		return nil, apierr.InvalidRequest.Msg("async session creation is only supported for configured agent templates")
 	}
 
 	workDir := s.state.CityPath()
@@ -283,55 +284,57 @@ func (s *Server) humaCreateProviderSession(_ context.Context, store beads.Store,
 	}
 	mcpIdentity, err := providerSessionMCPIdentity(resolved.Name, alias)
 	if err != nil {
-		return nil, huma.Error500InternalServerError(err.Error())
+		return nil, apierr.Internal.Msg(err.Error())
 	}
 
 	transport, err := providerSessionTransport(resolved, s.state.SessionProvider())
 	if err != nil {
-		return nil, huma.Error503ServiceUnavailable(err.Error())
+		return nil, apierr.ServiceUnavailable.Msg(err.Error())
 	}
 	launchCommand, err := config.BuildProviderLaunchCommand(s.state.CityPath(), resolved, body.Options, transport)
 	if err != nil {
-		return nil, huma.Error400BadRequest(err.Error())
+		return nil, apierr.InvalidRequest.Msg(err.Error())
 	}
 	command := launchCommand.Command
 	mcpServers, err := s.providerSessionMCPServers(resolved.Name, mcpIdentity, workDir, transport)
 	if err != nil {
-		return nil, huma.Error500InternalServerError(err.Error())
+		return nil, apierr.Internal.Msg(err.Error())
 	}
-	extraMeta := map[string]string{
-		"session_origin": "manual",
+	extraMeta := sessionTemplateOverridesMetadata(body.Options, body.Message)
+	if extraMeta == nil {
+		extraMeta = make(map[string]string)
 	}
+	extraMeta["session_origin"] = "manual"
 	if transport == "acp" {
 		extraMeta, err = session.WithStoredMCPMetadata(extraMeta, mcpIdentity, mcpServers)
 		if err != nil {
-			return nil, huma.Error500InternalServerError(err.Error())
+			return nil, apierr.Internal.Msg(err.Error())
 		}
 	}
 
 	reqID, reqIDErr := newRequestID()
 	if reqIDErr != nil {
-		return nil, huma.Error500InternalServerError(reqIDErr.Error())
+		return nil, apierr.Internal.Msg(reqIDErr.Error())
 	}
 	eventCursor, cursorErr := s.currentCityEventCursor()
 	if cursorErr != nil {
-		return nil, huma.Error500InternalServerError(cursorErr.Error())
+		return nil, apierr.Internal.Msg(cursorErr.Error())
 	}
 	go func() {
 		defer s.recoverAsRequestFailed(reqID, RequestOperationSessionCreate)
-		resolvedCfg, cfgErr := resolvedSessionConfigForProvider(alias, "", template, title, transport, extraMeta, resolved, command, workDir, mcpServers)
+		resolvedCfg, cfgErr := resolvedSessionConfigForProvider(s.state.CityPath(), alias, "", template, title, transport, extraMeta, resolved, command, workDir, mcpServers)
 		if cfgErr != nil {
 			s.emitSessionCreateFailed(reqID, "create_failed", cfgErr.Error())
 			return
 		}
-		handle, handleErr := s.newResolvedWorkerSessionHandle(store, resolvedCfg)
+		handle, handleErr := s.newResolvedWorkerSessionHandle(store.Store, resolvedCfg)
 		if handleErr != nil {
 			s.emitSessionCreateFailed(reqID, "create_failed", handleErr.Error())
 			return
 		}
 		var info session.Info
 		createErr := session.WithCitySessionAliasLock(s.state.CityPath(), alias, func() error {
-			if aliasErr := session.EnsureAliasAvailableWithConfig(store, s.state.Config(), alias, ""); aliasErr != nil {
+			if aliasErr := session.EnsureAliasAvailableWithConfig(store.Store, s.state.Config(), alias, ""); aliasErr != nil {
 				return aliasErr
 			}
 			var err error
@@ -343,7 +346,7 @@ func (s *Server) humaCreateProviderSession(_ context.Context, store beads.Store,
 			return
 		}
 		if msg := strings.TrimSpace(body.Message); msg != "" {
-			if _, sendErr := s.submitMessageToSession(context.Background(), store, info.ID, msg, session.SubmitIntentDefault); sendErr != nil {
+			if _, sendErr := s.submitMessageToSession(context.Background(), store.Store, info.ID, msg, session.SubmitIntentDefault); sendErr != nil {
 				if rollbackErr := s.rollbackCreatedSession(store, info.ID); rollbackErr != nil {
 					s.emitSessionCreateFailed(reqID, "message_delivery_failed",
 						fmt.Sprintf("initial message delivery failed: %v (rollback failed: %v)", sendErr, rollbackErr))
@@ -356,7 +359,7 @@ func (s *Server) humaCreateProviderSession(_ context.Context, store beads.Store,
 		resp := sessionToResponse(info, s.state.Config())
 		resp.Kind = "provider"
 		s.emitSessionCreateSucceeded(reqID, resp)
-		s.persistSessionMeta(store, info.ID, "provider", body.ProjectID, optMeta)
+		s.persistSessionMeta(store, info.ID, body.ProjectID, optMeta)
 		titleProvider := s.resolveTitleProvider()
 		MaybeGenerateTitleAsync(store, info.ID, body.Title, body.Message, titleProvider, info.WorkDir, func(format string, args ...any) {
 			fmt.Fprintf(os.Stderr, "session %s: "+format+"\n", append([]any{info.ID}, args...)...)
@@ -391,12 +394,12 @@ type sessionTranscriptGetResponse struct {
 // humaHandleSessionTranscript is the Huma-typed handler for GET /v0/session/{id}/transcript.
 
 func (s *Server) humaHandleSessionPatch(_ context.Context, input *SessionPatchInput) (*IndexOutput[sessionResponse], error) {
-	store := s.state.CityBeadStore()
-	if store == nil {
-		return nil, huma.Error503ServiceUnavailable("no bead store configured")
+	store := s.state.SessionsBeadStore()
+	if store.Store == nil {
+		return nil, apierr.ServiceUnavailable.Msg("no bead store configured")
 	}
 
-	id, err := s.resolveSessionIDWithConfig(store, input.ID)
+	id, err := s.resolveSessionIDWithConfig(store.Store, input.ID)
 	if err != nil {
 		return nil, humaResolveError(err)
 	}
@@ -410,28 +413,39 @@ func (s *Server) humaHandleSessionPatch(_ context.Context, input *SessionPatchIn
 	aliasPtr := input.Body.Alias
 
 	if titlePtr == nil && aliasPtr == nil {
-		return nil, huma.Error422UnprocessableEntity("at least one of 'title' or 'alias' is required")
+		return nil, apierr.ValidationFailed.Msg("at least one of 'title' or 'alias' is required")
 	}
 
-	b, err := store.Get(id)
+	// Validate through the session front door: the codec stays confined inside
+	// Store.Get. A present-but-non-session bead yields ErrSessionNotFound → the
+	// existing "not a session" 400; an absent id stays on the beads.ErrNotFound
+	// chain → 404.
+	sessFront := session.NewStore(store)
+	info, err := sessFront.Get(id)
 	if err != nil {
+		if errors.Is(err, session.ErrSessionNotFound) {
+			return nil, apierr.InvalidRequest.Msg(id + " is not a session")
+		}
 		return nil, humaStoreError(err)
 	}
-	if !session.IsSessionBeadOrRepairable(b) {
-		return nil, huma.Error400BadRequest(id + " is not a session")
+	// Preserve the empty-type heal RepairEmptyType performed on the raw bead.
+	if info.Type == "" {
+		sessFront.RepairTypeBestEffort(id)
 	}
-	session.RepairEmptyType(store, &b)
 
-	mgr := s.sessionManager(store)
+	mgr := s.sessionManager(store.Store)
 	updateFn := func() error {
 		return mgr.UpdatePresentation(id, titlePtr, aliasPtr)
 	}
 	if aliasPtr != nil {
-		if strings.TrimSpace(b.Metadata["agent_name"]) != "" {
-			return nil, huma.Error403Forbidden("forbidden: alias is controller-managed for this session")
+		// agent_name off the persisted Info from the front door — the
+		// controller-managed-alias gate; the codec projection of the persisted
+		// agent_name field, with no raw bead in the handler's hands.
+		if strings.TrimSpace(info.AgentName) != "" {
+			return nil, apierr.Forbidden.Msg("forbidden: alias is controller-managed for this session")
 		}
 		if lockErr := session.WithCitySessionAliasLock(s.state.CityPath(), *aliasPtr, func() error {
-			if avErr := session.EnsureAliasAvailableWithConfig(store, s.state.Config(), *aliasPtr, id); avErr != nil {
+			if avErr := session.EnsureAliasAvailableWithConfig(store.Store, s.state.Config(), *aliasPtr, id); avErr != nil {
 				return avErr
 			}
 			return updateFn()
@@ -442,16 +456,109 @@ func (s *Server) humaHandleSessionPatch(_ context.Context, input *SessionPatchIn
 		return nil, humaSessionManagerError(err)
 	}
 
-	info, err := mgr.Get(id)
+	info, presponse, err := sessionGetEnriched(session.NewStore(store), mgr, id)
 	if err != nil {
 		return nil, humaSessionManagerError(err)
 	}
-	updated, _ := store.Get(id)
-	presp := sessionResponseWithReason(info, &updated, s.state.Config(), strings.TrimSpace(s.state.CityPath()) != "")
+	presp := sessionResponseWithReason(info, presponse, s.state.Config(), s.state.SessionProvider(), strings.TrimSpace(s.state.CityPath()) != "")
 	return &IndexOutput[sessionResponse]{
 		Index: s.latestIndex(),
 		Body:  presp,
 	}, nil
+}
+
+const sessionPermissionModeOptionKey = "permission_mode"
+
+func (s *Server) humaHandleSessionPermissionMode(_ context.Context, input *SessionPermissionModeInput) (*IndexOutput[sessionResponse], error) {
+	return s.updateSessionPermissionMode(input.ID, input.Body)
+}
+
+func (s *Server) updateSessionPermissionMode(idRef string, body SessionPermissionModeBody) (*IndexOutput[sessionResponse], error) {
+	store := s.state.SessionsBeadStore()
+	if store.Store == nil {
+		return nil, apierr.ServiceUnavailable.Msg("no bead store configured")
+	}
+
+	id, err := s.resolveSessionIDAllowClosedWithConfig(store.Store, idRef)
+	if err != nil {
+		return nil, humaResolveError(err)
+	}
+	// WI-6 residual: raw-validation lane NOT converted to the session front door,
+	// because the raw bead is read downstream — b.Metadata feeds legacySessionKind
+	// and resolveProviderForSessionOptions below (provider/options resolution reads
+	// the raw metadata map, not projected Info fields). Converting needs an
+	// Info/PersistedResponse-fed provider-options resolution; deferred to the
+	// front-door flip (WI-7). The 400/404 contract matches the converted siblings.
+	b, err := store.Get(id)
+	if err != nil {
+		return nil, humaStoreError(err)
+	}
+	if !session.IsSessionBeadOrRepairable(b) {
+		return nil, apierr.InvalidRequest.Msg(id + " is not a session")
+	}
+	session.RepairEmptyType(store.Store, &b)
+
+	mgr := s.sessionManager(store.Store)
+	info, err := mgr.Get(id)
+	if err != nil {
+		return nil, humaSessionManagerError(err)
+	}
+	if info.Closed {
+		return nil, apierr.SessionConflict.Msg("conflict: session is closed")
+	}
+	if session.IsTemplateOverrideRuntimeActive(info.State) {
+		return nil, apierr.SessionConflict.Msg("conflict: session is running; permission_mode changes use schema options and apply only before the next launch")
+	}
+	cfg := s.state.Config()
+	if cfg == nil {
+		return nil, apierr.ServiceUnavailable.Msg("city config not loaded yet")
+	}
+	agent, agentFound := findAgent(cfg, info.Template)
+	if session.UseAgentTemplateForProviderResolution(legacySessionKind(b.Metadata), b.Metadata, info.Provider, agent.Provider, agentFound) {
+		if !agentFound {
+			return nil, apierr.SessionConflict.Msg("conflict: session agent template no longer resolves; restore the template or recreate the session before changing schema options")
+		}
+	}
+
+	resolved, resolveErr := resolveProviderForSessionOptions(info, b.Metadata, cfg)
+	if resolved == nil {
+		if resolveErr != nil {
+			return nil, apierr.SessionConflict.Msg("conflict: session provider no longer resolves: " + resolveErr.Error())
+		}
+		return nil, apierr.NotImplemented.Msg("unsupported: session provider does not accept schema options")
+	}
+	if !providerHasOption(resolved.OptionsSchema, sessionPermissionModeOptionKey) {
+		return nil, apierr.NotImplemented.Msg("unsupported: session provider does not define permission_mode in options_schema")
+	}
+
+	mode := strings.TrimSpace(body.PermissionMode)
+	if _, optErr := config.ResolveExplicitOptions(resolved.OptionsSchema, map[string]string{sessionPermissionModeOptionKey: mode}); optErr != nil {
+		return nil, apierr.InvalidRequest.Msg(optErr.Error())
+	}
+
+	if _, err := mgr.UpdateTemplateOverrides(id, map[string]string{sessionPermissionModeOptionKey: mode}); err != nil {
+		return nil, humaSessionManagerError(err)
+	}
+	s.state.Poke()
+
+	info, presponse, err := sessionGetEnriched(session.NewStore(store), mgr, id)
+	if err != nil {
+		return nil, humaSessionManagerError(err)
+	}
+	resp := sessionResponseWithReason(info, presponse, s.state.Config(), s.state.SessionProvider(), strings.TrimSpace(s.state.CityPath()) != "")
+	return &IndexOutput[sessionResponse]{
+		Index: s.latestIndex(),
+		Body:  resp,
+	}, nil
+}
+
+func providerHasOption(schema []config.ProviderOption, key string) bool {
+	for _, opt := range schema {
+		if opt.Key == key {
+			return true
+		}
+	}
+	return false
 }
 
 // --- Session Submit ---
@@ -459,9 +566,9 @@ func (s *Server) humaHandleSessionPatch(_ context.Context, input *SessionPatchIn
 // humaHandleSessionSubmit is the Huma-typed handler for POST /v0/session/{id}/submit.
 
 func (s *Server) humaHandleSessionSubmit(_ context.Context, input *SessionSubmitInput) (*SessionSubmitOutput, error) {
-	store := s.state.CityBeadStore()
-	if store == nil {
-		return nil, huma.Error503ServiceUnavailable("no bead store configured")
+	store := s.state.SessionsBeadStore()
+	if store.Store == nil {
+		return nil, apierr.ServiceUnavailable.Msg("no bead store configured")
 	}
 
 	intent := input.Body.Intent
@@ -471,22 +578,22 @@ func (s *Server) humaHandleSessionSubmit(_ context.Context, input *SessionSubmit
 
 	reqID, reqIDErr := newRequestID()
 	if reqIDErr != nil {
-		return nil, huma.Error500InternalServerError(reqIDErr.Error())
+		return nil, apierr.Internal.Msg(reqIDErr.Error())
 	}
 	eventCursor, cursorErr := s.currentCityEventCursor()
 	if cursorErr != nil {
-		return nil, huma.Error500InternalServerError(cursorErr.Error())
+		return nil, apierr.Internal.Msg(cursorErr.Error())
 	}
 	message := input.Body.Message
 	sessionTarget := input.ID
 	go func() {
 		defer s.recoverAsRequestFailed(reqID, RequestOperationSessionSubmit)
-		id, err := s.resolveSessionIDMaterializingNamedWithContext(context.Background(), store, sessionTarget)
+		id, err := s.resolveSessionIDMaterializingNamedWithContext(context.Background(), store.Store, sessionTarget)
 		if err != nil {
 			s.emitSessionSubmitFailed(reqID, "resolve_failed", err.Error())
 			return
 		}
-		outcome, submitErr := s.submitMessageToSession(context.Background(), store, id, message, intent)
+		outcome, submitErr := s.submitMessageToSession(context.Background(), store.Store, id, message, intent)
 		if submitErr != nil {
 			s.emitSessionSubmitFailed(reqID, "submit_failed", submitErr.Error())
 		} else {
@@ -506,18 +613,18 @@ func (s *Server) humaHandleSessionSubmit(_ context.Context, input *SessionSubmit
 // humaHandleSessionMessage is the Huma-typed handler for POST /v0/session/{id}/messages.
 
 func (s *Server) humaHandleSessionMessage(_ context.Context, input *SessionMessageInput) (*SessionMessageOutput, error) {
-	store := s.state.CityBeadStore()
-	if store == nil {
-		return nil, huma.Error503ServiceUnavailable("no bead store configured")
+	store := s.state.SessionsBeadStore()
+	if store.Store == nil {
+		return nil, apierr.ServiceUnavailable.Msg("no bead store configured")
 	}
 
 	reqID, reqIDErr := newRequestID()
 	if reqIDErr != nil {
-		return nil, huma.Error500InternalServerError(reqIDErr.Error())
+		return nil, apierr.Internal.Msg(reqIDErr.Error())
 	}
 	eventCursor, cursorErr := s.currentCityEventCursor()
 	if cursorErr != nil {
-		return nil, huma.Error500InternalServerError(cursorErr.Error())
+		return nil, apierr.Internal.Msg(cursorErr.Error())
 	}
 	message := input.Body.Message
 	sessionTarget := input.ID
@@ -551,12 +658,12 @@ func (s *Server) humaHandleSessionMessage(_ context.Context, input *SessionMessa
 					sendResult(messageResult{errorCode: "internal_error", err: fmt.Errorf("panic: %v", r)})
 				}
 			}()
-			id, err := s.resolveSessionIDMaterializingNamedWithContext(ctx, store, sessionTarget)
+			id, err := s.resolveSessionIDMaterializingNamedWithContext(ctx, store.Store, sessionTarget)
 			if err != nil {
 				sendResult(messageResult{errorCode: "resolve_failed", err: err})
 				return
 			}
-			if err := s.sendUserMessageToSession(ctx, store, id, message); err != nil {
+			if err := s.sendUserMessageToSession(ctx, store.Store, id, message); err != nil {
 				code := "message_failed"
 				if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 					code = "timeout"
@@ -607,17 +714,17 @@ func (s *Server) humaHandleSessionMessage(_ context.Context, input *SessionMessa
 // humaHandleSessionStop is the Huma-typed handler for POST /v0/session/{id}/stop.
 
 func (s *Server) humaHandleSessionStop(_ context.Context, input *SessionIDInput) (*OKWithIDResponse, error) {
-	store := s.state.CityBeadStore()
-	if store == nil {
-		return nil, huma.Error503ServiceUnavailable("no bead store configured")
+	store := s.state.SessionsBeadStore()
+	if store.Store == nil {
+		return nil, apierr.ServiceUnavailable.Msg("no bead store configured")
 	}
 
-	id, err := s.resolveSessionIDWithConfig(store, input.ID)
+	id, err := s.resolveSessionIDWithConfig(store.Store, input.ID)
 	if err != nil {
 		return nil, humaResolveError(err)
 	}
 
-	mgr := s.sessionManager(store)
+	mgr := s.sessionManager(store.Store)
 	if err := mgr.StopTurn(id); err != nil {
 		return nil, humaSessionManagerError(err)
 	}
@@ -632,17 +739,17 @@ func (s *Server) humaHandleSessionStop(_ context.Context, input *SessionIDInput)
 // humaHandleSessionKill is the Huma-typed handler for POST /v0/session/{id}/kill.
 
 func (s *Server) humaHandleSessionKill(_ context.Context, input *SessionIDInput) (*OKWithIDResponse, error) {
-	store := s.state.CityBeadStore()
-	if store == nil {
-		return nil, huma.Error503ServiceUnavailable("no bead store configured")
+	store := s.state.SessionsBeadStore()
+	if store.Store == nil {
+		return nil, apierr.ServiceUnavailable.Msg("no bead store configured")
 	}
 
-	id, err := s.resolveSessionIDWithConfig(store, input.ID)
+	id, err := s.resolveSessionIDWithConfig(store.Store, input.ID)
 	if err != nil {
 		return nil, humaResolveError(err)
 	}
 
-	mgr := s.sessionManager(store)
+	mgr := s.sessionManager(store.Store)
 	if err := mgr.Kill(id); err != nil {
 		if errors.Is(err, session.ErrSessionClosed) {
 			out := &OKWithIDResponse{}
@@ -663,18 +770,18 @@ func (s *Server) humaHandleSessionKill(_ context.Context, input *SessionIDInput)
 // humaHandleSessionRespond is the Huma-typed handler for POST /v0/session/{id}/respond.
 
 func (s *Server) humaHandleSessionRespond(_ context.Context, input *SessionRespondInput) (*SessionRespondOutput, error) {
-	store := s.state.CityBeadStore()
-	if store == nil {
-		return nil, huma.Error503ServiceUnavailable("no bead store configured")
+	store := s.state.SessionsBeadStore()
+	if store.Store == nil {
+		return nil, apierr.ServiceUnavailable.Msg("no bead store configured")
 	}
 
-	id, err := s.resolveSessionIDWithConfig(store, input.ID)
+	id, err := s.resolveSessionIDWithConfig(store.Store, input.ID)
 	if err != nil {
 		return nil, humaResolveError(err)
 	}
 
 	// Huma validates Body.Action (minLength:1); no handler guard needed.
-	mgr := s.sessionManager(store)
+	mgr := s.sessionManager(store.Store)
 	if err := mgr.Respond(id, runtime.InteractionResponse{
 		RequestID: input.Body.RequestID,
 		Action:    input.Body.Action,
@@ -695,13 +802,13 @@ func (s *Server) humaHandleSessionRespond(_ context.Context, input *SessionRespo
 // humaHandleSessionSuspend is the Huma-typed handler for POST /v0/session/{id}/suspend.
 
 func (s *Server) humaHandleSessionSuspend(ctx context.Context, input *SessionIDInput) (*OKResponse, error) {
-	store := s.state.CityBeadStore()
-	if store == nil {
-		return nil, huma.Error503ServiceUnavailable("no bead store configured")
+	store := s.state.SessionsBeadStore()
+	if store.Store == nil {
+		return nil, apierr.ServiceUnavailable.Msg("no bead store configured")
 	}
-	mgr := s.sessionManager(store)
+	mgr := s.sessionManager(store.Store)
 
-	id, err := s.resolveSessionIDMaterializingNamedWithContext(ctx, store, input.ID)
+	id, err := s.resolveSessionIDMaterializingNamedWithContext(ctx, store.Store, input.ID)
 	if err != nil {
 		return nil, humaResolveError(err)
 	}
@@ -717,14 +824,13 @@ func (s *Server) humaHandleSessionSuspend(ctx context.Context, input *SessionIDI
 
 // humaHandleSessionClose is the Huma-typed handler for POST /v0/session/{id}/close.
 
-func (s *Server) humaHandleSessionClose(_ context.Context, input *SessionCloseInput) (*OKResponse, error) {
-	store := s.state.CityBeadStore()
-	if store == nil {
-		return nil, huma.Error503ServiceUnavailable("no bead store configured")
+func (s *Server) humaHandleSessionClose(ctx context.Context, input *SessionCloseInput) (*OKResponse, error) {
+	store := s.state.SessionsBeadStore()
+	if store.Store == nil {
+		return nil, apierr.ServiceUnavailable.Msg("no bead store configured")
 	}
-	mgr := s.sessionManager(store)
 
-	id, err := s.resolveSessionIDWithConfig(store, input.ID)
+	id, err := s.resolveSessionIDWithConfig(store.Store, input.ID)
 	if err != nil {
 		return nil, humaResolveError(err)
 	}
@@ -733,24 +839,27 @@ func (s *Server) humaHandleSessionClose(_ context.Context, input *SessionCloseIn
 		strings.TrimSpace(b.Metadata[apiNamedSessionMetadataKey]) == "true" &&
 		strings.TrimSpace(b.Metadata[apiNamedSessionModeKey]) == "always" &&
 		strings.Contains(strings.TrimSpace(b.Metadata[apiNamedSessionIdentityKey]), "/") {
-		return nil, huma.Error409Conflict("configured always-on named sessions cannot be closed while config-managed")
+		return nil, apierr.SessionConflict.Msg("configured always-on named sessions cannot be closed while config-managed")
 	}
-	nudgeIDs, err := session.WaitNudgeIDs(store, id)
+	handle, err := s.workerHandleForSession(store.Store, id)
 	if err != nil {
-		return nil, huma.Error500InternalServerError(err.Error())
-	}
-	if err := mgr.Close(id); err != nil {
 		return nil, humaSessionManagerError(err)
 	}
-	if err := withdrawQueuedWaitNudges(store, s.state.CityPath(), nudgeIDs); err != nil {
+	closeResult, err := handle.CloseDetailed(ctx)
+	if err != nil {
+		return nil, humaSessionManagerError(err)
+	}
+	// Nudge withdrawal reads the nudges class, so it sources the typed
+	// NudgesBeadStore (identity to the work store until that class relocates).
+	if err := withdrawQueuedWaitNudges(s.state.NudgesBeadStore(), s.state.CityPath(), closeResult.WaitNudgeIDs); err != nil {
 		log.Printf("gc api: withdrawing queued wait nudges after close %s: %v", id, err)
 	}
 
 	// Optional: permanently delete the bead after closing.
 	if input.Delete {
-		if err := deleteSessionBeadAfterClose(store, id); err != nil {
+		if err := deleteSessionBeadAfterClose(store.Store, id); err != nil {
 			log.Printf("gc api: deleting bead after close %s: %v", id, err)
-			return nil, huma.Error500InternalServerError("closed but delete failed: " + err.Error())
+			return nil, apierr.Internal.Msg("closed but delete failed: " + err.Error())
 		}
 	}
 
@@ -764,40 +873,45 @@ func (s *Server) humaHandleSessionClose(_ context.Context, input *SessionCloseIn
 // humaHandleSessionWake is the Huma-typed handler for POST /v0/session/{id}/wake.
 
 func (s *Server) humaHandleSessionWake(ctx context.Context, input *SessionIDInput) (*OKWithIDResponse, error) {
-	store := s.state.CityBeadStore()
-	if store == nil {
-		return nil, huma.Error503ServiceUnavailable("no bead store configured")
+	store := s.state.SessionsBeadStore()
+	if store.Store == nil {
+		return nil, apierr.ServiceUnavailable.Msg("no bead store configured")
 	}
 
-	id, err := s.resolveSessionIDMaterializingNamedWithContext(ctx, store, input.ID)
+	id, err := s.resolveSessionIDMaterializingNamedWithContext(ctx, store.Store, input.ID)
 	if err != nil {
 		return nil, humaResolveError(err)
 	}
 
-	b, err := store.Get(id)
+	res, err := session.NewStore(store).WakeSession(id, time.Now().UTC(), session.WakeOpts{RejectClosed: true})
 	if err != nil {
+		if errors.Is(err, session.ErrNotSessionBead) {
+			return nil, apierr.InvalidRequest.Msg(id + " is not a session")
+		}
+		if state, conflict := session.WakeConflictState(err); conflict {
+			return nil, apierr.SessionConflict.Msg("session " + id + " is " + state)
+		}
+		// Route every remaining store error through humaStoreError: the fused
+		// Get error keeps its original 404 "not_found: "/500 "internal: " mapping,
+		// and a mid-wake write error keeps the "internal: " prefix. (Delta vs the
+		// pre-fusion handler: a mid-wake write ErrNotFound now maps 404 instead of
+		// 500 — a safe-direction, near-unreachable shift, mirrored in the REST
+		// handler's writeStoreError.)
 		return nil, humaStoreError(err)
 	}
-	if !session.IsSessionBeadOrRepairable(b) {
-		return nil, huma.Error400BadRequest(id + " is not a session")
-	}
-	session.RepairEmptyType(store, &b)
-	if b.Status == "closed" {
-		return nil, huma.Error409Conflict("session " + id + " is closed")
-	}
-
-	nudgeIDs, err := session.WakeSession(store, b, time.Now().UTC())
-	if err != nil {
-		return nil, huma.Error500InternalServerError(err.Error())
-	}
-	if err := withdrawQueuedWaitNudges(store, s.state.CityPath(), nudgeIDs); err != nil {
+	// Nudge withdrawal reads the nudges class, so it sources the typed
+	// NudgesBeadStore (identity to the work store until that class relocates).
+	if err := withdrawQueuedWaitNudges(s.state.NudgesBeadStore(), s.state.CityPath(), res.NudgeIDs); err != nil {
 		log.Printf("gc api: withdrawing queued wait nudges after wake %s: %v", id, err)
 	}
-	sessionName := b.Metadata["session_name"]
+	// RAW SessionNameMetadata (not Info.SessionName, which falls back to
+	// sessionNameFor(ID)) to preserve the skip-when-unset behavior. res.Info is
+	// the typed WakeResult projection (WI-4), so no raw bead is cracked here.
+	sessionName := res.Info.SessionNameMetadata
 	if sessionName != "" {
 		s.state.ClearCrashHistory(sessionName)
 	}
-	handle, err := s.workerHandleForSession(store, id)
+	handle, err := s.workerHandleForSession(store.Store, id)
 	if err != nil {
 		return nil, humaSessionManagerError(err)
 	}
@@ -818,37 +932,43 @@ func (s *Server) humaHandleSessionWake(ctx context.Context, input *SessionIDInpu
 // humaHandleSessionRename is the Huma-typed handler for POST /v0/session/{id}/rename.
 
 func (s *Server) humaHandleSessionRename(_ context.Context, input *SessionRenameInput) (*IndexOutput[sessionResponse], error) {
-	store := s.state.CityBeadStore()
-	if store == nil {
-		return nil, huma.Error503ServiceUnavailable("no bead store configured")
+	store := s.state.SessionsBeadStore()
+	if store.Store == nil {
+		return nil, apierr.ServiceUnavailable.Msg("no bead store configured")
 	}
 
-	id, err := s.resolveSessionIDWithConfig(store, input.ID)
+	id, err := s.resolveSessionIDWithConfig(store.Store, input.ID)
 	if err != nil {
 		return nil, humaResolveError(err)
 	}
 
 	// Huma validates Body.Title (minLength:1); no handler guard needed.
-	b, err := store.Get(id)
+	// Validate through the session front door (mirrors humaHandleSessionPatch):
+	// nothing downstream reads the raw bead — rename operates by id. Present-but-
+	// non-session → the existing "not a session" 400; absent → beads.ErrNotFound
+	// → 404.
+	sessFront := session.NewStore(store)
+	info, err := sessFront.Get(id)
 	if err != nil {
+		if errors.Is(err, session.ErrSessionNotFound) {
+			return nil, apierr.InvalidRequest.Msg(id + " is not a session")
+		}
 		return nil, humaStoreError(err)
 	}
-	if !session.IsSessionBeadOrRepairable(b) {
-		return nil, huma.Error400BadRequest(id + " is not a session")
+	if info.Type == "" {
+		sessFront.RepairTypeBestEffort(id)
 	}
-	session.RepairEmptyType(store, &b)
 
-	mgr := s.sessionManager(store)
+	mgr := s.sessionManager(store.Store)
 	if err := mgr.Rename(id, input.Body.Title); err != nil {
 		return nil, humaSessionManagerError(err)
 	}
 
-	info, err := mgr.Get(id)
+	info, pr, err := sessionGetEnriched(session.NewStore(store), mgr, id)
 	if err != nil {
 		return nil, humaSessionManagerError(err)
 	}
-	updated, _ := store.Get(id)
-	rresp := sessionResponseWithReason(info, &updated, s.state.Config(), strings.TrimSpace(s.state.CityPath()) != "")
+	rresp := sessionResponseWithReason(info, pr, s.state.Config(), s.state.SessionProvider(), strings.TrimSpace(s.state.CityPath()) != "")
 	return &IndexOutput[sessionResponse]{
 		Index: s.latestIndex(),
 		Body:  rresp,

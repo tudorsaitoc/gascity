@@ -359,17 +359,14 @@ func TestPhase0HandleSessionWake_ContinuityEligibleArchivedBeadRequestsStart(t *
 	if err != nil {
 		t.Fatalf("Get(%s): %v", id, err)
 	}
-	switch got := updated.Metadata["state"]; got {
-	case "creating":
-		if claim := updated.Metadata["pending_create_claim"]; claim != "true" {
-			t.Fatalf("pending_create_claim = %q, want true while creating", claim)
-		}
-	case "active":
-		if claim := updated.Metadata["pending_create_claim"]; claim != "" {
-			t.Fatalf("pending_create_claim = %q, want cleared after active", claim)
-		}
-	default:
-		t.Fatalf("state = %q, want creating or active", got)
+	if got := updated.Metadata["state"]; got != "archived" {
+		t.Fatalf("state = %q, want archived before reconciler processes wake request", got)
+	}
+	if claim := updated.Metadata["pending_create_claim"]; claim != "" {
+		t.Fatalf("pending_create_claim = %q, want empty before reconciler claims start", claim)
+	}
+	if got := updated.Metadata["wake_request"]; got != "explicit" {
+		t.Fatalf("wake_request = %q, want explicit", got)
 	}
 	if got := updated.Metadata["archived_at"]; got != "" {
 		t.Fatalf("archived_at = %q, want cleared after continuity wake", got)
@@ -457,7 +454,7 @@ func TestPhase0HandleSessionWake_NamedIdentityReassignsHistoricalStateToFreshCan
 	if updatedWait.Status != "closed" || updatedWait.Metadata["state"] != "canceled" {
 		t.Fatalf("wait status/state = %q/%q, want closed/canceled after wake cleanup", updatedWait.Status, updatedWait.Metadata["state"])
 	}
-	if nudges, err := session.WaitNudgeIDs(fs.cityBeadStore, historicalID); err != nil {
+	if nudges, err := session.NewStore(beads.SessionStore{Store: fs.cityBeadStore}).WaitNudgeIDs(historicalID); err != nil {
 		t.Fatalf("WaitNudgeIDs(historical): %v", err)
 	} else if len(nudges) != 0 {
 		t.Fatalf("historical wait nudges = %#v, want none after reassignment", nudges)

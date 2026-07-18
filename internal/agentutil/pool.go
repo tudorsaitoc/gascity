@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gastownhall/gascity/internal/agent"
+	"github.com/gastownhall/gascity/internal/beadmeta"
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/config"
 )
@@ -56,7 +57,7 @@ func findSessionNameByTemplate(store beads.Store, qualifiedName string) string {
 		return ""
 	}
 	for _, b := range beadList {
-		if b.Metadata["gc.template"] == qualifiedName {
+		if b.Metadata[beadmeta.TemplateMetadataKey] == qualifiedName {
 			if sn := b.Metadata["session_name"]; sn != "" {
 				return sn
 			}
@@ -93,7 +94,7 @@ func ExpandAgents(agents []config.Agent, cityName, sessTmpl string, sp SessionLi
 }
 
 func expandSingleAgent(a config.Agent, cityName, sessTmpl string, sp SessionLister) []ExpandedAgent {
-	if !a.SupportsInstanceExpansion() {
+	if !a.SupportsExpandedSessionIdentities() {
 		return []ExpandedAgent{{
 			QualifiedName: a.QualifiedName(),
 			Rig:           a.Dir,
@@ -170,7 +171,7 @@ func discoverUnlimitedPool(a config.Agent, poolName, cityName, sessTmpl string, 
 // PoolInstanceName returns the display name for a pool member at the given slot.
 // Uses namepool_names if configured, otherwise "{base}-{slot}".
 func PoolInstanceName(base string, slot int, a config.Agent) string {
-	if !a.SupportsInstanceExpansion() {
+	if !a.SupportsInstanceExpansion() || a.UsesCanonicalSingletonPoolIdentity() {
 		return base
 	}
 	if slot >= 1 && slot <= len(a.NamepoolNames) {

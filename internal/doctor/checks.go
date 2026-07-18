@@ -27,6 +27,7 @@ import (
 	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/doltversion"
 	"github.com/gastownhall/gascity/internal/fsys"
+	"github.com/gastownhall/gascity/internal/pathutil"
 	"github.com/gastownhall/gascity/internal/pidutil"
 	"github.com/gastownhall/gascity/internal/runtime"
 	"github.com/gastownhall/gascity/internal/workspacesvc"
@@ -125,6 +126,11 @@ func (c *ConfigValidCheck) Run(_ *CheckContext) *CheckResult {
 		r.Message = fmt.Sprintf("rig validation: %v", err)
 		return r
 	}
+	if err := config.ValidateWebhooks(c.cfg.Webhooks); err != nil {
+		r.Status = StatusError
+		r.Message = fmt.Sprintf("webhook validation: %v", err)
+		return r
+	}
 	if err := config.ValidateServices(c.cfg.Services); err != nil {
 		r.Status = StatusError
 		r.Message = fmt.Sprintf("service validation: %v", err)
@@ -177,7 +183,7 @@ func (c *ConfigRefsCheck) Run(_ *CheckContext) *CheckResult {
 			}
 		}
 		if a.SessionSetupScript != "" {
-			path := resolveConfigRefPath(c.cityPath, a.SessionSetupScript)
+			path := config.ResolveSessionSetupScriptPath(c.cityPath, a.SourceDir, a.SessionSetupScript)
 			if _, err := os.Stat(path); err != nil {
 				issues = append(issues, fmt.Sprintf("agent %q: session_setup_script %q not found", qn, path))
 			}
@@ -249,6 +255,11 @@ func (c *BuiltinPackFamilyCheck) Run(_ *CheckContext) *CheckResult {
 	if v := os.Getenv("GC_BEADS"); v != "" {
 		provider = v
 	}
+	if strings.EqualFold(strings.TrimSpace(c.cfg.Beads.Backend), "doltlite") {
+		r.Status = StatusOK
+		r.Message = "builtin bd/dolt pack family not required for doltlite backend"
+		return r
+	}
 	if !providerUsesBDDoltStore(provider) {
 		r.Status = StatusOK
 		r.Message = "builtin bd/dolt pack family not required"
@@ -283,12 +294,21 @@ func (c *BuiltinPackFamilyCheck) Fix(_ *CheckContext) error { return nil }
 
 func (c *BuiltinPackFamilyCheck) userBuiltinPackOverrides() map[string]bool {
 	systemRoot := filepath.Clean(filepath.Join(c.cityPath, citylayout.SystemPacksRoot))
+	// Builtin packs compose from the user-global repo cache; dirs under it
+	// are the bundled packs themselves, not user-authored overrides.
+	cacheRoot := ""
+	if root, err := config.GlobalRepoCacheRoot(); err == nil {
+		cacheRoot = filepath.Clean(root)
+	}
 	seenDirs := make(map[string]bool)
 	overrides := make(map[string]bool)
 
 	for _, dir := range packDirsForCheck(c.cfg) {
 		dir = filepath.Clean(dir)
 		if seenDirs[dir] || isSubpath(systemRoot, dir) {
+			continue
+		}
+		if cacheRoot != "" && isSubpath(cacheRoot, dir) {
 			continue
 		}
 		seenDirs[dir] = true
@@ -314,7 +334,7 @@ func isSubpath(root, path string) bool {
 	if err != nil {
 		return false
 	}
-	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
+	return !pathutil.IsOutsideDir(rel)
 }
 
 func readPackName(dir string) string {
@@ -950,6 +970,9 @@ func validateBDStoreTarget(cityPath, scopeRoot string) (contract.DoltConnectionT
 	if !scopeUsesBDDoltStore(cityPath, scopeRoot) {
 		return contract.DoltConnectionTarget{}, "", false, nil
 	}
+	if scopeUsesBDDoltliteStore(cityPath, scopeRoot) {
+		return contract.DoltConnectionTarget{}, "", false, nil
+	}
 	resolved, err := contract.ResolveScopeConfigState(fsys.OSFS{}, cityPath, scopeRoot, "")
 	if err != nil {
 		return contract.DoltConnectionTarget{}, "reconcile the canonical Dolt endpoint", true, err
@@ -986,6 +1009,20 @@ func providerUsesBDDoltStore(provider string) bool {
 		return true
 	}
 	return false
+}
+
+func scopeUsesBDDoltliteStore(cityPath, scopePath string) bool {
+	if backend := strings.TrimSpace(os.Getenv("GC_BEADS_BACKEND")); strings.EqualFold(backend, "doltlite") {
+		scopedRoot := strings.TrimSpace(os.Getenv("GC_BEADS_SCOPE_ROOT"))
+		if scopedRoot == "" || sameDoctorScope(resolveDoctorScopePath(cityPath, scopedRoot), resolveDoctorScopePath(cityPath, scopePath)) {
+			return true
+		}
+	}
+	cfg, err := config.Load(fsys.OSFS{}, filepath.Join(cityPath, "city.toml"))
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(cfg.Beads.Backend), "doltlite")
 }
 
 func doctorExecProviderBase(provider string) string {
@@ -1094,6 +1131,11 @@ func (c *DoltServerCheck) Run(_ *CheckContext) *CheckResult {
 		r.Message = "skipped (file backend or GC_DOLT=skip)"
 		return r
 	}
+	if scopeUsesBDDoltliteStore(c.cityPath, c.cityPath) {
+		r.Status = StatusOK
+		r.Message = "not required (bd backend=doltlite)"
+		return r
+	}
 
 	target, err := contract.ResolveDoltConnectionTarget(fsys.OSFS{}, c.cityPath, c.cityPath)
 	if err != nil {
@@ -1152,6 +1194,11 @@ func (c *RigDoltServerCheck) Run(_ *CheckContext) *CheckResult {
 	rigPath := c.rig.Path
 	if !filepath.IsAbs(rigPath) {
 		rigPath = filepath.Join(c.cityPath, rigPath)
+	}
+	if scopeUsesBDDoltliteStore(c.cityPath, rigPath) {
+		r.Status = StatusOK
+		r.Message = "not required (bd backend=doltlite)"
+		return r
 	}
 	if err := contract.ValidateInheritedCityEndpointMirror(fsys.OSFS{}, c.cityPath, rigPath); err != nil {
 		r.Status = StatusError
@@ -2206,7 +2253,7 @@ func duDirBytes(root string) (int64, bool, error) {
 	if ctx.Err() == context.DeadlineExceeded {
 		total, exists, fallbackErr := boundedSumDirBytes(root)
 		if fallbackErr != nil {
-			return 0, true, fmt.Errorf("measure dolt data dir: du -sk timed out after %s; fallback walk: %w", doltDirMeasureTimeout, fallbackErr)
+			return 0, true, fmt.Errorf("measure directory: du -sk timed out after %s; fallback walk: %w", doltDirMeasureTimeout, fallbackErr)
 		}
 		return total, exists, nil
 	}
@@ -2214,16 +2261,16 @@ func duDirBytes(root string) (int64, bool, error) {
 		if errors.Is(err, exec.ErrNotFound) {
 			return boundedSumDirBytes(root)
 		}
-		return 0, true, fmt.Errorf("measure dolt data dir with du -sk: %w", err)
+		return 0, true, fmt.Errorf("measure directory with du -sk: %w", err)
 	}
 
 	fields := strings.Fields(string(out))
 	if len(fields) == 0 {
-		return 0, true, fmt.Errorf("measure dolt data dir with du -sk: empty output")
+		return 0, true, fmt.Errorf("measure directory with du -sk: empty output")
 	}
 	kb, err := strconv.ParseInt(fields[0], 10, 64)
 	if err != nil {
-		return 0, true, fmt.Errorf("measure dolt data dir with du -sk: parse %q: %w", fields[0], err)
+		return 0, true, fmt.Errorf("measure directory with du -sk: parse %q: %w", fields[0], err)
 	}
 	return kb * 1024, true, nil
 }
@@ -2387,19 +2434,54 @@ type DoltConfigExpectedValue struct {
 //
 // This is intentionally a contract subset, not a byte-for-byte mirror of
 // writeManagedDoltConfigFile in cmd/gc/cmd_dolt_config.go. It covers the keys
-// whose drift would change managed runtime behavior materially. Dynamic values
-// such as data_dir are checked by DoltConfigCheck because they depend on the
-// inspected city path.
+// whose drift would change managed runtime behavior materially. wait_timeout
+// follows the same GC_DOLT_WAIT_TIMEOUT environment override as config
+// generation. Dynamic values such as data_dir are checked by DoltConfigCheck
+// because they depend on the inspected city path.
 func DoltConfigExpectedValues() []DoltConfigExpectedValue {
-	return []DoltConfigExpectedValue{
-		{"behavior.auto_gc_behavior.enable", true},
-		{"behavior.auto_gc_behavior.archive_level", 0},
-		{"listener.read_timeout_millis", 300000},
-		{"listener.write_timeout_millis", 300000},
-		{"listener.max_connections", 1000},
+	return DoltConfigExpectedValuesForConfig(config.DoltConfig{})
+}
+
+// DoltConfigExpectedValuesForConfig returns the managed Dolt config contract
+// after applying city-level [dolt] overrides.
+func DoltConfigExpectedValuesForConfig(doltConfig config.DoltConfig) []DoltConfigExpectedValue {
+	values := []DoltConfigExpectedValue{
+		{"behavior.auto_gc_behavior.enable", doltConfig.EffectiveAutoGCEnabled()},
+		{"behavior.auto_gc_behavior.archive_level", doltConfig.EffectiveArchiveLevel()},
+		{"system_variables.dolt_auto_gc_enabled", doltConfig.AutoGCSysVar()},
+		{"system_variables.dolt_stats_enabled", "OFF"},
+		{"system_variables.dolt_stats_gc_enabled", "OFF"},
+		{"system_variables.dolt_stats_memory_only", "ON"},
+		{"system_variables.dolt_stats_paused", "ON"},
+		{"listener.read_timeout_millis", doltConfig.EffectiveReadTimeoutMillis()},
+		{"listener.write_timeout_millis", doltConfig.EffectiveWriteTimeoutMillis()},
+		{"listener.max_connections", doltConfig.EffectiveMaxConnections()},
 		{"listener.back_log", 50},
 		{"listener.max_connections_timeout_millis", 5000},
 	}
+	if waitTimeout := managedDoltConfigExpectedWaitTimeout(); waitTimeout > 0 {
+		values = append(values, DoltConfigExpectedValue{
+			Path:  "system_variables.wait_timeout",
+			Value: strconv.Itoa(waitTimeout),
+		})
+	}
+	return values
+}
+
+func managedDoltConfigExpectedWaitTimeout() int {
+	const defaultWaitTimeout = 30
+	raw := os.Getenv("GC_DOLT_WAIT_TIMEOUT")
+	if raw == "" {
+		return defaultWaitTimeout
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return defaultWaitTimeout
+	}
+	if n < 0 {
+		return 0
+	}
+	return n
 }
 
 // lookupYAMLPath walks a dotted key path through a decoded YAML map and
@@ -2446,6 +2528,7 @@ type DoltConfigCheck struct {
 	skip            bool
 	applicableKnown bool
 	applicable      bool
+	doltConfig      config.DoltConfig
 }
 
 // NewDoltConfigCheck creates a managed Dolt config drift check.
@@ -2455,11 +2538,16 @@ func NewDoltConfigCheck(cityPath string, skip bool) *DoltConfigCheck {
 
 // NewDoltConfigCheckForConfig creates a managed Dolt config drift check using preloaded city config.
 func NewDoltConfigCheckForConfig(cityPath string, skip bool, cfg *config.City, cfgErr error) *DoltConfigCheck {
+	var doltConfig config.DoltConfig
+	if cfg != nil {
+		doltConfig = cfg.Dolt
+	}
 	return &DoltConfigCheck{
 		cityPath:        cityPath,
 		skip:            skip,
 		applicableKnown: true,
 		applicable:      ManagedLocalDoltChecksApplicableForConfig(cityPath, cfg, cfgErr),
+		doltConfig:      doltConfig,
 	}
 }
 
@@ -2511,7 +2599,7 @@ func (c *DoltConfigCheck) Run(_ *CheckContext) *CheckResult {
 	}
 
 	var drifted []string
-	for _, exp := range DoltConfigExpectedValues() {
+	for _, exp := range DoltConfigExpectedValuesForConfig(c.doltConfig) {
 		got, present := lookupYAMLPath(doc, exp.Path)
 		if !present {
 			drifted = append(drifted, exp.Path+" (missing)")

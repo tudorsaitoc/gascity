@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestCORSPreflightFromLocalhostDashboard locks the contract the
@@ -34,7 +35,7 @@ func TestCORSPreflightFromLocalhostDashboard(t *testing.T) {
 			req := httptest.NewRequest(http.MethodOptions, tc.path, nil)
 			req.Header.Set("Origin", tc.origin)
 			req.Header.Set("Access-Control-Request-Method", tc.method)
-			req.Header.Set("Access-Control-Request-Headers", "Content-Type,X-GC-Request,Last-Event-ID")
+			req.Header.Set("Access-Control-Request-Headers", "Content-Type,X-GC-Request,X-GC-City-Write,Last-Event-ID")
 			rec := httptest.NewRecorder()
 
 			h.ServeHTTP(rec, req)
@@ -46,7 +47,7 @@ func TestCORSPreflightFromLocalhostDashboard(t *testing.T) {
 				t.Errorf("Allow-Origin = %q, want %q", got, tc.origin)
 			}
 			allowedHeaders := rec.Header().Get("Access-Control-Allow-Headers")
-			for _, want := range []string{"X-GC-Request", "Last-Event-ID", "Content-Type"} {
+			for _, want := range []string{"X-GC-Request", "X-GC-City-Write", "Last-Event-ID", "Content-Type"} {
 				if !strings.Contains(allowedHeaders, want) {
 					t.Errorf("Allow-Headers %q missing %q", allowedHeaders, want)
 				}
@@ -56,6 +57,36 @@ func TestCORSPreflightFromLocalhostDashboard(t *testing.T) {
 				if !strings.Contains(allowedMethods, want) {
 					t.Errorf("Allow-Methods %q missing %q", allowedMethods, want)
 				}
+			}
+		})
+	}
+}
+
+// TestCORSAllowsExtraOrigins verifies that WithAllowedOrigins extends CORS
+// acceptance to explicitly listed non-localhost origins.
+func TestCORSAllowsExtraOrigins(t *testing.T) {
+	state := newFakeState(t)
+	sm := NewSupervisorMux(&stateCityResolver{state: state}, nil, false, "test", "", time.Now())
+	sm.WithAllowedOrigins([]string{"http://192.168.1.10:8080"})
+	h := wrapTestSupervisorMiddleware(sm)
+
+	cases := []struct {
+		origin string
+		want   string
+	}{
+		{"http://192.168.1.10:8080", "http://192.168.1.10:8080"},
+		{"http://127.0.0.1:8080", "http://127.0.0.1:8080"},
+		{"http://192.168.1.99:8080", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.origin, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodOptions, "/v0/cities", nil)
+			req.Header.Set("Origin", tc.origin)
+			req.Header.Set("Access-Control-Request-Method", "GET")
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			if got := rec.Header().Get("Access-Control-Allow-Origin"); got != tc.want {
+				t.Errorf("origin %q: Allow-Origin = %q, want %q", tc.origin, got, tc.want)
 			}
 		})
 	}

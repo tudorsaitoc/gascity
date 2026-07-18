@@ -1157,15 +1157,14 @@ func TestApplyInlineExpansionsCrossExpansionDeps(t *testing.T) {
 	})
 }
 
-func TestApplyInlineExpansionsRejectsImplicitGraphContract(t *testing.T) {
+func TestApplyInlineExpansionsAllowsLegacyRetryTemplateWithoutRequirement(t *testing.T) {
 	enableV2ForTest(t)
 
 	tmpDir := t.TempDir()
 
 	expansion := `{
-		"formula": "inline-implicit-graph",
+		"formula": "inline-legacy-retry",
 		"type": "expansion",
-		"version": 2,
 		"template": [
 			{
 				"id": "{target}.attempt",
@@ -1174,33 +1173,32 @@ func TestApplyInlineExpansionsRejectsImplicitGraphContract(t *testing.T) {
 			}
 		]
 	}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "inline-implicit-graph.formula.json"), []byte(expansion), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "inline-legacy-retry.formula.json"), []byte(expansion), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	parser := NewParser(tmpDir)
 	steps := []*Step{
-		{ID: "work", Title: "Work", Expand: "inline-implicit-graph"},
+		{ID: "work", Title: "Work", Expand: "inline-legacy-retry"},
 	}
 
-	_, err := ApplyInlineExpansions(steps, parser)
-	if err == nil {
-		t.Fatal("ApplyInlineExpansions succeeded, want explicit graph contract error")
+	got, err := ApplyInlineExpansions(steps, parser)
+	if err != nil {
+		t.Fatalf("ApplyInlineExpansions: %v", err)
 	}
-	if !strings.Contains(err.Error(), `contract = "graph.v2"`) {
-		t.Fatalf("ApplyInlineExpansions error = %v, want graph.v2 contract guidance", err)
+	if len(got) != 1 || got[0].Retry == nil {
+		t.Fatalf("expanded steps = %+v, want retry template preserved", got)
 	}
 }
 
-func TestApplyExpansionsRejectsImplicitGraphContract(t *testing.T) {
+func TestApplyExpansionsAllowsLegacyRetryTemplateWithoutRequirement(t *testing.T) {
 	enableV2ForTest(t)
 
 	tmpDir := t.TempDir()
 
 	expansion := `{
-		"formula": "compose-implicit-graph",
+		"formula": "compose-legacy-retry",
 		"type": "expansion",
-		"version": 2,
 		"template": [
 			{
 				"id": "{target}.attempt",
@@ -1209,7 +1207,7 @@ func TestApplyExpansionsRejectsImplicitGraphContract(t *testing.T) {
 			}
 		]
 	}`
-	if err := os.WriteFile(filepath.Join(tmpDir, "compose-implicit-graph.formula.json"), []byte(expansion), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "compose-legacy-retry.formula.json"), []byte(expansion), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1219,16 +1217,16 @@ func TestApplyExpansionsRejectsImplicitGraphContract(t *testing.T) {
 	}
 	compose := &ComposeRules{
 		Expand: []*ExpandRule{
-			{Target: "work", With: "compose-implicit-graph"},
+			{Target: "work", With: "compose-legacy-retry"},
 		},
 	}
 
-	_, err := ApplyExpansions(steps, compose, parser)
-	if err == nil {
-		t.Fatal("ApplyExpansions succeeded, want explicit graph contract error")
+	got, err := ApplyExpansions(steps, compose, parser)
+	if err != nil {
+		t.Fatalf("ApplyExpansions: %v", err)
 	}
-	if !strings.Contains(err.Error(), `contract = "graph.v2"`) {
-		t.Fatalf("ApplyExpansions error = %v, want graph.v2 contract guidance", err)
+	if len(got) != 1 || got[0].Retry == nil {
+		t.Fatalf("expanded steps = %+v, want retry template preserved", got)
 	}
 }
 
@@ -1429,6 +1427,52 @@ func TestApplyInlineExpansionsWithVarsAllowsConditionallyExclusiveDuplicateTempl
 	}
 	if got := result[0].Condition; got != "" {
 		t.Fatalf("result[0].Condition = %q, want empty after materialization", got)
+	}
+}
+
+func TestApplyInlineExpansionsWithVarsResolvesForwardedParentVarOverrides(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	expansion := `{
+		"formula": "inline-route-target",
+		"type": "expansion",
+		"version": 1,
+		"vars": {
+			"implementation_run_target": {"default": "default-worker"}
+		},
+		"template": [
+			{
+				"id": "{target}.fix",
+				"title": "Fix",
+				"metadata": {"gc.run_target": "{implementation_run_target}"}
+			}
+		]
+	}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "inline-route-target.formula.json"), []byte(expansion), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	parser := NewParser(tmpDir)
+	steps := []*Step{
+		{
+			ID:     "review",
+			Title:  "Review",
+			Expand: "inline-route-target",
+			ExpandVars: map[string]string{
+				"implementation_run_target": "{{worker_target}}",
+			},
+		},
+	}
+
+	result, err := ApplyInlineExpansionsWithVars(steps, parser, map[string]string{"worker_target": "custom-worker"})
+	if err != nil {
+		t.Fatalf("ApplyInlineExpansionsWithVars failed: %v", err)
+	}
+	if len(result) != 1 {
+		t.Fatalf("len(result) = %d, want 1", len(result))
+	}
+	if got := result[0].Metadata["gc.run_target"]; got != "custom-worker" {
+		t.Fatalf("gc.run_target = %q, want custom-worker", got)
 	}
 }
 

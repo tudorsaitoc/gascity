@@ -12,14 +12,16 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/session"
 	helpers "github.com/gastownhall/gascity/test/acceptance/helpers"
 )
 
 func TestSessionErrors(t *testing.T) {
 	c := helpers.NewCity(t, testEnv)
-	c.Init("claude")
+	c.InitNoStart("claude")
 
 	t.Run("NoSubcommand", func(t *testing.T) {
 		out, err := c.GC("session")
@@ -96,6 +98,17 @@ func TestSessionDefaultNamedSession(t *testing.T) {
 	c := helpers.NewCity(t, testEnv)
 	c.Init("claude")
 
+	// The default named session (mayor) is created asynchronously by the
+	// reconciler. Poll until it appears before running subtests to avoid a
+	// race on slow or CPU-saturated runners.
+	if !c.WaitForCondition(func() bool {
+		out, err := c.GC("session", "list")
+		return err == nil && strings.Contains(out, "mayor")
+	}, 30*time.Second) {
+		out, _ := c.GC("session", "list")
+		t.Fatalf("timed out waiting for default named session (mayor) to appear:\n%s", out)
+	}
+
 	t.Run("List_DefaultNamedSession", func(t *testing.T) {
 		out, err := c.GC("session", "list")
 		if err != nil {
@@ -104,10 +117,14 @@ func TestSessionDefaultNamedSession(t *testing.T) {
 		if strings.Contains(out, "No sessions found") {
 			t.Errorf("expected default named session on fresh city, got:\n%s", out)
 		}
-		for _, want := range []string{"mayor", "creating"} {
-			if !strings.Contains(out, want) {
-				t.Errorf("expected %q in default named session list, got:\n%s", want, out)
-			}
+		if !strings.Contains(out, "mayor") {
+			t.Errorf("expected default named session in list, got:\n%s", out)
+		}
+		if !strings.Contains(out, string(session.StateCreating)) &&
+			!strings.Contains(out, string(session.StateActive)) &&
+			!strings.Contains(out, string(session.StateAwake)) &&
+			!strings.Contains(out, string(session.StateAsleep)) {
+			t.Errorf("expected materialized default named session state in list, got:\n%s", out)
 		}
 	})
 
@@ -116,18 +133,59 @@ func TestSessionDefaultNamedSession(t *testing.T) {
 		if err != nil {
 			t.Fatalf("gc session list --json: %v\n%s", err, out)
 		}
-		var got []session.Info
+		var got struct {
+			Sessions []struct {
+				Template string        `json:"template"`
+				State    session.State `json:"state"`
+			} `json:"sessions"`
+		}
 		if err := json.Unmarshal([]byte(out), &got); err != nil {
-			t.Fatalf("gc session list --json output is not a session array: %v\n%s", err, out)
+			t.Fatalf("gc session list --json output is not a session list envelope: %v\n%s", err, out)
 		}
-		if len(got) != 1 {
-			t.Fatalf("session count = %d, want 1 default named session\n%s", len(got), out)
+		var mayorSeen bool
+		for _, sess := range got.Sessions {
+			if sess.Template == "mayor" {
+				mayorSeen = true
+			}
 		}
-		if got[0].Template != "mayor" {
-			t.Errorf("template = %q, want mayor\n%s", got[0].Template, out)
+		if !mayorSeen {
+			t.Fatalf("default mayor named session missing\n%s", out)
 		}
-		if got[0].State != session.StateCreating {
-			t.Errorf("state = %q, want creating\n%s", got[0].State, out)
+		for _, sess := range got.Sessions {
+			switch sess.State {
+			case session.StateCreating, session.StateActive, session.StateAwake, session.StateAsleep:
+			default:
+				t.Errorf("session %q state = %q, want materialized lifecycle state\n%s", sess.Template, sess.State, out)
+			}
+		}
+	})
+
+	t.Run("Config_JSON_NoDefaultControlDispatcherNamedSession", func(t *testing.T) {
+		out, err := c.GC("config", "show", "--json")
+		if err != nil {
+			t.Fatalf("gc config show --json: %v\n%s", err, out)
+		}
+		var got struct {
+			Config struct {
+				NamedSessions []struct {
+					Name     string
+					Template string
+					Mode     string
+				}
+			}
+		}
+		if err := json.Unmarshal([]byte(out), &got); err != nil {
+			t.Fatalf("gc config show --json output is not a config envelope: %v\n%s", err, out)
+		}
+		// The control dispatcher serves via demand-scaling of the core-pack
+		// agent template (openControlDispatcherDemand), so gc init no longer
+		// injects a redundant on_demand named session for it -- that only
+		// produced a confusing "backing template not found ... disabled"
+		// warning on upgraded cities. Assert it is NOT auto-created.
+		for _, sess := range got.Config.NamedSessions {
+			if sess.Name == config.ControlDispatcherAgentName {
+				t.Fatalf("gc init should not create a control-dispatcher named session (redundant with demand-scaling); found %+v\n%s", sess, out)
+			}
 		}
 	})
 

@@ -16,6 +16,7 @@ import (
 	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/runtime"
 	sessionpkg "github.com/gastownhall/gascity/internal/session"
+	"github.com/gastownhall/gascity/internal/session/sessiontest"
 )
 
 // TestSessionLifecycleChaos keeps the default package run bounded and
@@ -24,6 +25,171 @@ import (
 // GC_SESSION_CHAOS_NIGHTLY=1 for a longer bounded preset.
 func TestSessionLifecycleChaos(t *testing.T) {
 	runSessionLifecycleChaos(t, sessionChaosOptions{})
+}
+
+func TestSessionLifecycleChaosInvariantsAllowFailedCreatePendingClaim(t *testing.T) {
+	h := newSessionChaosHarness(t, 20260510)
+	h.createSessionIntent()
+	b := h.mustBead()
+	if err := h.env.store.SetMetadataBatch(b.ID, map[string]string{
+		"state":                string(sessionpkg.StateFailedCreate),
+		"pending_create_claim": "true",
+	}); err != nil {
+		t.Fatalf("SetMetadataBatch(failed-create): %v", err)
+	}
+
+	h.assertInvariants()
+}
+
+func TestReconciler_RollsBackExpiredPendingCreateForConfiguredNamedSession(t *testing.T) {
+	h := newSessionChaosHarness(t, 20260508)
+	h.createSessionIntent()
+	h.assertCreatingIntent()
+
+	markConfiguredNamedPendingCreate(t, h, map[string]string{
+		"pending_create_started_at": h.env.clk.Now().Add(-pendingCreateNeverStartedTimeout - time.Minute).UTC().Format(time.RFC3339),
+	})
+	h.setDesired(false)
+	h.reconcileTick()
+
+	got, err := h.env.store.Get(h.sessionID)
+	if err != nil {
+		t.Fatalf("store.Get(%s): %v", h.sessionID, err)
+	}
+	if got.Status != "closed" {
+		t.Fatalf("status = %q, want closed after stale pending create rollback", got.Status)
+	}
+	if got.Metadata["state"] != "failed-create" {
+		t.Fatalf("state = %q, want failed-create", got.Metadata["state"])
+	}
+	if got.Metadata["pending_create_claim"] != "" {
+		t.Fatalf("pending_create_claim = %q, want cleared", got.Metadata["pending_create_claim"])
+	}
+	if got.Metadata["pending_create_started_at"] != "" {
+		t.Fatalf("pending_create_started_at = %q, want cleared", got.Metadata["pending_create_started_at"])
+	}
+}
+
+func TestReconciler_DefersStalePendingCreateRollbackWhenProviderAlive(t *testing.T) {
+	h := newSessionChaosHarness(t, 20260515)
+	h.createSessionIntent()
+	h.assertCreatingIntent()
+
+	markConfiguredNamedPendingCreate(t, h, map[string]string{
+		"pending_create_started_at": h.env.clk.Now().Add(-pendingCreateNeverStartedTimeout - time.Minute).UTC().Format(time.RFC3339),
+	})
+	if err := h.env.sp.Start(context.Background(), h.sessionName, runtime.Config{Command: h.command}); err != nil {
+		t.Fatalf("Start(%s): %v", h.sessionName, err)
+	}
+	h.setDesired(false)
+	h.reconcileTickWithoutPostInvariants(false)
+
+	got, err := h.env.store.Get(h.sessionID)
+	if err != nil {
+		t.Fatalf("store.Get(%s): %v", h.sessionID, err)
+	}
+	if got.Status == "closed" {
+		t.Fatalf("status = closed, want rollback deferred while provider is live")
+	}
+	if got.Metadata["pending_create_claim"] == "" {
+		t.Fatal("pending_create_claim was cleared, want preserved while provider is live")
+	}
+	if !h.env.sp.IsRunning(h.sessionName) {
+		t.Fatalf("runtime %q stopped, want still running", h.sessionName)
+	}
+}
+
+func TestReconciler_DefersStalePendingCreateRollbackForFreshLease(t *testing.T) {
+	h := newSessionChaosHarness(t, 20260516)
+	h.createSessionIntent()
+	h.assertCreatingIntent()
+
+	markConfiguredNamedPendingCreate(t, h, map[string]string{
+		"pending_create_started_at": h.env.clk.Now().UTC().Format(time.RFC3339),
+	})
+	h.setDesired(false)
+	h.reconcileTick()
+
+	got, err := h.env.store.Get(h.sessionID)
+	if err != nil {
+		t.Fatalf("store.Get(%s): %v", h.sessionID, err)
+	}
+	if got.Status == "closed" {
+		t.Fatalf("status = closed, want rollback deferred for fresh pending-create lease")
+	}
+	if got.Metadata["pending_create_claim"] == "" {
+		t.Fatal("pending_create_claim was cleared, want preserved for fresh pending-create lease")
+	}
+}
+
+func TestReconciler_DefersStalePendingCreateRollbackForRateLimit(t *testing.T) {
+	h := newSessionChaosHarness(t, 20260517)
+	h.createSessionIntent()
+	h.assertCreatingIntent()
+
+	stale := h.env.clk.Now().Add(-staleCreatingStateTimeout - time.Minute).UTC().Format(time.RFC3339)
+	markConfiguredNamedPendingCreate(t, h, map[string]string{
+		"last_woke_at":              stale,
+		"pending_create_started_at": stale,
+	})
+	h.env.sp.SetPeekOutput(h.sessionName, "You've hit your limit, Pro plan\n\n/rate-limit-options")
+	h.setDesired(false)
+	h.reconcileTick()
+
+	got, err := h.env.store.Get(h.sessionID)
+	if err != nil {
+		t.Fatalf("store.Get(%s): %v", h.sessionID, err)
+	}
+	if got.Status == "closed" {
+		t.Fatalf("status = closed, want rollback deferred for rate-limit screen")
+	}
+	if got.Metadata["sleep_reason"] != "rate_limit" {
+		t.Fatalf("sleep_reason = %q, want rate_limit", got.Metadata["sleep_reason"])
+	}
+}
+
+func TestReconciler_DefersStalePendingCreateRollbackWhenStoreQueryPartial(t *testing.T) {
+	h := newSessionChaosHarness(t, 20260514)
+	h.createSessionIntent()
+	h.assertCreatingIntent()
+
+	markConfiguredNamedPendingCreate(t, h, map[string]string{
+		"pending_create_started_at": h.env.clk.Now().Add(-pendingCreateNeverStartedTimeout - time.Minute).UTC().Format(time.RFC3339),
+	})
+	h.setDesired(false)
+	h.reconcileTickWithoutPostInvariants(true)
+
+	got, err := h.env.store.Get(h.sessionID)
+	if err != nil {
+		t.Fatalf("store.Get(%s): %v", h.sessionID, err)
+	}
+	if got.Status == "closed" {
+		t.Fatalf("status = closed, want rollback deferred when store query is partial")
+	}
+	if got.Metadata["pending_create_claim"] == "" {
+		t.Fatal("pending_create_claim was cleared, want preserved when store query is partial")
+	}
+}
+
+func markConfiguredNamedPendingCreate(t *testing.T, h *sessionChaosHarness, metadata map[string]string) {
+	t.Helper()
+	const identity = "chaos-worker"
+	h.env.cfg.NamedSessions = []config.NamedSession{{
+		Name:     identity,
+		Template: h.template,
+	}}
+	batch := map[string]string{
+		"alias":                      identity,
+		namedSessionMetadataKey:      "true",
+		namedSessionIdentityMetadata: identity,
+		namedSessionModeMetadata:     "on_demand",
+	}
+	for key, value := range metadata {
+		batch[key] = value
+	}
+	if err := h.env.store.SetMetadataBatch(h.sessionID, batch); err != nil {
+		t.Fatalf("mark named pending create: %v", err)
+	}
 }
 
 func TestSessionLifecycleChaosPendingInteractionDoesNotOverrideOrphanDrain(t *testing.T) {
@@ -85,7 +251,7 @@ func TestSessionLifecycleChaosPendingInteractionCancelsExistingCancelableDrain(t
 	h.reconcileTick()
 	h.assertStarted()
 
-	beginSessionDrain(h.mustBead(), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
+	beginSessionDrainInfo(sessiontest.SeedBead(h.t, h.mustBead()), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
 	if ds := h.env.dt.get(h.sessionID); ds == nil || ds.reason != "idle" {
 		h.failf("expected idle drain before pending interaction, got %+v", ds)
 	}
@@ -116,7 +282,7 @@ func TestSessionLifecycleChaosPendingInteractionPreservesExplicitDrainRequest(t 
 	h.reconcileTick()
 	h.assertStarted()
 
-	beginSessionDrain(h.mustBead(), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
+	beginSessionDrainInfo(sessiontest.SeedBead(h.t, h.mustBead()), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
 	if err := h.env.sp.SetMeta(h.sessionName, "GC_DRAIN", "manual"); err != nil {
 		h.failf("set explicit GC_DRAIN: %v", err)
 	}
@@ -143,7 +309,7 @@ func TestSessionLifecycleChaosPendingInteractionClearsReconcilerDrainAckBeforeSt
 	h.reconcileTick()
 	h.assertStarted()
 
-	beginSessionDrain(h.mustBead(), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
+	beginSessionDrainInfo(sessiontest.SeedBead(h.t, h.mustBead()), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
 	ds := h.env.dt.get(h.sessionID)
 	if ds == nil {
 		h.failf("expected idle drain before pending interaction")
@@ -182,7 +348,7 @@ func TestSessionLifecycleChaosPendingInteractionClearsRecoveredReconcilerDrainAc
 	h.reconcileTick()
 	h.assertStarted()
 
-	beginSessionDrain(h.mustBead(), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
+	beginSessionDrainInfo(sessiontest.SeedBead(h.t, h.mustBead()), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
 	ds := h.env.dt.get(h.sessionID)
 	if ds == nil {
 		h.failf("expected idle drain before pending interaction")
@@ -218,7 +384,7 @@ func TestSessionLifecycleChaosClearsStaleRecoveredReconcilerDrainAck(t *testing.
 	h.reconcileTick()
 	h.assertStarted()
 
-	beginSessionDrain(h.mustBead(), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
+	beginSessionDrainInfo(sessiontest.SeedBead(h.t, h.mustBead()), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
 	ds := h.env.dt.get(h.sessionID)
 	if ds == nil {
 		h.failf("expected idle drain before stale ack setup")
@@ -290,8 +456,10 @@ func TestSessionLifecycleChaosPendingInteractionDoesNotCancelAgentDrainAck(t *te
 	h.record("pending interaction after agent drain ack")
 	h.reconcileTickWithDrainOps()
 
+	h.assertDrainAckStopPending()
+	h.finalizeAsyncDrainAckStop()
 	if h.env.sp.IsRunning(h.sessionName) {
-		h.failf("pending interaction canceled agent-authored drain ack for %q", h.sessionName)
+		h.failf("agent-authored drain ack left runtime %q running after async stop", h.sessionName)
 	}
 }
 
@@ -302,7 +470,7 @@ func TestSessionLifecycleChaosAgentDrainAckClearsRecoveredReconcilerProvenance(t
 	h.reconcileTick()
 	h.assertStarted()
 
-	beginSessionDrain(h.mustBead(), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
+	beginSessionDrainInfo(sessiontest.SeedBead(h.t, h.mustBead()), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
 	ds := h.env.dt.get(h.sessionID)
 	if ds == nil {
 		h.failf("expected idle drain before agent drain ack")
@@ -326,8 +494,10 @@ func TestSessionLifecycleChaosAgentDrainAckClearsRecoveredReconcilerProvenance(t
 	h.record("pending interaction after agent drain ack overwrote provenance")
 	h.reconcileTickWithDrainOps()
 
+	h.assertDrainAckStopPending()
+	h.finalizeAsyncDrainAckStop()
 	if h.env.sp.IsRunning(h.sessionName) {
-		h.failf("pending interaction canceled agent-authored drain ack after provenance overwrite for %q", h.sessionName)
+		h.failf("agent-authored drain ack after provenance overwrite left runtime %q running after async stop", h.sessionName)
 	}
 }
 
@@ -338,7 +508,7 @@ func TestSessionLifecycleChaosAgentDrainAckClearsLiveControllerDrain(t *testing.
 	h.reconcileTick()
 	h.assertStarted()
 
-	beginSessionDrain(h.mustBead(), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
+	beginSessionDrainInfo(sessiontest.SeedBead(h.t, h.mustBead()), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
 	ds := h.env.dt.get(h.sessionID)
 	if ds == nil {
 		h.failf("expected idle drain before agent drain ack")
@@ -354,9 +524,11 @@ func TestSessionLifecycleChaosAgentDrainAckClearsLiveControllerDrain(t *testing.
 	h.record("agent drain ack while controller drain remains in memory")
 	h.reconcileTickWithDrainOps()
 
-	if h.env.sp.IsRunning(h.sessionName) {
-		h.failf("agent-authored drain ack left runtime %q running", h.sessionName)
+	h.assertDrainAckStopPending()
+	if ds := h.env.dt.get(h.sessionID); ds != nil {
+		h.failf("agent-authored drain ack left controller drain active while stop pending: %+v", *ds)
 	}
+	h.finalizeAsyncDrainAckStop()
 	if ds := h.env.dt.get(h.sessionID); ds != nil {
 		h.failf("agent-authored drain ack left controller drain active: %+v", *ds)
 	}
@@ -373,7 +545,7 @@ func TestSessionLifecycleChaosAgentDrainAckStopFailurePreservesRetry(t *testing.
 	h.reconcileTick()
 	h.assertStarted()
 
-	beginSessionDrain(h.mustBead(), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
+	beginSessionDrainInfo(sessiontest.SeedBead(h.t, h.mustBead()), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
 	ds := h.env.dt.get(h.sessionID)
 	if ds == nil {
 		h.failf("expected idle drain before agent drain ack")
@@ -387,8 +559,10 @@ func TestSessionLifecycleChaosAgentDrainAckStopFailurePreservesRetry(t *testing.
 	}
 	h.env.sp.StopErrors[h.sessionName] = errors.New("chaos stop failure")
 
+	stopsBefore := h.countRuntimeCalls("Stop")
 	h.record("agent drain ack with transient stop failure")
 	h.reconcileTickWithDrainOps()
+	h.waitForRuntimeCallCount("Stop", stopsBefore+1)
 
 	if !h.env.sp.IsRunning(h.sessionName) {
 		h.failf("stop failure removed runtime %q", h.sessionName)
@@ -399,10 +573,14 @@ func TestSessionLifecycleChaosAgentDrainAckStopFailurePreservesRetry(t *testing.
 	if ds := h.env.dt.get(h.sessionID); ds != nil {
 		h.failf("stop failure left cancelable controller drain active after agent ack: %+v", *ds)
 	}
+	h.assertDrainAckStopPending()
 
 	delete(h.env.sp.StopErrors, h.sessionName)
+	stopsBefore = h.countRuntimeCalls("Stop")
 	h.record("agent drain ack retry after stop recovers")
 	h.reconcileTickWithDrainOps()
+	h.waitForRuntimeCallCount("Stop", stopsBefore+1)
+	h.finalizeAsyncDrainAckStop()
 
 	if h.env.sp.IsRunning(h.sessionName) {
 		h.failf("retried agent drain ack left runtime %q running", h.sessionName)
@@ -474,7 +652,7 @@ func TestSessionLifecycleChaosPendingInteractionCancelsExistingConfigDriftDrain(
 	h.reconcileTick()
 	h.assertStarted()
 
-	beginSessionDrain(h.mustBead(), h.env.sp, h.env.dt, "config-drift", h.env.clk, defaultDrainTimeout)
+	beginSessionDrainInfo(sessiontest.SeedBead(h.t, h.mustBead()), h.env.sp, h.env.dt, "config-drift", h.env.clk, defaultDrainTimeout)
 	if ds := h.env.dt.get(h.sessionID); ds == nil || ds.reason != "config-drift" {
 		h.failf("expected config-drift drain before pending interaction, got %+v", ds)
 	}
@@ -552,7 +730,7 @@ func TestSessionLifecycleChaosPendingInteractionCancelsExistingDrainBeforeIdleTi
 	h.reconcileTick()
 	h.assertStarted()
 
-	beginSessionDrain(h.mustBead(), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
+	beginSessionDrainInfo(sessiontest.SeedBead(h.t, h.mustBead()), h.env.sp, h.env.dt, "idle", h.env.clk, defaultDrainTimeout)
 	if ds := h.env.dt.get(h.sessionID); ds == nil || ds.reason != "idle" {
 		h.failf("expected idle drain before idle timeout, got %+v", ds)
 	}
@@ -829,7 +1007,7 @@ func newSessionChaosHarness(t *testing.T, seed int64) *sessionChaosHarness {
 	return &sessionChaosHarness{
 		t:        t,
 		env:      env,
-		manager:  sessionpkg.NewManager(env.store, env.sp),
+		manager:  sessionpkg.NewManagerWithOptions(env.store, env.sp),
 		rng:      rand.New(rand.NewSource(seed)), //nolint:gosec // deterministic test chaos, not security-sensitive.
 		seed:     seed,
 		template: template,
@@ -841,16 +1019,7 @@ func (h *sessionChaosHarness) createSessionIntent() {
 	if h.sessionID != "" {
 		return
 	}
-	info, err := h.manager.CreateBeadOnly(
-		h.template,
-		"Chaos worker",
-		h.command,
-		"",
-		"fake",
-		"",
-		nil,
-		sessionpkg.ProviderResume{},
-	)
+	info, err := h.manager.CreateSession(context.Background(), sessionpkg.CreateOptions{BeadOnly: true, Template: h.template, Title: "Chaos worker", Command: h.command, WorkDir: "", Provider: "fake", Transport: "", Resume: sessionpkg.ProviderResume{}})
 	if err != nil {
 		h.failf("CreateBeadOnly: %v", err)
 	}
@@ -894,6 +1063,25 @@ func (h *sessionChaosHarness) reconcileTick() {
 	woken := h.env.reconcile(sessions)
 	h.record("reconcile open=%d woken=%d", len(sessions), woken)
 	h.assertPostReconcileInvariants()
+}
+
+func (h *sessionChaosHarness) reconcileTickWithoutPostInvariants(storeQueryPartial bool) {
+	sessions, err := loadSessionBeads(h.env.store)
+	if err != nil {
+		h.failf("loadSessionBeads: %v", err)
+	}
+	poolDesired := make(map[string]int)
+	for _, tp := range h.env.desiredState {
+		if tp.TemplateName != "" {
+			poolDesired[tp.TemplateName]++
+		}
+	}
+	woken := reconcileSessionBeads(
+		context.Background(), sessions, h.env.desiredState, configuredSessionNames(h.env.cfg, "", h.env.store),
+		h.env.cfg, h.env.sp, h.env.store, nil, nil, nil, h.env.dt, poolDesired, storeQueryPartial, nil, "",
+		nil, h.env.clk, h.env.rec, 0, 0, &h.env.stdout, &h.env.stderr,
+	)
+	h.record("reconcile open=%d woken=%d", len(sessions), woken)
 }
 
 func (h *sessionChaosHarness) reconcileTickWithIdle(it idleTracker) {
@@ -958,8 +1146,8 @@ func (h *sessionChaosHarness) reconcileTickWithReadyWait(readyWaitSet map[string
 
 func (h *sessionChaosHarness) assertCreatingIntent() {
 	b := h.mustBead()
-	if got := b.Metadata["state"]; got != string(sessionpkg.StateCreating) {
-		h.failf("new intent state = %q, want creating", got)
+	if got := b.Metadata["state"]; got != string(sessionpkg.StateStartPending) {
+		h.failf("new intent state = %q, want start-pending", got)
 	}
 	if got := b.Metadata["pending_create_claim"]; got != "true" {
 		h.failf("new intent pending_create_claim = %q, want true", got)
@@ -1153,7 +1341,7 @@ func (h *sessionChaosHarness) wakeSession() {
 	if !ok || b.Status == "closed" {
 		return
 	}
-	if _, err := sessionpkg.WakeSession(h.env.store, b, h.env.clk.Now().UTC()); err != nil {
+	if _, err := sessionpkg.NewStore(beads.SessionStore{Store: h.env.store}).WakeSession(b.ID, h.env.clk.Now().UTC(), sessionpkg.WakeOpts{}); err != nil {
 		h.record("wake skipped: %v", err)
 		return
 	}
@@ -1189,11 +1377,9 @@ func (h *sessionChaosHarness) reactivateSession() {
 	if !ok || b.Status == "closed" {
 		return
 	}
-	view := sessionpkg.ProjectLifecycle(sessionpkg.LifecycleInput{
-		Status:   b.Status,
-		Metadata: b.Metadata,
-		Now:      h.env.clk.Now(),
-	})
+	lcInput := sessionpkg.LifecycleInputFromMetadata(b.Status, b.Metadata)
+	lcInput.Now = h.env.clk.Now()
+	view := sessionpkg.ProjectLifecycle(lcInput)
 	switch view.BaseState {
 	case sessionpkg.BaseStateArchived, sessionpkg.BaseStateQuarantined:
 	default:
@@ -1216,11 +1402,9 @@ func (h *sessionChaosHarness) injectStartFailure() {
 		h.record("start-failure skipped: wake conflict state=%s", state)
 		return
 	}
-	view := sessionpkg.ProjectLifecycle(sessionpkg.LifecycleInput{
-		Status:   b.Status,
-		Metadata: b.Metadata,
-		Now:      h.env.clk.Now(),
-	})
+	lcInput := sessionpkg.LifecycleInputFromMetadata(b.Status, b.Metadata)
+	lcInput.Now = h.env.clk.Now()
+	view := sessionpkg.ProjectLifecycle(lcInput)
 	switch view.BaseState {
 	case sessionpkg.BaseStateActive, sessionpkg.BaseStateAsleep, sessionpkg.BaseStateStopped:
 	default:
@@ -1321,7 +1505,10 @@ func (h *sessionChaosHarness) assertInvariants() {
 	if state == string(sessionpkg.StateArchived) && b.Metadata["continuity_eligible"] != "true" && running {
 		h.failf("continuity-ineligible archive still running runtime %q", runtimeName)
 	}
-	if b.Status != "closed" && strings.TrimSpace(b.Metadata["pending_create_claim"]) == "true" && state != string(sessionpkg.StateCreating) {
+	if b.Status != "closed" &&
+		strings.TrimSpace(b.Metadata["pending_create_claim"]) == "true" &&
+		state != string(sessionpkg.StateCreating) &&
+		state != string(sessionpkg.StateFailedCreate) {
 		h.failf("pending_create_claim=true with state=%q", state)
 	}
 }
@@ -1338,7 +1525,7 @@ func (h *sessionChaosHarness) assertPostReconcileInvariants() {
 	if runtimeName == "" {
 		return
 	}
-	if pendingInteractionKeepsAwake(b, h.env.sp, runtimeName, h.env.clk) {
+	if pendingInteractionKeepsAwakeInfo(sessiontest.SeedBead(h.t, b), h.env.sp, runtimeName, h.env.clk) {
 		if ds := h.env.dt.get(b.ID); ds != nil {
 			if !drainReasonCancelable(ds.reason) {
 				return
@@ -1358,6 +1545,7 @@ func knownChaosLifecycleState(state string) bool {
 		sessionpkg.BaseStateDraining,
 		sessionpkg.BaseStateDrained,
 		sessionpkg.BaseStateArchived,
+		sessionpkg.BaseStateFailedCreate,
 		sessionpkg.BaseStateOrphaned,
 		sessionpkg.BaseStateClosed,
 		sessionpkg.BaseStateClosing,
@@ -1428,13 +1616,36 @@ func (h *sessionChaosHarness) record(format string, args ...any) {
 }
 
 func (h *sessionChaosHarness) countRuntimeCalls(method string) int {
-	count := 0
-	for _, call := range h.env.sp.Calls {
-		if call.Method == method && call.Name == h.sessionName {
-			count++
+	return h.env.sp.CountCalls(method, h.sessionName)
+}
+
+func (h *sessionChaosHarness) waitForRuntimeCallCount(method string, want int) {
+	h.t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if got := h.countRuntimeCalls(method); got >= want {
+			return
 		}
+		time.Sleep(10 * time.Millisecond)
 	}
-	return count
+	h.failf("%s calls for %q = %d, want at least %d", method, h.sessionName, h.countRuntimeCalls(method), want)
+}
+
+func (h *sessionChaosHarness) assertDrainAckStopPending() {
+	h.t.Helper()
+	b := h.mustBead()
+	if got := b.Metadata["state"]; got != string(sessionpkg.StateDraining) {
+		h.failf("state = %q, want %q while drain ack stop is pending", got, sessionpkg.StateDraining)
+	}
+	if got := b.Metadata["state_reason"]; got != sessionpkg.DrainAckStopPendingReason {
+		h.failf("state_reason = %q, want %q", got, sessionpkg.DrainAckStopPendingReason)
+	}
+}
+
+func (h *sessionChaosHarness) finalizeAsyncDrainAckStop() {
+	h.t.Helper()
+	waitForProviderStopped(h.t, h.env.sp, h.sessionName)
+	h.reconcileTickWithDrainOps()
 }
 
 func (h *sessionChaosHarness) failf(format string, args ...any) {

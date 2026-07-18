@@ -3,13 +3,17 @@
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
-  echo "usage: $0 <packages|packages-core-N-of-M|packages-cmd-gc-N-of-M|packages-runtime-tmux-N-of-M|review-formulas|review-formulas-basic[-N-of-M]|review-formulas-retries[-N-of-M]|review-formulas-recovery|bdstore|rest|rest-smoke[-N-of-M]|rest-full[-N-of-M]|all>" >&2
+  echo "usage: $0 <packages|packages-core-N-of-M|packages-cmd-gc-integration|packages-cmd-gc-N-of-M|packages-runtime-tmux-N-of-M|review-formulas|review-formulas-basic[-N-of-M]|review-formulas-retries[-N-of-M]|review-formulas-recovery|bdstore|rest|rest-smoke[-N-of-M]|rest-full[-N-of-M]|all>" >&2
   exit 1
 fi
 
 shard="$1"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
+source "$repo_root/scripts/lib/common.sh"
+# shellcheck source=lib/test-slice.sh
+source "$repo_root/scripts/lib/test-slice.sh"
+gc_test_slice_reexec "$repo_root/scripts/test-integration-shard" "$@"
 
 timeout="${GO_TEST_TIMEOUT:-30m}"
 pkg="./test/integration"
@@ -19,6 +23,15 @@ gocache_val="$(go env GOCACHE)"
 gomodcache_val="$(go env GOMODCACHE)"
 gotmpdir_val="$(go env GOTMPDIR)"
 goroot_val="$(go env GOROOT)"
+
+# Mirror the Makefile's CGO path detection here so tests run via this script
+# see the same system dependency paths as `make`.
+cgo_cppflags="${CGO_CPPFLAGS:-}"
+cgo_ldflags="${CGO_LDFLAGS:-}"
+configure_cgo_platform_paths
+# Export so child scripts (e.g. test-go-test-shard) inherit the detected paths.
+export CGO_CPPFLAGS="${cgo_cppflags}"
+export CGO_LDFLAGS="${cgo_ldflags}"
 
 run_go_test() {
   env -i \
@@ -47,7 +60,10 @@ run_go_test() {
     GOINSECURE="${GOINSECURE-}" \
     GOVCS="${GOVCS-}" \
     GOWORK="${GOWORK-}" \
+    GC_BEADS="${GC_BEADS-}" \
     GC_FAST_UNIT=0 \
+    CGO_CPPFLAGS="${cgo_cppflags}" \
+    CGO_LDFLAGS="${cgo_ldflags}" \
     go test "$@"
 }
 
@@ -83,6 +99,16 @@ rest_smoke_tests=(
   TestGastown_ControllerStartStop
   TestGastown_PipelineHumanToWorker
   TestGraphWorkflowSuccessPath
+)
+
+# These are the top-level tests contributed only when cmd/gc is built with the
+# integration tag. Keep this manifest exact: validate_cmd_gc_integration_tests
+# compares it with Go's tagged and untagged discovery before executing it.
+cmd_gc_integration_tests=(
+  TestControllerDiscoversAddedCronOrderWithoutRestart
+  TestManagedBdRigProviderStoreRecoversAfterHardKillPortRebind
+  TestPhase2HookEnabledClaudeLaunchPromptDeliveryProof
+  TestPhase2WorkerCoreRealTransportProof
 )
 
 join_regex() {
@@ -147,6 +173,61 @@ validate_modulo_shard() {
 
 list_integration_tests() {
   run_go_test -tags integration -list '^Test' "$pkg" | grep '^Test'
+}
+
+list_package_tests() {
+  local test_pkg="$1"
+  shift
+  local output line found
+
+  if ! output="$(run_go_test "$@" -list '^Test' "$test_pkg" 2>&1)"; then
+    echo "go test -list failed for ${test_pkg}; output:" >&2
+    printf '%s\n' "$output" >&2
+    return 1
+  fi
+  found=0
+  while IFS= read -r line; do
+    [[ "$line" == Test* ]] || continue
+    printf '%s\n' "$line"
+    found=1
+  done <<< "$output"
+  if [[ $found -eq 0 ]]; then
+    echo "no tests discovered for ${test_pkg}; go test -list output:" >&2
+    printf '%s\n' "$output" >&2
+    return 1
+  fi
+}
+
+validate_cmd_gc_integration_tests() {
+  local untagged tagged actual expected test_name drift
+
+  untagged="$(list_package_tests ./cmd/gc)"
+  tagged="$(list_package_tests ./cmd/gc -tags integration)"
+  actual="$(
+    comm -13 \
+      <(printf '%s\n' "$untagged" | LC_ALL=C sort -u) \
+      <(printf '%s\n' "$tagged" | LC_ALL=C sort -u)
+  )"
+  expected="$(printf '%s\n' "${cmd_gc_integration_tests[@]}" | LC_ALL=C sort -u)"
+  drift=0
+
+  while IFS= read -r test_name; do
+    [[ -n "$test_name" ]] || continue
+    if ! printf '%s\n' "$expected" | grep -Fxq -- "$test_name"; then
+      echo "unassigned cmd/gc integration test: ${test_name}" >&2
+      drift=1
+    fi
+  done <<< "$actual"
+  for test_name in "${cmd_gc_integration_tests[@]}"; do
+    if ! printf '%s\n' "$actual" | grep -Fxq -- "$test_name"; then
+      echo "cmd/gc integration manifest entry is not integration-only: ${test_name}" >&2
+      drift=1
+    fi
+  done
+  if [[ $drift -ne 0 ]]; then
+    echo "update cmd_gc_integration_tests in scripts/test-integration-shard" >&2
+    return 1
+  fi
 }
 
 validate_selected_tests() {
@@ -264,7 +345,7 @@ run_rest_full_shard_modulo() {
   local excluded excluded_name test_name
 
   excluded=""
-  for excluded_name in "${formula_tests[@]}" "${rest_smoke_tests[@]}" TestBdStoreConformance; do
+  for excluded_name in "${formula_tests[@]}" "${rest_smoke_tests[@]}" TestBdStoreConformance TestBdStoreMailWispInsert; do
     excluded+="${excluded_name}"$'\n'
   done
 
@@ -324,6 +405,10 @@ case "$shard" in
   packages)
     run_packages_shard
     ;;
+  packages-cmd-gc-integration)
+    validate_cmd_gc_integration_tests
+    run_pkg_tests ./cmd/gc "${cmd_gc_integration_tests[@]}"
+    ;;
   review-formulas)
     run_review_formulas_all
     ;;
@@ -340,7 +425,7 @@ case "$shard" in
     run_pkg_tests "$pkg" "${review_formulas_recovery_tests[@]}"
     ;;
   bdstore)
-    run_pkg_tests "$pkg" TestBdStoreConformance
+    run_pkg_tests "$pkg" TestBdStoreConformance TestBdStoreMailWispInsert
     ;;
   rest-smoke)
     run_rest_smoke_shard

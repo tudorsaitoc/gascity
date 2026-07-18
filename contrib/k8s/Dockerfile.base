@@ -12,7 +12,7 @@ FROM ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG CLAUDE_CODE_VERSION=2.1.123
-ARG DOLT_VERSION=1.88.0
+ARG DOLT_VERSION=2.1.7
 
 # System packages.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -21,10 +21,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     jq \
+    # lsof: TCP-LISTEN / port discovery for Dolt — runtime hard dep (gc doctor), not optional diagnostics.
+    lsof \
     procps \
     python3 \
     sudo \
+    tini \
     tmux \
+    # util-linux: provides flock(1) for the bd/Dolt beads lock — runtime hard dep, not optional diagnostics.
+    util-linux \
     && rm -rf /var/lib/apt/lists/*
 
 COPY .github/scripts/install-claude-native.sh /tmp/install-claude-native.sh

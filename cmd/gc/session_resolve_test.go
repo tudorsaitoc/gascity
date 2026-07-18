@@ -616,6 +616,41 @@ func TestResolveSessionIDMaterializingNamed_MaterializesConfiguredNamedSession(t
 	}
 }
 
+func TestResolveSessionIDMaterializingNamedIgnoresAgentTmuxAlias(t *testing.T) {
+	t.Setenv("GC_SESSION", "fake")
+
+	store := beads.NewMemStore()
+	cityPath := t.TempDir()
+	cfg := &config.City{
+		Workspace: config.Workspace{Name: "test-city"},
+		Agents: []config.Agent{{
+			Name:         "mayor",
+			StartCommand: "true",
+			TmuxAlias:    "crew--{{.CityName}}",
+		}},
+		NamedSessions: []config.NamedSession{{
+			Template: "mayor",
+		}},
+	}
+
+	id, err := resolveSessionIDMaterializingNamed(cityPath, cfg, store, "mayor")
+	if err != nil {
+		t.Fatalf("resolveSessionIDMaterializingNamed(mayor): %v", err)
+	}
+	bead, err := store.Get(id)
+	if err != nil {
+		t.Fatalf("store.Get(%s): %v", id, err)
+	}
+	cityName := config.EffectiveCityName(cfg, filepath.Base(cityPath))
+	wantSessionName := config.NamedSessionRuntimeName(cityName, cfg.Workspace, "mayor")
+	if got := bead.Metadata["session_name"]; got != wantSessionName {
+		t.Fatalf("session_name = %q, want configured named runtime name %q", got, wantSessionName)
+	}
+	if got := bead.Metadata["session_name"]; got == "crew--test-city" {
+		t.Fatalf("session_name = %q, want configured named sessions to ignore tmux_alias", got)
+	}
+}
+
 // TestResolveSessionIDMaterializingNamed_BareNameResolvesV2BoundNamedSession
 // guards against the regression reported in #800: after packs V2, imported
 // named sessions carry a BindingName (e.g. "gastown.mayor"). Users who
@@ -906,10 +941,10 @@ func TestResolveSessionIDMaterializingNamed_RuntimeSessionNameWrongTemplateConfl
 	if err != nil {
 		t.Fatalf("loadSessionBeadSnapshot(): %v", err)
 	}
-	if bead, conflict := findNamedSessionConflict(snapshot, spec); !conflict {
-		t.Fatalf("findNamedSessionConflict() = false, want conflict; snapshot=%#v", snapshot.Open())
-	} else if bead.Metadata["template"] != "other" {
-		t.Fatalf("findNamedSessionConflict() bead template = %q, want other", bead.Metadata["template"])
+	if info, conflict := findNamedSessionConflictInfo(snapshot, spec); !conflict {
+		t.Fatalf("findNamedSessionConflictInfo() = false, want conflict; snapshot=%#v", snapshot.OpenInfos())
+	} else if info.Template != "other" {
+		t.Fatalf("findNamedSessionConflictInfo() info template = %q, want other", info.Template)
 	}
 
 	id, err := resolveSessionIDMaterializingNamed(cityPath, cfg, store, "mayor")
@@ -937,28 +972,15 @@ func TestResolveSessionIDMaterializingNamed_RecreatesClosedConfiguredNamedSessio
 			Template: "mayor",
 		}},
 	}
-	mgr := session.NewManager(store, runtime.NewFake())
-	info, err := mgr.CreateAliasedNamedWithTransportAndMetadata(
-		context.Background(),
-		"mayor",
-		config.NamedSessionRuntimeName(cfg.EffectiveCityName(), cfg.Workspace, "mayor"),
-		"mayor",
-		"Mayor",
-		"true",
-		t.TempDir(),
-		"shell",
-		"",
-		nil,
-		session.ProviderResume{},
-		runtime.Config{},
-		map[string]string{
+	mgr := session.NewManagerWithOptions(store, runtime.NewFake())
+	info, err := mgr.CreateSession(
+		context.Background(), session.CreateOptions{Alias: "mayor", ExplicitName: config.NamedSessionRuntimeName(cfg.EffectiveCityName(), cfg.Workspace, "mayor"), Template: "mayor", Title: "Mayor", Command: "true", WorkDir: t.TempDir(), Provider: "shell", Transport: "", Env: nil, Resume: session.ProviderResume{}, Hints: runtime.Config{}, ExtraMeta: map[string]string{
 			namedSessionMetadataKey:      "true",
 			namedSessionIdentityMetadata: "mayor",
 			namedSessionModeMetadata:     "on_demand",
-		},
-	)
+		}})
 	if err != nil {
-		t.Fatalf("CreateAliasedNamedWithTransportAndMetadata: %v", err)
+		t.Fatalf("CreateSessionAliasedNamedWithTransportAndMetadata: %v", err)
 	}
 	if err := mgr.Close(info.ID); err != nil {
 		t.Fatalf("Close: %v", err)

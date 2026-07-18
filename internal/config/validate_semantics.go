@@ -5,6 +5,14 @@ import (
 	"strings"
 )
 
+const idleSleepMaskedByIdleTimeoutWarningFragment = "idle_timeout and sleep_after_idle are both set; idle_timeout takes precedence"
+
+// IsIdleSleepMaskedByIdleTimeoutWarning reports whether warning describes the
+// supported idle-timeout precedence case where sleep_after_idle is masked.
+func IsIdleSleepMaskedByIdleTimeoutWarning(warning string) bool {
+	return strings.Contains(warning, idleSleepMaskedByIdleTimeoutWarningFragment)
+}
+
 // ValidateSemantics checks cross-entity semantic constraints in the config
 // and returns warnings for issues that cannot be caught by individual struct
 // validation. Unlike ValidateAgents (which returns hard errors), semantic
@@ -13,11 +21,8 @@ import (
 func ValidateSemantics(cfg *City, source string) []string {
 	var warnings []string
 
-	// Build known provider name set: built-in + city-defined.
+	// Build known provider name set from the explicit catalog.
 	knownProviders := make(map[string]bool)
-	for name := range BuiltinProviders() {
-		knownProviders[name] = true
-	}
 	for name := range cfg.Providers {
 		knownProviders[name] = true
 	}
@@ -29,7 +34,7 @@ func ValidateSemantics(cfg *City, source string) []string {
 		}
 		if !knownProviders[a.Provider] {
 			warnings = append(warnings, fmt.Sprintf(
-				"%s: agent %q: provider %q is not a built-in or city-defined provider",
+				"%s: agent %q: provider %q is not defined in [providers]",
 				source, a.QualifiedName(), a.Provider))
 		}
 	}
@@ -38,7 +43,16 @@ func ValidateSemantics(cfg *City, source string) []string {
 	if p := cfg.Workspace.Provider; p != "" {
 		if !knownProviders[p] {
 			warnings = append(warnings, fmt.Sprintf(
-				"%s: [workspace] provider %q is not a built-in or city-defined provider",
+				"%s: [workspace] provider %q is not defined in [providers]",
+				source, p))
+		}
+	}
+
+	// Check agent default provider.
+	if p := cfg.AgentDefaults.Provider; p != "" {
+		if !knownProviders[p] {
+			warnings = append(warnings, fmt.Sprintf(
+				"%s: [agent_defaults] provider %q is not a built-in or city-defined provider",
 				source, p))
 		}
 	}
@@ -66,8 +80,8 @@ func ValidateSemantics(cfg *City, source string) []string {
 	for _, a := range cfg.Agents {
 		if a.IdleTimeout != "" && a.SleepAfterIdle != "" {
 			warnings = append(warnings, fmt.Sprintf(
-				"%s: agent %q: idle_timeout and sleep_after_idle are both set; idle_timeout takes precedence and sleep_after_idle only applies when the session survives the idle_timeout check",
-				source, a.QualifiedName()))
+				"%s: agent %q: %s and sleep_after_idle only applies when the session survives the idle_timeout check",
+				source, a.QualifiedName(), idleSleepMaskedByIdleTimeoutWarningFragment))
 		}
 	}
 

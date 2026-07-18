@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gastownhall/gascity/internal/beads"
+	"github.com/gastownhall/gascity/internal/orders"
 )
 
 func TestParseOrdersFeedLimitCapsLargeValues(t *testing.T) {
@@ -23,12 +24,60 @@ func TestParseOrdersFeedLimitCapsLargeValues(t *testing.T) {
 }
 
 func TestOrderTrackingStatusTreatsWispFailedAsFailed(t *testing.T) {
-	bead := beads.Bead{
+	run, ok := orders.RunFromTrackingBead(beads.Bead{
 		Status: "closed",
-		Labels: []string{"order-tracking", "wisp", "wisp-failed"},
+		Labels: []string{"order-tracking", "order-run:nightly", "wisp", "wisp-failed"},
+	})
+	if !ok {
+		t.Fatal("RunFromTrackingBead ok = false")
 	}
-	if got := orderTrackingStatus(bead); got != "failed" {
-		t.Fatalf("orderTrackingStatus = %q, want failed", got)
+	if got := run.State(); got != "failed" {
+		t.Fatalf("run.State() = %q, want failed", got)
+	}
+}
+
+func TestOrderTrackingExecEnvFailedClassifiesAsFailedExec(t *testing.T) {
+	run, ok := orders.RunFromTrackingBead(beads.Bead{
+		Status: "closed",
+		Labels: []string{"order-tracking", "order-run:nightly", "exec-env-failed"},
+	})
+	if !ok {
+		t.Fatal("RunFromTrackingBead ok = false")
+	}
+	if got := run.State(); got != "failed" {
+		t.Fatalf("run.State() = %q, want failed", got)
+	}
+	if got := orderTrackingTarget(orders.Order{}, false, run); got != "exec" {
+		t.Fatalf("orderTrackingTarget = %q, want exec", got)
+	}
+	if got := orderTrackingType(orders.Order{}, false, run); got != "exec" {
+		t.Fatalf("orderTrackingType = %q, want exec", got)
+	}
+}
+
+func TestWorkflowProjectionTargetKeepsRunTargetMigrationFallback(t *testing.T) {
+	root := beads.Bead{Metadata: map[string]string{
+		"gc.run_target": "gascity/reviewer",
+	}}
+	if got := workflowProjectionTarget(root); got != "gascity/reviewer" {
+		t.Fatalf("workflowProjectionTarget = %q, want gc.run_target fallback", got)
+	}
+}
+
+func TestOrderTrackingTriggerEnvFailedClassifiesOpenAndClosedAsFailed(t *testing.T) {
+	for _, status := range []string{"open", "closed"} {
+		t.Run(status, func(t *testing.T) {
+			run, ok := orders.RunFromTrackingBead(beads.Bead{
+				Status: status,
+				Labels: []string{"order-tracking", "order-run:nightly", "trigger-env-failed"},
+			})
+			if !ok {
+				t.Fatal("RunFromTrackingBead ok = false")
+			}
+			if got := run.State(); got != "failed" {
+				t.Fatalf("run.State(%s) = %q, want failed", status, got)
+			}
+		})
 	}
 }
 
@@ -101,12 +150,46 @@ func TestBuildWorkflowRunProjectionsKeepsInProgressChildrenOnHistoryFailure(t *t
 	}
 }
 
+func TestBuildOrderRunFeedItemsUsesAllOrdersForDisabledExecMetadata(t *testing.T) {
+	state := newFakeState(t)
+	state.cityBeadStore = beads.NewMemStore()
+	disabled := false
+	state.allOrders = []orders.Order{
+		{Name: "digest", Exec: "scripts/digest.sh", Trigger: "cooldown", Interval: "1h", Enabled: &disabled},
+	}
+
+	tracking, err := state.cityBeadStore.Create(beads.Bead{
+		Title:  "order:digest",
+		Status: "closed",
+		Labels: []string{"order-tracking", "order-run:digest", "wisp"},
+	})
+	if err != nil {
+		t.Fatalf("create tracking bead: %v", err)
+	}
+
+	got, err := buildOrderRunFeedItems(state, "city", "test-city")
+	if err != nil {
+		t.Fatalf("buildOrderRunFeedItems: %v", err)
+	}
+	if len(got.Items) != 1 {
+		t.Fatalf("items = %d, want 1", len(got.Items))
+	}
+	item := got.Items[0]
+	if item.BeadID != tracking.ID {
+		t.Fatalf("bead_id = %q, want %q", item.BeadID, tracking.ID)
+	}
+	if item.Type != "exec" || item.Target != "exec" || !item.DetailAvailable || !item.RunDetailAvailable {
+		t.Fatalf("item = %+v, want disabled exec order metadata", item)
+	}
+}
+
 func TestOrderTrackingUpdatedAtLogsLookupFailure(t *testing.T) {
-	store := labelFailListStore{
+	front := orders.NewStore(beads.OrdersStore{Store: labelFailListStore{
 		Store:     beads.NewMemStore(),
 		failLabel: "order-run:digest",
-	}
-	tracking := beads.Bead{
+	}})
+	run := orders.OrderRun{
+		Scoped:    "digest",
 		CreatedAt: time.Date(2026, 4, 20, 12, 0, 0, 0, time.UTC),
 	}
 
@@ -118,9 +201,9 @@ func TestOrderTrackingUpdatedAtLogsLookupFailure(t *testing.T) {
 	}
 	defer func() { orderFeedLogf = origLogf }()
 
-	got := orderTrackingUpdatedAt(store, tracking, "digest")
-	if !got.Equal(tracking.CreatedAt) {
-		t.Fatalf("updatedAt = %s, want %s", got, tracking.CreatedAt)
+	got := orderTrackingUpdatedAt(front, run)
+	if !got.Equal(run.CreatedAt) {
+		t.Fatalf("updatedAt = %s, want %s", got, run.CreatedAt)
 	}
 	if !strings.Contains(logs.String(), "order feed update lookup failed") {
 		t.Fatalf("logs = %q, want update lookup failure warning", logs.String())

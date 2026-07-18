@@ -44,6 +44,32 @@ func setupCity(t *testing.T, tomlContent string) string {
 	return dir
 }
 
+// clearInheritedBeadsEnv scrubs GC_BEADS_SCOPE_ROOT (and related beads/dolt
+// env) before a test sets an explicit GC_BEADS override. The doctor provider
+// resolution honors an explicit GC_BEADS only when GC_BEADS_SCOPE_ROOT is
+// unset or points back to cityPath; an inherited GC_BEADS_SCOPE_ROOT from a
+// gc agent's outer city disqualifies the override and the provider falls back
+// to the test's city.toml peek, defeating the assertion.
+func clearInheritedBeadsEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{
+		"GC_BEADS",
+		"GC_BEADS_SCOPE_ROOT",
+		"GC_BIN",
+		"GC_DOLT",
+		"GC_DOLT_HOST",
+		"GC_DOLT_PORT",
+		"GC_DOLT_USER",
+		"GC_DOLT_PASSWORD",
+		"BEADS_DOLT_SERVER_HOST",
+		"BEADS_DOLT_SERVER_PORT",
+		"BEADS_DOLT_SERVER_USER",
+		"BEADS_DOLT_PASSWORD",
+	} {
+		t.Setenv(key, "")
+	}
+}
+
 // --- CityStructureCheck ---
 
 func TestCityStructureCheck_OK(t *testing.T) {
@@ -379,6 +405,136 @@ func TestConfigRefsCheck_AbsolutePaths(t *testing.T) {
 	}
 }
 
+// City-root-relative paths (produced by adjustFragmentPath during
+// composition) resolve correctly against cityPath.
+func TestConfigRefsCheck_CityRootRelativePaths(t *testing.T) {
+	cityDir := t.TempDir()
+
+	// Create files at city-root-relative locations (as produced by pack composition).
+	promptDir := filepath.Join(cityDir, "packs", "mypack", "agents", "worker")
+	if err := os.MkdirAll(promptDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(promptDir, "prompt.template.md"), []byte("hi"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	overlayDir := filepath.Join(cityDir, "packs", "mypack", "overlays", "custom")
+	if err := os.MkdirAll(overlayDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.City{
+		Agents: []config.Agent{{
+			Name:           "worker",
+			PromptTemplate: "packs/mypack/agents/worker/prompt.template.md",
+			OverlayDir:     "packs/mypack/overlays/custom",
+		}},
+	}
+	c := NewConfigRefsCheck(cfg, cityDir)
+	r := c.Run(&CheckContext{})
+	if r.Status != StatusOK {
+		t.Errorf("status = %d, want OK; msg = %s; details = %v", r.Status, r.Message, r.Details)
+	}
+}
+
+// session_setup_script is left as-authored (pack-relative) during
+// composition — resolving it against cityPath produces a false positive
+// when the script lives in the pack directory, not the city root.
+func TestConfigRefsCheck_SessionSetupScriptSourceDir(t *testing.T) {
+	cityDir := t.TempDir()
+	packDir := t.TempDir()
+
+	// Create a setup script inside the pack directory.
+	scriptPath := filepath.Join(packDir, "scripts", "setup.sh")
+	if err := os.MkdirAll(filepath.Dir(scriptPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(scriptPath, []byte("#!/bin/sh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.City{
+		Agents: []config.Agent{{
+			Name: "worker",
+			// As-authored: pack-relative, not city-root-relative.
+			SessionSetupScript: "scripts/setup.sh",
+			SourceDir:          packDir,
+		}},
+	}
+	c := NewConfigRefsCheck(cfg, cityDir)
+	r := c.Run(&CheckContext{})
+	if r.Status != StatusOK {
+		t.Errorf("status = %d, want OK; msg = %s; details = %v", r.Status, r.Message, r.Details)
+	}
+}
+
+func TestConfigRefsCheck_SessionSetupScriptDoubleSlashUsesCityRoot(t *testing.T) {
+	cityDir := t.TempDir()
+	sourceDir := filepath.Join(cityDir, "packs", "feature")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(cityDir, "scripts", "setup.sh")
+	if err := os.MkdirAll(filepath.Dir(scriptPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(scriptPath, []byte("#!/bin/sh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.City{
+		Agents: []config.Agent{{
+			Name:               "worker",
+			SessionSetupScript: "//scripts/setup.sh",
+			SourceDir:          sourceDir,
+		}},
+	}
+	c := NewConfigRefsCheck(cfg, cityDir)
+	r := c.Run(&CheckContext{})
+	if r.Status != StatusOK {
+		t.Errorf("status = %d, want OK; msg = %s; details = %v", r.Status, r.Message, r.Details)
+	}
+}
+
+func TestConfigRefsCheck_SessionSetupScriptLegacyCityRelativeWithSourceDir(t *testing.T) {
+	cityDir := t.TempDir()
+	sourceDir := filepath.Join(cityDir, "packs", "feature")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name   string
+		script string
+	}{
+		{name: "same pack", script: "packs/feature/scripts/setup.sh"},
+		{name: "shared pack", script: "packs/shared/scripts/setup.sh"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scriptPath := filepath.Join(cityDir, filepath.FromSlash(tc.script))
+			if err := os.MkdirAll(filepath.Dir(scriptPath), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(scriptPath, []byte("#!/bin/sh"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+
+			cfg := &config.City{
+				Agents: []config.Agent{{
+					Name:               "worker",
+					SessionSetupScript: tc.script,
+					SourceDir:          sourceDir,
+				}},
+			}
+			c := NewConfigRefsCheck(cfg, cityDir)
+			r := c.Run(&CheckContext{})
+			if r.Status != StatusOK {
+				t.Errorf("status = %d, want OK; msg = %s; details = %v", r.Status, r.Message, r.Details)
+			}
+		})
+	}
+}
+
 // --- BuiltinPackFamilyCheck ---
 
 func TestBuiltinPackFamilyCheck_Unmodified(t *testing.T) {
@@ -458,6 +614,32 @@ schema = 1
 	}
 	if !strings.Contains(r.Message, "not required") {
 		t.Fatalf("message = %q, want non-bd skip message", r.Message)
+	}
+}
+
+func TestBuiltinPackFamilyCheck_DoltliteBackendSkipsRequirement(t *testing.T) {
+	dir := t.TempDir()
+	doltDir := filepath.Join(dir, "packs", "dolt")
+	if err := os.MkdirAll(doltDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(doltDir, "pack.toml"), []byte(`[pack]
+name = "dolt"
+schema = 1
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewBuiltinPackFamilyCheck(&config.City{
+		Beads:    config.BeadsConfig{Provider: "bd", Backend: "doltlite"},
+		PackDirs: []string{doltDir},
+	}, dir)
+	r := c.Run(&CheckContext{})
+	if r.Status != StatusOK {
+		t.Fatalf("status = %d, want OK; msg = %s", r.Status, r.Message)
+	}
+	if !strings.Contains(r.Message, "doltlite backend") {
+		t.Fatalf("message = %q, want doltlite skip message", r.Message)
 	}
 }
 
@@ -1007,6 +1189,7 @@ func TestBDSplitStoreCheck_InvalidExternalCityConfigUsesNeutralGuidance(t *testi
 }
 
 func TestBDSplitStoreCheck_FileProviderUsesNeutralRecoveryGuidance(t *testing.T) {
+	clearInheritedBeadsEnv(t)
 	t.Setenv("GC_BEADS", "file")
 	dir := t.TempDir()
 	fs := fsys.OSFS{}
@@ -1757,6 +1940,7 @@ provider = "exec:/tmp/gc-beads-bd"
 }
 
 func TestBeadsStoreCheck_GCBeadsExecOverrideExternalCityUnavailableFailsBeforePing(t *testing.T) {
+	clearInheritedBeadsEnv(t)
 	dir := setupCity(t, `[workspace]
 name = "test"
 [beads]
@@ -1795,6 +1979,7 @@ provider = "file"
 }
 
 func TestBeadsStoreCheck_GCBeadsFileOverrideSkipsBdPreflight(t *testing.T) {
+	clearInheritedBeadsEnv(t)
 	dir := setupCity(t, `[workspace]
 name = "test"
 `)
@@ -2940,10 +3125,10 @@ func writeDoctorManagedDoltConfig(t *testing.T, cityPath string, overrides map[s
 		"listener": map[string]any{
 			"port":                           "3307",
 			"host":                           "127.0.0.1",
-			"max_connections":                1000,
+			"max_connections":                256,
 			"back_log":                       50,
 			"max_connections_timeout_millis": 5000,
-			"read_timeout_millis":            300000,
+			"read_timeout_millis":            15000,
 			"write_timeout_millis":           300000,
 		},
 		"data_dir": filepath.Join(cityPath, ".beads", "dolt"),
@@ -2952,6 +3137,14 @@ func writeDoctorManagedDoltConfig(t *testing.T, cityPath string, overrides map[s
 				"enable":        true,
 				"archive_level": 0,
 			},
+		},
+		"system_variables": map[string]any{
+			"dolt_auto_gc_enabled":   "ON",
+			"dolt_stats_enabled":     "OFF",
+			"dolt_stats_gc_enabled":  "OFF",
+			"dolt_stats_memory_only": "ON",
+			"dolt_stats_paused":      "ON",
+			"wait_timeout":           "30",
 		},
 	}
 	for k, v := range overrides {
@@ -3075,6 +3268,63 @@ func TestDoltConfigCheck_OK(t *testing.T) {
 	}
 }
 
+func TestDoltConfigCheck_AcceptsConfiguredWaitTimeout(t *testing.T) {
+	t.Setenv("GC_DOLT_WAIT_TIMEOUT", "60")
+	dir := setupManagedDoltCity(t)
+	writeDoctorManagedDoltConfig(t, dir, map[string]any{
+		"system_variables.wait_timeout": "60",
+	})
+	c := NewDoltConfigCheck(dir, false)
+	r := c.Run(&CheckContext{})
+	if r.Status != StatusOK {
+		t.Fatalf("status = %d, want OK for configured wait_timeout; msg = %s", r.Status, r.Message)
+	}
+}
+
+func TestDoltConfigCheck_AcceptsDisabledWaitTimeout(t *testing.T) {
+	t.Setenv("GC_DOLT_WAIT_TIMEOUT", "-1")
+	dir := setupManagedDoltCity(t)
+	writeDoctorManagedDoltConfig(t, dir, map[string]any{
+		"system_variables.wait_timeout": "__missing__",
+	})
+	c := NewDoltConfigCheck(dir, false)
+	r := c.Run(&CheckContext{})
+	if r.Status != StatusOK {
+		t.Fatalf("status = %d, want OK for disabled wait_timeout; msg = %s", r.Status, r.Message)
+	}
+}
+
+func TestDoltConfigCheck_AcceptsCityConfiguredListenerOverrides(t *testing.T) {
+	dir := setupManagedDoltCity(t)
+	if err := os.WriteFile(filepath.Join(dir, "city.toml"), []byte(`[workspace]
+name = "demo"
+
+[beads]
+provider = "bd"
+
+[dolt]
+read_timeout_millis = 300000
+write_timeout_millis = 600000
+max_connections = 1024
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(fsys.OSFS{}, filepath.Join(dir, "city.toml"))
+	if err != nil {
+		t.Fatalf("Load city.toml: %v", err)
+	}
+	writeDoctorManagedDoltConfig(t, dir, map[string]any{
+		"listener.read_timeout_millis":  300000,
+		"listener.write_timeout_millis": 600000,
+		"listener.max_connections":      1024,
+	})
+	c := NewDoltConfigCheckForConfig(dir, false, cfg, nil)
+	r := c.Run(&CheckContext{})
+	if r.Status != StatusOK {
+		t.Fatalf("status = %d, want OK for city-configured listener overrides; msg = %s", r.Status, r.Message)
+	}
+}
+
 func TestDoltConfigCheck_AcceptsLegacyArchiveLevelOne(t *testing.T) {
 	dir := setupManagedDoltCity(t)
 	writeDoctorManagedDoltConfig(t, dir, map[string]any{
@@ -3194,10 +3444,11 @@ func TestDoltConfigCheck_WrongDataDir(t *testing.T) {
 	}
 }
 
-func TestDoltConfigCheck_AutoGCDisabled(t *testing.T) {
+func TestDoltConfigCheck_AutoGCDisabledDrifts(t *testing.T) {
 	dir := setupManagedDoltCity(t)
 	writeDoctorManagedDoltConfig(t, dir, map[string]any{
-		"behavior.auto_gc_behavior.enable": false,
+		"behavior.auto_gc_behavior.enable":      false,
+		"system_variables.dolt_auto_gc_enabled": "OFF",
 	})
 	c := NewDoltConfigCheck(dir, false)
 	r := c.Run(&CheckContext{})
@@ -3206,6 +3457,24 @@ func TestDoltConfigCheck_AutoGCDisabled(t *testing.T) {
 	}
 	if !strings.Contains(r.Message, "auto_gc_behavior.enable") {
 		t.Errorf("message = %q, want auto_gc_behavior.enable mention", r.Message)
+	}
+	if !strings.Contains(r.Message, "dolt_auto_gc_enabled") {
+		t.Errorf("message = %q, want dolt_auto_gc_enabled mention", r.Message)
+	}
+}
+
+func TestDoltConfigCheck_StatsEnabled(t *testing.T) {
+	dir := setupManagedDoltCity(t)
+	writeDoctorManagedDoltConfig(t, dir, map[string]any{
+		"system_variables.dolt_stats_enabled": "ON",
+	})
+	c := NewDoltConfigCheck(dir, false)
+	r := c.Run(&CheckContext{})
+	if r.Status != StatusWarning {
+		t.Fatalf("status = %d, want Warning; msg = %s", r.Status, r.Message)
+	}
+	if !strings.Contains(r.Message, "dolt_stats_enabled") {
+		t.Errorf("message = %q, want dolt_stats_enabled mention", r.Message)
 	}
 }
 
@@ -3370,24 +3639,24 @@ func TestCompareDoltVersion(t *testing.T) {
 
 func TestDoltVersionCheck_OK(t *testing.T) {
 	c := NewDoltVersionCheck()
-	c.versionOutput = func() (string, error) { return "dolt version 1.86.2\n", nil }
+	c.versionOutput = func() (string, error) { return "dolt version 2.1.1\n", nil }
 	r := c.Run(&CheckContext{})
 	if r.Status != StatusOK {
 		t.Fatalf("status = %d, want OK; msg = %s", r.Status, r.Message)
 	}
-	if !strings.Contains(r.Message, "1.86.2") {
+	if !strings.Contains(r.Message, "2.1.1") {
 		t.Errorf("message = %q, want version in message", r.Message)
 	}
 }
 
 func TestDoltVersionCheck_OK_AtMinimum(t *testing.T) {
 	c := NewDoltVersionCheck()
-	c.versionOutput = func() (string, error) { return "dolt version 1.86.2\n", nil }
+	c.versionOutput = func() (string, error) { return "dolt version 2.1.0\n", nil }
 	r := c.Run(&CheckContext{})
 	if r.Status != StatusOK {
 		t.Fatalf("status = %d, want OK; msg = %s", r.Status, r.Message)
 	}
-	if !strings.Contains(r.Message, "1.86.2") {
+	if !strings.Contains(r.Message, "2.1.0") {
 		t.Errorf("message = %q, want version in message", r.Message)
 	}
 }
@@ -3406,7 +3675,7 @@ func TestDoltVersionCheck_Error_BelowManagedConfigFloor(t *testing.T) {
 
 func TestDoltVersionCheck_Error_BelowMinimum(t *testing.T) {
 	c := NewDoltVersionCheck()
-	c.versionOutput = func() (string, error) { return "dolt version 1.86.1\n", nil }
+	c.versionOutput = func() (string, error) { return "dolt version 2.0.6\n", nil }
 	r := c.Run(&CheckContext{})
 	if r.Status != StatusError {
 		t.Fatalf("status = %d, want Error; msg = %s", r.Status, r.Message)
@@ -3418,11 +3687,10 @@ func TestDoltVersionCheck_Error_BelowMinimum(t *testing.T) {
 
 func TestDoltVersionCheck_Error_PreReleaseAtFloor(t *testing.T) {
 	cases := []string{
-		"dolt version 1.86.2-rc1\n",
-		"dolt version 1.86.2-rc1+build.5\n",
-		"dolt version 1.86.2-dev.0\n",
-		"dolt version 1.99.0-rc1\n",
-		"dolt version 2.0.0-rc1\n",
+		"dolt version 2.1.0-rc1\n",
+		"dolt version 2.1.0-rc1+build.5\n",
+		"dolt version 2.1.0-dev.0\n",
+		"dolt version 2.1.1-rc1\n",
 	}
 	for _, version := range cases {
 		t.Run(strings.TrimSpace(version), func(t *testing.T) {
@@ -3432,7 +3700,7 @@ func TestDoltVersionCheck_Error_PreReleaseAtFloor(t *testing.T) {
 			if r.Status != StatusError {
 				t.Fatalf("status = %d, want Error; msg = %s", r.Status, r.Message)
 			}
-			if !strings.Contains(r.Message, "pre-release") || !strings.Contains(r.Message, "1.86.2") {
+			if !strings.Contains(r.Message, "pre-release") || !strings.Contains(r.Message, "2.1.0") {
 				t.Errorf("message = %q, want pre-release and minimum version text", r.Message)
 			}
 		})

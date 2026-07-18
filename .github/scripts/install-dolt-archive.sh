@@ -56,6 +56,22 @@ esac
 platform_tuple="${os}-${arch}"
 expected_sha=""
 case "${version}:${platform_tuple}" in
+  2.1.7:linux-amd64) expected_sha="15983e811341ed94e5d47fbfc41d2f57d8c7aa65eee511d25a3c3fd5477e28e7" ;;
+  2.1.7:linux-arm64) expected_sha="3edb3e5d05889f654dca548a8b6eb367551d4418ee0be5a79d94ea1c0f40ae8d" ;;
+  2.1.7:darwin-amd64) expected_sha="67a551f6280ca0006844e1876d550dd4c750c5457d2c661dd7853b23cc5451a9" ;;
+  2.1.7:darwin-arm64) expected_sha="9828815248e8f13b8d68f29cf984a81fb2abfa9c89153333e349fbb198139df0" ;;
+  2.1.4:linux-amd64) expected_sha="f3bd2329fc469d9d557af377dc36280da2c4ed13315cc2e4a82fe2b5ae682929" ;;
+  2.1.4:linux-arm64) expected_sha="a712ac5f7351323b5f29dcafaad581dc241cbf8a93a798fdfd82540c3c529020" ;;
+  2.1.4:darwin-amd64) expected_sha="ff71962fa6d153ad17afb05399b3ca5159eb8f8272f3c31600be0e9b986d16c9" ;;
+  2.1.4:darwin-arm64) expected_sha="edeec11ec5bb6a9de09127b082e72e6109371684f1fdad45290cc6e39ca5b103" ;;
+  2.1.0:linux-amd64) expected_sha="0cebb4ac85e7d67b306037735e855cc24939c4a27ae04d712989b325de321826" ;;
+  2.1.0:linux-arm64) expected_sha="a7685fc9c8f91c58093bf9fba1e70bcb7cf68337429db1aa27b9b58e93bc22c9" ;;
+  2.1.0:darwin-amd64) expected_sha="3c2a10a48c55a412e0c3e1424fffeac995e9c0d7124ad4d2406d0252b63c8f3f" ;;
+  2.1.0:darwin-arm64) expected_sha="aef502bb5ee277da60e1bc387e7c0989cbc57ac46c8f36645e8225c408408921" ;;
+  2.0.3:linux-amd64) expected_sha="82445e0ef6f2366c78f959ffa225d9b47c78dd4dac9e19d4cd83c814b7dd5135" ;;
+  2.0.3:linux-arm64) expected_sha="321ac97f0a44af32eff8004cadef841bc683f683101de96dea2deda6ad86f950" ;;
+  2.0.3:darwin-amd64) expected_sha="592e37385313cabe3e96208e4b8edc3e7c05c18c22ee325415c65981320de584" ;;
+  2.0.3:darwin-arm64) expected_sha="0bd13f4e0e06cf3cd7022bd27b926c3b2ea69ae6a1946ab9410c98cdbbc72021" ;;
   1.86.6:linux-amd64) expected_sha="1f78bdc39edf4d4e731a53131b17d455fa0d1e2e872c0f5f8daaa44d07753a8b" ;;
   1.86.6:linux-arm64) expected_sha="1caa0aedc562ca63cfc24ee4b91287e5be7446aaeddc294f199f7515e5cfdc1f" ;;
   1.86.6:darwin-amd64) expected_sha="7ac44944c068c0bbb31ef91b032826f2e1aa0d5f5e4847e6c69bd31ea6d88dc5" ;;
@@ -82,7 +98,7 @@ github_release_asset_sha() {
   if [[ -n "${GITHUB_TOKEN:-}" ]]; then
     auth_header=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
   fi
-  curl -fsSL "${auth_header[@]}" \
+  curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors --retry-connrefused "${auth_header[@]}" \
     -H "Accept: application/vnd.github+json" \
     "https://api.github.com/repos/${owner_repo}/releases/tags/${tag}" \
     | jq -r --arg asset "$asset" '.assets[] | select(.name == $asset) | .digest // empty' \
@@ -142,7 +158,7 @@ if [[ -x "$target" ]]; then
 else
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
-  curl -fsSL -o "${tmp}/${archive}" \
+  curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors --retry-connrefused -o "${tmp}/${archive}" \
     "https://github.com/dolthub/dolt/releases/download/v${version}/${archive}"
   actual_sha="$(sha256_file "${tmp}/${archive}")"
   if [[ "$actual_sha" != "$expected_sha" ]]; then

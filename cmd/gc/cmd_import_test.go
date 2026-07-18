@@ -28,7 +28,7 @@ func TestDoImportAddRemoteWritesConfigAndLock(t *testing.T) {
 		defaultImportConstraint = prevConstraint
 		syncImports = prevSync
 	})
-	resolveImportVersion = func(_, _ string) (packman.ResolvedVersion, error) {
+	resolveImportVersion = func(_, _, _ string) (packman.ResolvedVersion, error) {
 		return packman.ResolvedVersion{Version: "1.4.2", Commit: "abc123"}, nil
 	}
 	defaultImportConstraint = func(_ string) (string, error) { return "^1.4", nil }
@@ -93,7 +93,7 @@ name = "mayor"
 scope = "city"
 
 [providers.default]
-type = "claude"
+base = "builtin:claude"
 
 [[commands]]
 name = "status"
@@ -113,7 +113,7 @@ session_live = ["echo hi"]
 		defaultImportConstraint = prevConstraint
 		syncImports = prevSync
 	})
-	resolveImportVersion = func(_, _ string) (packman.ResolvedVersion, error) {
+	resolveImportVersion = func(_, _, _ string) (packman.ResolvedVersion, error) {
 		return packman.ResolvedVersion{Version: "1.4.2", Commit: "abc123"}, nil
 	}
 	defaultImportConstraint = func(_ string) (string, error) { return "^1.4", nil }
@@ -145,6 +145,7 @@ session_live = ["echo hi"]
 		`append_fragments = ["pack-fragment"]`,
 		`name = "mayor"`,
 		`[providers.default]`,
+		`base = "builtin:claude"`,
 		`[[commands]]`,
 		`session_live = ["echo hi"]`,
 		`[imports.tools]`,
@@ -152,6 +153,58 @@ session_live = ["echo hi"]
 		if !strings.Contains(text, want) {
 			t.Fatalf("pack.toml missing %q:\n%s", want, text)
 		}
+	}
+}
+
+// Regression for the ga-lurp5d follow-up review: gc import add rewrites
+// pack.toml through the reduced cityPackManifest struct. When the on-disk
+// pack.toml carries a key this gc binary does not recognize, the rewrite must
+// refuse rather than silently drop it (the city.toml rewrite guard's contract,
+// now extended to pack.toml).
+func TestDoImportAddRefusesUnknownPackTomlKeys(t *testing.T) {
+	clearGCEnv(t)
+	dir := t.TempDir()
+	writeCityToml(t, dir, "[workspace]\nname = \"demo\"\n")
+	original := `[pack]
+name = "demo"
+schema = 1
+
+[future_unknown_section]
+knob = "keep-me"
+`
+	writePackToml(t, dir, original)
+
+	prevResolve := resolveImportVersion
+	prevConstraint := defaultImportConstraint
+	prevSync := syncImports
+	t.Cleanup(func() {
+		resolveImportVersion = prevResolve
+		defaultImportConstraint = prevConstraint
+		syncImports = prevSync
+	})
+	resolveImportVersion = func(_, _, _ string) (packman.ResolvedVersion, error) {
+		return packman.ResolvedVersion{Version: "1.4.2", Commit: "abc123"}, nil
+	}
+	defaultImportConstraint = func(_ string) (string, error) { return "^1.4", nil }
+	syncImports = func(_ string, _ map[string]config.Import, _ packman.InstallMode) (*packman.Lockfile, error) {
+		return &packman.Lockfile{Schema: packman.LockfileSchema}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := doImportAdd(fsys.OSFS{}, dir, "https://github.com/example/tools.git", "", "", &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("code = 0, want non-zero refusal; stdout=%q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "future_unknown_section") {
+		t.Fatalf("stderr = %q, want mention of future_unknown_section", stderr.String())
+	}
+	// The pack.toml must survive an aborted rewrite unchanged.
+	data, err := os.ReadFile(filepath.Join(dir, "pack.toml"))
+	if err != nil {
+		t.Fatalf("ReadFile(pack.toml): %v", err)
+	}
+	if string(data) != original {
+		t.Fatalf("pack.toml was rewritten despite refusal:\n%s", data)
 	}
 }
 
@@ -175,7 +228,7 @@ source = "./packs/gastown"
 		defaultImportConstraint = prevConstraint
 		syncImports = prevSync
 	})
-	resolveImportVersion = func(_, _ string) (packman.ResolvedVersion, error) {
+	resolveImportVersion = func(_, _, _ string) (packman.ResolvedVersion, error) {
 		return packman.ResolvedVersion{Version: "1.4.2", Commit: "abc123"}, nil
 	}
 	defaultImportConstraint = func(_ string) (string, error) { return "^1.4", nil }
@@ -244,7 +297,7 @@ source = "./packs/foo"
 		defaultImportConstraint = prevConstraint
 		syncImports = prevSync
 	})
-	resolveImportVersion = func(_, _ string) (packman.ResolvedVersion, error) {
+	resolveImportVersion = func(_, _, _ string) (packman.ResolvedVersion, error) {
 		return packman.ResolvedVersion{Version: "1.4.2", Commit: "abc123"}, nil
 	}
 	defaultImportConstraint = func(_ string) (string, error) { return "^1.4", nil }
@@ -294,7 +347,7 @@ source = "./packs/a-pack"
 		defaultImportConstraint = prevConstraint
 		syncImports = prevSync
 	})
-	resolveImportVersion = func(_, _ string) (packman.ResolvedVersion, error) {
+	resolveImportVersion = func(_, _, _ string) (packman.ResolvedVersion, error) {
 		return packman.ResolvedVersion{Version: "1.4.2", Commit: "abc123"}, nil
 	}
 	defaultImportConstraint = func(_ string) (string, error) { return "^1.4", nil }
@@ -363,18 +416,99 @@ func TestDoImportAddRejectsRepositoryRefInSource(t *testing.T) {
 	}
 }
 
-func TestDoImportAddRejectsGitHubTreeSource(t *testing.T) {
+func TestDoImportAddAcceptsGitHubTreeSource(t *testing.T) {
 	clearGCEnv(t)
 	dir := t.TempDir()
 	writeCityToml(t, dir, "[workspace]\nname = \"demo\"\n")
 
-	var stdout, stderr bytes.Buffer
-	code := doImportAdd(fsys.OSFS{}, dir, "https://github.com/example/repo/tree/main/packs/base", "", "", &stdout, &stderr)
-	if code == 0 {
-		t.Fatal("expected failure for GitHub tree source")
+	prevSync := syncImports
+	t.Cleanup(func() {
+		syncImports = prevSync
+	})
+	source := "https://github.com/example/repo/tree/main/packs/base"
+	syncImports = func(_ string, imports map[string]config.Import, _ packman.InstallMode) (*packman.Lockfile, error) {
+		imp, ok := imports["pack:base"]
+		if !ok {
+			t.Fatalf("missing imports.pack:base in %#v", imports)
+		}
+		if imp.Source != source {
+			t.Fatalf("Source = %q, want %q", imp.Source, source)
+		}
+		if imp.Version != "^1.2.0" {
+			t.Fatalf("Version = %q, want ^1.2.0", imp.Version)
+		}
+		return &packman.Lockfile{
+			Schema: packman.LockfileSchema,
+			Packs: map[string]packman.LockedPack{
+				source: {Version: "1.2.3", Commit: "abc123"},
+			},
+		}, nil
 	}
-	if !strings.Contains(stderr.String(), "embed refs in --version") {
-		t.Fatalf("stderr = %q", stderr.String())
+
+	var stdout, stderr bytes.Buffer
+	code := doImportAdd(fsys.OSFS{}, dir, source, "", "^1.2.0", &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
+	}
+
+	cfg, err := config.Load(fsys.OSFS{}, filepath.Join(dir, "pack.toml"))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	imp := cfg.Imports["base"]
+	if imp.Source != source {
+		t.Fatalf("Source = %q, want %q", imp.Source, source)
+	}
+	if imp.Version != "^1.2.0" {
+		t.Fatalf("Version = %q, want ^1.2.0", imp.Version)
+	}
+}
+
+func TestDoImportAddGitHubSubpathWithVersionWritesImport(t *testing.T) {
+	clearGCEnv(t)
+	dir := t.TempDir()
+	writeCityToml(t, dir, "[workspace]\nname = \"demo\"\n")
+
+	prevSync := syncImports
+	t.Cleanup(func() {
+		syncImports = prevSync
+	})
+	source := "github.com/example/tools//packs/review"
+	syncImports = func(_ string, imports map[string]config.Import, _ packman.InstallMode) (*packman.Lockfile, error) {
+		imp, ok := imports["pack:review"]
+		if !ok {
+			t.Fatalf("missing imports.pack:review in %#v", imports)
+		}
+		if imp.Source != source {
+			t.Fatalf("Source = %q, want %q", imp.Source, source)
+		}
+		if imp.Version != "^1.2.0" {
+			t.Fatalf("Version = %q, want ^1.2.0", imp.Version)
+		}
+		return &packman.Lockfile{
+			Schema: packman.LockfileSchema,
+			Packs: map[string]packman.LockedPack{
+				source: {Version: "1.2.3", Commit: "abc123"},
+			},
+		}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := doImportAdd(fsys.OSFS{}, dir, source, "", "^1.2.0", &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
+	}
+
+	cfg, err := config.Load(fsys.OSFS{}, filepath.Join(dir, "pack.toml"))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	imp := cfg.Imports["review"]
+	if imp.Source != source {
+		t.Fatalf("Source = %q, want %q", imp.Source, source)
+	}
+	if imp.Version != "^1.2.0" {
+		t.Fatalf("Version = %q, want ^1.2.0", imp.Version)
 	}
 }
 
@@ -386,7 +520,7 @@ func TestDoImportAddPlainDirectoryOmitsVersion(t *testing.T) {
 	if err := os.MkdirAll(localPack, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writePackToml(t, localPack, "[pack]\nname = \"local\"\nschema = 1\n")
+	writePackToml(t, localPack, "[pack]\nname = \"suggested-display-name\"\nschema = 1\n")
 
 	prevSync := syncImports
 	t.Cleanup(func() { syncImports = prevSync })
@@ -414,6 +548,20 @@ func TestDoImportAddPlainDirectoryOmitsVersion(t *testing.T) {
 	if imp.Version != "" {
 		t.Fatalf("Version = %q, want empty", imp.Version)
 	}
+	text, err := os.ReadFile(filepath.Join(dir, "pack.toml"))
+	if err != nil {
+		t.Fatalf("ReadFile(pack.toml): %v", err)
+	}
+	for _, forbidden := range []string{
+		"suggested-display-name",
+		"export",
+		"transitive",
+		"shadow",
+	} {
+		if strings.Contains(string(text), forbidden) {
+			t.Fatalf("authored import leaked %q into pack.toml:\n%s", forbidden, string(text))
+		}
+	}
 }
 
 func TestDoImportRemoveRewritesConfig(t *testing.T) {
@@ -440,6 +588,144 @@ func TestDoImportRemoveRewritesConfig(t *testing.T) {
 	}
 	if _, ok := cfg.Imports["tools"]; ok {
 		t.Fatal("imports.tools still present")
+	}
+}
+
+func TestDoImportAddRefusesCityOwnedRootImport(t *testing.T) {
+	clearGCEnv(t)
+	dir := t.TempDir()
+	writePackToml(t, dir, "[pack]\nname = \"demo\"\nschema = 1\n")
+	writeCityToml(t, dir, `[workspace]
+name = "demo"
+
+[imports.tools]
+source = "packs/tools"
+`)
+
+	prevSync := syncImports
+	t.Cleanup(func() { syncImports = prevSync })
+	syncImports = func(_ string, _ map[string]config.Import, _ packman.InstallMode) (*packman.Lockfile, error) {
+		t.Fatal("syncImports must not run for a refused add")
+		return nil, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := doImportAdd(fsys.OSFS{}, dir, "https://example.com/tools.git", "tools", "^1.4", &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("code = %d, want 1; stderr = %s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "city.toml") {
+		t.Fatalf("stderr must point at city.toml ownership:\n%s", stderr.String())
+	}
+
+	manifest, err := loadCityPackManifestFS(fsys.OSFS{}, dir)
+	if err != nil {
+		t.Fatalf("loadCityPackManifestFS: %v", err)
+	}
+	if len(manifest.Imports) != 0 {
+		t.Fatalf("pack.toml imports = %#v, want untouched", manifest.Imports)
+	}
+}
+
+// A city.toml [imports] override owns the effective binding that list surfaces,
+// so removing a name defined by BOTH pack.toml and city.toml peels the city
+// override (leaving the pack.toml entry declared and effective again) rather
+// than refusing — otherwise list would surface a binding remove could never
+// delete.
+func TestDoImportRemovePeelsCityOverriddenPackImport(t *testing.T) {
+	clearGCEnv(t)
+	dir := t.TempDir()
+	writePackToml(t, dir, `[pack]
+name = "demo"
+schema = 1
+
+[imports.tools]
+source = "https://example.com/tools.git"
+version = "^1.4"
+`)
+	writeCityToml(t, dir, `[workspace]
+name = "demo"
+
+[imports.tools]
+source = "packs/tools"
+`)
+
+	prevSync := syncImports
+	t.Cleanup(func() { syncImports = prevSync })
+	var synced map[string]config.Import
+	syncImports = func(_ string, imports map[string]config.Import, _ packman.InstallMode) (*packman.Lockfile, error) {
+		synced = imports
+		return &packman.Lockfile{Schema: packman.LockfileSchema, Packs: map[string]packman.LockedPack{}}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := doImportRemove(fsys.OSFS{}, dir, "tools", &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("code = %d, want 0; stderr = %s", code, stderr.String())
+	}
+
+	// The pack.toml entry survives the peel and is effective again...
+	manifest, err := loadCityPackManifestFS(fsys.OSFS{}, dir)
+	if err != nil {
+		t.Fatalf("loadCityPackManifestFS: %v", err)
+	}
+	if got, ok := manifest.Imports["tools"]; !ok || got.Source != "https://example.com/tools.git" {
+		t.Fatalf("pack.toml imports.tools = %#v ok=%v; must survive the peel", got, ok)
+	}
+	// ...and the city.toml override is removed.
+	cfg, err := loadCityImportManifestFS(fsys.OSFS{}, dir)
+	if err != nil {
+		t.Fatalf("loadCityImportManifestFS: %v", err)
+	}
+	if _, ok := cfg.Imports["tools"]; ok {
+		t.Fatal("city.toml imports.tools override must be peeled off by remove")
+	}
+	// Lock sync keeps tools re-pointed to the pack value, not dropped.
+	if got, ok := synced["pack:tools"]; !ok || got.Source != "https://example.com/tools.git" {
+		t.Fatalf("synced pack:tools = %#v ok=%v; want the pack binding preserved", got, ok)
+	}
+}
+
+func TestDoImportRemoveRemovesCityOnlyRootImport(t *testing.T) {
+	clearGCEnv(t)
+	dir := t.TempDir()
+	writePackToml(t, dir, "[pack]\nname = \"demo\"\nschema = 1\n")
+	writeCityToml(t, dir, `[workspace]
+name = "demo"
+
+[imports.tools]
+source = "packs/tools"
+`)
+
+	prevSync := syncImports
+	t.Cleanup(func() { syncImports = prevSync })
+	var synced map[string]config.Import
+	syncImports = func(_ string, imports map[string]config.Import, _ packman.InstallMode) (*packman.Lockfile, error) {
+		synced = imports
+		return &packman.Lockfile{Schema: packman.LockfileSchema, Packs: map[string]packman.LockedPack{}}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := doImportRemove(fsys.OSFS{}, dir, "tools", &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
+	}
+	if _, ok := synced["pack:tools"]; ok {
+		t.Fatalf("synced imports still contain removed city import: %#v", synced)
+	}
+	cfg, err := loadCityImportManifestFS(fsys.OSFS{}, dir)
+	if err != nil {
+		t.Fatalf("loadCityImportManifestFS: %v", err)
+	}
+	if _, ok := cfg.Imports["tools"]; ok {
+		t.Fatal("city.toml imports.tools must be removed")
+	}
+	manifest, err := loadCityPackManifestFS(fsys.OSFS{}, dir)
+	if err != nil {
+		t.Fatalf("loadCityPackManifestFS: %v", err)
+	}
+	if len(manifest.Imports) != 0 {
+		t.Fatalf("pack.toml imports = %#v, want untouched", manifest.Imports)
 	}
 }
 
@@ -572,6 +858,61 @@ version = "^1.4"
 	}
 	if !called {
 		t.Fatal("expected InstallLocked to be called")
+	}
+}
+
+func TestDoImportInstallCityImportOverridesRootPackImport(t *testing.T) {
+	clearGCEnv(t)
+	dir := t.TempDir()
+	localPack := filepath.Join(dir, "packs", "tools")
+	if err := os.MkdirAll(localPack, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePackToml(t, localPack, "[pack]\nname = \"tools\"\nschema = 1\n")
+	writePackToml(t, dir, `[pack]
+name = "demo"
+schema = 1
+
+[imports.tools]
+source = "https://example.com/tools.git"
+version = "^1.4"
+`)
+	writeCityToml(t, dir, `[workspace]
+name = "demo"
+
+[imports.tools]
+source = "packs/tools"
+`)
+
+	prevSync := syncImports
+	prevInstall := installLockedImports
+	t.Cleanup(func() {
+		syncImports = prevSync
+		installLockedImports = prevInstall
+	})
+	syncImports = func(_ string, imports map[string]config.Import, _ packman.InstallMode) (*packman.Lockfile, error) {
+		imp, ok := imports["pack:tools"]
+		if !ok {
+			t.Fatalf("imports = %#v, want pack:tools", imports)
+		}
+		if imp.Source != "packs/tools" {
+			t.Fatalf("pack:tools source = %q, want city.toml override", imp.Source)
+		}
+		for name, imp := range imports {
+			if imp.Source == "https://example.com/tools.git" {
+				t.Fatalf("imports[%s] still uses root pack remote source: %#v", name, imports)
+			}
+		}
+		return &packman.Lockfile{Schema: packman.LockfileSchema, Packs: map[string]packman.LockedPack{}}, nil
+	}
+	installLockedImports = func(_ string) (*packman.Lockfile, error) {
+		return &packman.Lockfile{Schema: packman.LockfileSchema, Packs: map[string]packman.LockedPack{}}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := doImportInstall(dir, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
 	}
 }
 
@@ -1065,8 +1406,67 @@ func TestDoImportAddRejectsReservedDefaultRigPrefix(t *testing.T) {
 	if code == 0 {
 		t.Fatal("expected reserved prefix import add to fail")
 	}
-	if !strings.Contains(stderr.String(), "reserved prefix") {
-		t.Fatalf("stderr = %q", stderr.String())
+	// The historical CLI printed this bare, with no source-quoted prefix and no
+	// "invalid import source:" wrapper. Pin the exact line to catch drift.
+	want := "gc import add: import name \"default-rig:worker\" uses reserved prefix \"default-rig:\"\n"
+	if stderr.String() != want {
+		t.Fatalf("stderr = %q, want %q", stderr.String(), want)
+	}
+}
+
+func TestDoImportAddBareMessageWhenNameUnderivable(t *testing.T) {
+	clearGCEnv(t)
+	dir := t.TempDir()
+	writeCityToml(t, dir, "[workspace]\nname = \"demo\"\n")
+	writePackToml(t, dir, "[pack]\nname = \"demo\"\nschema = 1\n")
+
+	var stdout, stderr bytes.Buffer
+	// A bare scheme with no path derives to an empty name.
+	code := doImportAdd(fsys.OSFS{}, dir, "https://", "", "", &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected underivable name to fail")
+	}
+	want := "gc import add: could not derive import name; use --name\n"
+	if stderr.String() != want {
+		t.Fatalf("stderr = %q, want %q", stderr.String(), want)
+	}
+}
+
+// The ErrImportExists arm surfaces importsvc's sentinel prefix verbatim after
+// the extraction. Pin the exact line so this blessed (non-byte-identical)
+// contract cannot drift silently.
+func TestDoImportAddExactLineWhenImportExists(t *testing.T) {
+	clearGCEnv(t)
+	dir := t.TempDir()
+	writeCityToml(t, dir, "[workspace]\nname = \"demo\"\n")
+	writePackToml(t, dir, "[pack]\nname = \"demo\"\nschema = 1\n\n[imports.tools]\nsource = \"https://example.com/tools.git\"\nversion = \"^1.4\"\n")
+
+	var stdout, stderr bytes.Buffer
+	code := doImportAdd(fsys.OSFS{}, dir, "https://example.com/tools.git", "", "", &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected duplicate import add to fail")
+	}
+	want := "gc import add: import already exists: import \"tools\" already exists\n"
+	if stderr.String() != want {
+		t.Fatalf("stderr = %q, want %q", stderr.String(), want)
+	}
+}
+
+// The remove ErrNotFound arm likewise surfaces the sentinel prefix verbatim.
+func TestDoImportRemoveExactLineWhenNotFound(t *testing.T) {
+	clearGCEnv(t)
+	dir := t.TempDir()
+	writeCityToml(t, dir, "[workspace]\nname = \"demo\"\n")
+	writePackToml(t, dir, "[pack]\nname = \"demo\"\nschema = 1\n")
+
+	var stdout, stderr bytes.Buffer
+	code := doImportRemove(fsys.OSFS{}, dir, "ghost", &stdout, &stderr)
+	if code == 0 {
+		t.Fatal("expected removing a missing import to fail")
+	}
+	want := "gc import remove: import not found: import \"ghost\" not found\n"
+	if stderr.String() != want {
+		t.Fatalf("stderr = %q, want %q", stderr.String(), want)
 	}
 }
 
@@ -1127,6 +1527,44 @@ source = "../packs/local"
 	}
 }
 
+func TestDoImportListShowsCityImportOverrideForRootPackImport(t *testing.T) {
+	clearGCEnv(t)
+	dir := t.TempDir()
+	writePackToml(t, dir, `[pack]
+name = "demo"
+schema = 1
+
+[imports.tools]
+source = "https://example.com/tools.git"
+version = "^1.4"
+`)
+	writeCityToml(t, dir, `[workspace]
+name = "demo"
+
+[imports.tools]
+source = "packs/tools"
+`)
+	if err := packman.WriteLockfile(fsys.OSFS{}, dir, &packman.Lockfile{
+		Schema: packman.LockfileSchema,
+		Packs:  map[string]packman.LockedPack{},
+	}); err != nil {
+		t.Fatalf("WriteLockfile: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := doImportList(dir, false, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "tools\tpacks/tools\t\t(path)") {
+		t.Fatalf("missing city override path import:\n%s", out)
+	}
+	if strings.Contains(out, "https://example.com/tools.git") {
+		t.Fatalf("output still shows root pack remote source:\n%s", out)
+	}
+}
+
 func TestDoImportListShowsDefaultRigImports(t *testing.T) {
 	clearGCEnv(t)
 	dir := t.TempDir()
@@ -1164,6 +1602,7 @@ func TestDoImportListTreeShowsDependencyGraph(t *testing.T) {
 	dir := t.TempDir()
 	home := filepath.Join(dir, "home")
 	t.Setenv("HOME", home)
+	t.Setenv("GC_HOME", filepath.Join(home, ".gc"))
 	stubCmdCachedPackGit(t)
 
 	writeCityToml(t, dir, "[workspace]\nname = \"demo\"\n")
@@ -1407,6 +1846,7 @@ func TestDoImportListWithRigShowsOnlyRigScopedClosure(t *testing.T) {
 	dir := t.TempDir()
 	home := filepath.Join(dir, "home")
 	t.Setenv("HOME", home)
+	t.Setenv("GC_HOME", filepath.Join(home, ".gc"))
 	stubCmdCachedPackGit(t)
 
 	writeCityToml(t, dir, `
@@ -1610,6 +2050,7 @@ func TestDoImportWhyExplainsTransitiveImport(t *testing.T) {
 	dir := t.TempDir()
 	home := filepath.Join(dir, "home")
 	t.Setenv("HOME", home)
+	t.Setenv("GC_HOME", filepath.Join(home, ".gc"))
 	stubCmdCachedPackGit(t)
 
 	writeCityToml(t, dir, "[workspace]\nname = \"demo\"\n")
@@ -1701,6 +2142,7 @@ func TestDoImportAddRemoteEndToEndLoadsImportedPack(t *testing.T) {
 	dir := t.TempDir()
 	home := filepath.Join(dir, "home")
 	t.Setenv("HOME", home)
+	t.Setenv("GC_HOME", filepath.Join(home, ".gc"))
 
 	repo := initImportBarePackRepo(t, "remote-pack", "v1.2.3", `
 [pack]
@@ -1746,6 +2188,7 @@ func TestDoImportAddRemoteSubpathEndToEndLoadsImportedPack(t *testing.T) {
 	dir := t.TempDir()
 	home := filepath.Join(dir, "home")
 	t.Setenv("HOME", home)
+	t.Setenv("GC_HOME", filepath.Join(home, ".gc"))
 
 	repo := initImportBarePackRepo(t, "mono", "v1.2.3", `
 [pack]
@@ -1807,6 +2250,7 @@ func TestDoImportAddRemoteSHAPinEndToEndLoadsImportedPack(t *testing.T) {
 	dir := t.TempDir()
 	home := filepath.Join(dir, "home")
 	t.Setenv("HOME", home)
+	t.Setenv("GC_HOME", filepath.Join(home, ".gc"))
 
 	repo := initImportBarePackRepo(t, "sha-pack", "", `
 [pack]
@@ -1956,6 +2400,170 @@ scope = "city"
 	}
 }
 
+// The pack rewrite key-loss guards must not refuse legitimate packs: every
+// section the gc binary recognizes has to decode cleanly into the structs the
+// writers round-trip (initPackConfig for gc agent suspend, cityPackManifest for
+// import-manifest rewrites). This pins zero false positives for the known pack
+// schema, so the guards fire only on genuinely unknown keys. The fixture must
+// include the sections where the reduced structs historically diverged from
+// config.PackConfig — the legacy [agents] alias, [[pricing]], and the
+// pack-level [upstreams] table — because those are the keys the guards would
+// otherwise flag as unrecognized.
+func TestGuardPackRewriteKeyLossAcceptsKnownPackSchema(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	packPath := filepath.Join(dir, "pack.toml")
+	src := `[pack]
+name = "full-pack"
+schema = 1
+version = "1.0.0"
+description = "exercises known sections"
+
+[imports.gastown]
+source = "https://example/gastown.git"
+version = "^1.2"
+
+[agent_defaults]
+provider = "claude"
+
+[agents]
+append_fragments = ["legacy-alias"]
+
+[defaults.rig.imports.review]
+source = "https://example/review.git"
+
+[providers.claude]
+base = "builtin:claude"
+
+[upstreams.bedrock]
+description = "AWS Bedrock Anthropic"
+base_url = "https://bedrock.example.com/anthropic"
+api_key = "$AWS_BEDROCK_KEY"
+
+[upstreams.bedrock.env]
+AWS_REGION = "us-west-2"
+
+[[pricing]]
+provider = "claude"
+model = "claude-opus-4-8"
+last_verified = "2026-06-01"
+
+[pricing.tier]
+prompt_usd_per_1m = 15.0
+completion_usd_per_1m = 75.0
+
+[[agent]]
+name = "worker"
+provider = "claude"
+`
+	if err := os.WriteFile(packPath, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.GuardRewriteKeyLoss[initPackConfig](fsys.OSFS{}, packPath); err != nil {
+		t.Fatalf("GuardRewriteKeyLoss[initPackConfig] = %v, want nil for known schema", err)
+	}
+	if err := config.GuardRewriteKeyLoss[cityPackManifest](fsys.OSFS{}, packPath); err != nil {
+		t.Fatalf("GuardRewriteKeyLoss[cityPackManifest] = %v, want nil for known schema", err)
+	}
+}
+
+// An import-manifest rewrite must round-trip [[pricing]] (which compose.go
+// consumes) and canonicalize the legacy [agents] alias into [agent_defaults],
+// rather than refusing the rewrite or silently dropping recognized data. This
+// pins the cityPackManifest reduced struct as a faithful superset of the pack
+// schema it guards.
+func TestWriteCityPackManifestPreservesPricingAndFoldsAgentsAlias(t *testing.T) {
+	fs := fsys.NewFake()
+	fs.Files["/city/pack.toml"] = []byte(`[pack]
+name = "test-city"
+schema = 1
+
+[agents]
+append_fragments = ["legacy-alias"]
+
+[[pricing]]
+provider = "claude"
+model = "claude-opus-4-8"
+last_verified = "2026-06-01"
+
+[pricing.tier]
+prompt_usd_per_1m = 15.0
+completion_usd_per_1m = 75.0
+`)
+
+	manifest, err := loadCityPackManifestFS(fs, "/city")
+	if err != nil {
+		t.Fatalf("loadCityPackManifestFS: %v", err)
+	}
+	if err := writeCityPackManifest(fs, "/city", manifest); err != nil {
+		t.Fatalf("writeCityPackManifest: %v", err)
+	}
+
+	out := string(fs.Files["/city/pack.toml"])
+	for _, want := range []string{
+		"[[pricing]]",
+		`provider = "claude"`,
+		`model = "claude-opus-4-8"`,
+		`last_verified = "2026-06-01"`,
+		"prompt_usd_per_1m",
+		"completion_usd_per_1m",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("rewritten pack.toml dropped %q:\n%s", want, out)
+		}
+	}
+	// The alias value survives, canonicalized under [agent_defaults]; the legacy
+	// [agents] table name is not re-emitted.
+	if !strings.Contains(out, "[agent_defaults]") || !strings.Contains(out, `append_fragments = ["legacy-alias"]`) {
+		t.Fatalf("rewritten pack.toml dropped the [agents] alias value:\n%s", out)
+	}
+	if strings.Contains(out, "[agents]") {
+		t.Fatalf("rewritten pack.toml still contains the legacy [agents] table:\n%s", out)
+	}
+}
+
+// An import-manifest rewrite must round-trip the pack-level [upstreams] table,
+// including its nested [upstreams.<name>.env] block, rather than refusing the
+// rewrite (false key-loss positive) or silently dropping the now-legitimate
+// schema surface. This pins cityPackManifest/cityPackManifestBody as a faithful
+// superset of the pack schema for the upstream axis.
+func TestWriteCityPackManifestPreservesUpstreams(t *testing.T) {
+	fs := fsys.NewFake()
+	fs.Files["/city/pack.toml"] = []byte(`[pack]
+name = "test-city"
+schema = 1
+
+[upstreams.bedrock]
+description = "AWS Bedrock Anthropic"
+base_url = "https://bedrock.example.com/anthropic"
+api_key = "$AWS_BEDROCK_KEY"
+
+[upstreams.bedrock.env]
+AWS_REGION = "us-west-2"
+`)
+
+	manifest, err := loadCityPackManifestFS(fs, "/city")
+	if err != nil {
+		t.Fatalf("loadCityPackManifestFS: %v", err)
+	}
+	if err := writeCityPackManifest(fs, "/city", manifest); err != nil {
+		t.Fatalf("writeCityPackManifest: %v", err)
+	}
+
+	out := string(fs.Files["/city/pack.toml"])
+	for _, want := range []string{
+		"[upstreams.bedrock]",
+		`base_url = "https://bedrock.example.com/anthropic"`,
+		`api_key = "$AWS_BEDROCK_KEY"`,
+		"[upstreams.bedrock.env]",
+		`AWS_REGION = "us-west-2"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("rewritten pack.toml dropped upstream field %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestDoImportAddBareGitHubSourceDefaultsVersion(t *testing.T) {
 	clearGCEnv(t)
 	dir := t.TempDir()
@@ -1969,7 +2577,7 @@ func TestDoImportAddBareGitHubSourceDefaultsVersion(t *testing.T) {
 		defaultImportConstraint = prevConstraint
 		syncImports = prevSync
 	})
-	resolveImportVersion = func(source, _ string) (packman.ResolvedVersion, error) {
+	resolveImportVersion = func(_, source, _ string) (packman.ResolvedVersion, error) {
 		if source != "github.com/example/tools" {
 			t.Fatalf("ResolveVersion source = %q", source)
 		}
@@ -2011,14 +2619,14 @@ func TestDefaultImportVersionForSourceFallsBackToSHAWhenTagsAbsent(t *testing.T)
 		resolveImportVersion = prevResolve
 		resolveImportHeadCommit = prevHead
 	})
-	resolveImportVersion = func(source, _ string) (packman.ResolvedVersion, error) {
+	resolveImportVersion = func(_, source, _ string) (packman.ResolvedVersion, error) {
 		return packman.ResolvedVersion{}, fmt.Errorf("%w for %q", packman.ErrNoSemverTags, source)
 	}
-	resolveImportHeadCommit = func(_ string) (string, error) {
+	resolveImportHeadCommit = func(_, _ string) (string, error) {
 		return "deadbeef", nil
 	}
 
-	got, err := defaultImportVersionForSource("github.com/example/tools")
+	got, err := defaultImportVersionForSource("", "github.com/example/tools")
 	if err != nil {
 		t.Fatalf("defaultImportVersionForSource: %v", err)
 	}
@@ -2038,7 +2646,7 @@ func TestHasRepositoryRefInSource(t *testing.T) {
 		"https://github.com/example/repo.git":                  false,
 		"file:///tmp/repo.git//packs/base":                     false,
 		"file:///tmp/repo.git#main":                            true,
-		"https://github.com/example/repo/tree/main/packs/base": true,
+		"https://github.com/example/repo/tree/main/packs/base": false,
 		"git@github.com:example/repo.git#main":                 true,
 	}
 	for input, want := range cases {
@@ -2056,18 +2664,7 @@ name = "demo-pack"
 schema = 1
 `)
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Getwd: %v", err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("Chdir(%q): %v", dir, err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chdir(cwd); err != nil {
-			t.Fatalf("restore cwd: %v", err)
-		}
-	})
+	t.Chdir(dir)
 
 	prevCityFlag := cityFlag
 	prevRigFlag := rigFlag
@@ -2091,6 +2688,170 @@ schema = 1
 	}
 }
 
+func TestFindNearestImportRootSkipsRuntimeOnlyDirs(t *testing.T) {
+	clearGCEnv(t)
+	cityDir := t.TempDir()
+	writeCityToml(t, cityDir, "[workspace]\nname = \"demo\"\n")
+	rigDir := filepath.Join(cityDir, "rigs", "work")
+	if err := os.MkdirAll(filepath.Join(rigDir, ".gc"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	nested := filepath.Join(rigDir, "src", "deep")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	root, ok, err := findNearestImportRoot(nested)
+	if err != nil {
+		t.Fatalf("findNearestImportRoot: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected the walk to reach the city root")
+	}
+	if root != cityDir {
+		t.Fatalf("root = %q, want city %q (bare .gc/ dirs must not be import roots)", root, cityDir)
+	}
+}
+
+func TestFindNearestImportRootStopsAtCeiling(t *testing.T) {
+	clearGCEnv(t)
+	base := t.TempDir()
+	writePackToml(t, base, "[pack]\nname = \"demo\"\nschema = 1\n")
+	ceiling := filepath.Join(base, "ceiling")
+	nested := filepath.Join(ceiling, "deep")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GC_CEILING_DIRECTORIES", ceiling)
+
+	root, ok, err := findNearestImportRoot(nested)
+	if err != nil {
+		t.Fatalf("findNearestImportRoot: %v", err)
+	}
+	if ok {
+		t.Fatalf("root = %q, want no match above the ceiling", root)
+	}
+}
+
+func TestResolveImportRootPrefersNearestPackUnderCity(t *testing.T) {
+	clearGCEnv(t)
+	resetFlags(t)
+	cityDir := t.TempDir()
+	writeCityToml(t, cityDir, "[workspace]\nname = \"demo\"\n")
+	writePackToml(t, cityDir, "[pack]\nname = \"demo\"\nschema = 1\n")
+	packDir := filepath.Join(cityDir, "packs", "tools")
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePackToml(t, packDir, "[pack]\nname = \"tools\"\nschema = 1\n")
+	nested := filepath.Join(packDir, "prompts")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	setCwd(t, nested)
+
+	got, err := resolveImportRoot()
+	if err != nil {
+		t.Fatalf("resolveImportRoot: %v", err)
+	}
+	want, err := filepath.EvalSymlinks(packDir)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(%q): %v", packDir, err)
+	}
+	if got != want {
+		t.Fatalf("resolveImportRoot() = %q, want nearest pack %q", got, want)
+	}
+}
+
+func TestResolveImportRootRuntimeOnlyAncestorResolvesRegisteredRigCity(t *testing.T) {
+	clearGCEnv(t)
+	resetFlags(t)
+	gcHome := t.TempDir()
+	t.Setenv("GC_HOME", gcHome)
+
+	cityPath := setupCity(t, "import-city")
+	base := canonicalTestPath(t.TempDir())
+	rigDir := filepath.Join(base, "workrepo")
+	if err := os.MkdirAll(filepath.Join(rigDir, ".gc"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	nested := filepath.Join(rigDir, "internal")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Bound the marker walk inside the fixture so stray pack.toml/city.toml
+	// files in shared temp ancestors cannot hijack the test.
+	t.Setenv("GC_CEILING_DIRECTORIES", base)
+	registerRigBindingForResolution(t, gcHome, cityPath, "import-city", "workrepo", rigDir)
+	setCwd(t, nested)
+
+	got, err := resolveImportRoot()
+	if err != nil {
+		t.Fatalf("resolveImportRoot: %v", err)
+	}
+	assertSameTestPath(t, got, cityPath)
+}
+
+func TestResolveImportRootHonorsRigFlagOverNearestPack(t *testing.T) {
+	clearGCEnv(t)
+	resetFlags(t)
+	gcHome := t.TempDir()
+	t.Setenv("GC_HOME", gcHome)
+
+	cityPath := setupCity(t, "rigflag-city")
+	rigDir := filepath.Join(canonicalTestPath(t.TempDir()), "workrepo")
+	if err := os.MkdirAll(rigDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	registerRigBindingForResolution(t, gcHome, cityPath, "rigflag-city", "workrepo", rigDir)
+
+	packDir := t.TempDir()
+	writePackToml(t, packDir, "[pack]\nname = \"bystander\"\nschema = 1\n")
+	setCwd(t, packDir)
+	rigFlag = "workrepo"
+
+	got, err := resolveImportRoot()
+	if err != nil {
+		t.Fatalf("resolveImportRoot: %v", err)
+	}
+	assertSameTestPath(t, got, cityPath)
+}
+
+func TestResolveImportRootHonorsGCDirOverNearestPack(t *testing.T) {
+	clearGCEnv(t)
+	resetFlags(t)
+	t.Setenv("GC_HOME", t.TempDir())
+
+	cityPath := setupCity(t, "gcdir-city")
+	packDir := t.TempDir()
+	writePackToml(t, packDir, "[pack]\nname = \"bystander\"\nschema = 1\n")
+	setCwd(t, packDir)
+	t.Setenv("GC_DIR", cityPath)
+
+	got, err := resolveImportRoot()
+	if err != nil {
+		t.Fatalf("resolveImportRoot: %v", err)
+	}
+	assertSameTestPath(t, got, cityPath)
+}
+
+func TestResolveImportRootGCCityEnvWinsOverNearestPack(t *testing.T) {
+	clearGCEnv(t)
+	resetFlags(t)
+	cityDir := t.TempDir()
+	writeCityToml(t, cityDir, "[workspace]\nname = \"demo\"\n")
+	packDir := t.TempDir()
+	writePackToml(t, packDir, "[pack]\nname = \"bystander\"\nschema = 1\n")
+	setCwd(t, packDir)
+	t.Setenv("GC_CITY", cityDir)
+
+	got, err := resolveImportRoot()
+	if err != nil {
+		t.Fatalf("resolveImportRoot: %v", err)
+	}
+	assertSameTestPath(t, got, cityDir)
+}
+
 func TestImportAddCommandWorksInStandalonePackDir(t *testing.T) {
 	clearGCEnv(t)
 	dir := t.TempDir()
@@ -2099,18 +2860,7 @@ name = "demo-pack"
 schema = 1
 `)
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Getwd: %v", err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("Chdir(%q): %v", dir, err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chdir(cwd); err != nil {
-			t.Fatalf("restore cwd: %v", err)
-		}
-	})
+	t.Chdir(dir)
 
 	prevCityFlag := cityFlag
 	prevRigFlag := rigFlag
@@ -2119,7 +2869,7 @@ schema = 1
 	prevSync := syncImports
 	cityFlag = ""
 	rigFlag = ""
-	resolveImportVersion = func(_, _ string) (packman.ResolvedVersion, error) {
+	resolveImportVersion = func(_, _, _ string) (packman.ResolvedVersion, error) {
 		return packman.ResolvedVersion{Version: "1.4.2", Commit: "abc123"}, nil
 	}
 	defaultImportConstraint = func(_ string) (string, error) { return "^1.4", nil }
@@ -2155,6 +2905,109 @@ schema = 1
 	}
 }
 
+func TestImportAddCommandIgnoresInheritedLiveEnv(t *testing.T) {
+	external := t.TempDir()
+	writeCityToml(t, external, "[workspace]\nname = \"external\"\n")
+	writePackToml(t, external, `[pack]
+name = "external"
+schema = 1
+`)
+	externalPackPath := filepath.Join(external, "pack.toml")
+	externalPackBefore, err := os.ReadFile(externalPackPath)
+	if err != nil {
+		t.Fatalf("ReadFile(external pack.toml): %v", err)
+	}
+	externalBeadsPath := filepath.Join(external, ".beads", "issues.jsonl")
+	if err := os.MkdirAll(filepath.Dir(externalBeadsPath), 0o700); err != nil {
+		t.Fatalf("MkdirAll(external .beads): %v", err)
+	}
+	externalBeadsBefore := []byte(`{"id":"live-1","title":"do not touch"}` + "\n")
+	if err := os.WriteFile(externalBeadsPath, externalBeadsBefore, 0o600); err != nil {
+		t.Fatalf("WriteFile(external beads): %v", err)
+	}
+
+	t.Setenv("GC_CITY_PATH", external)
+	t.Setenv("GC_CITY_ROOT", external)
+	t.Setenv("BEADS_DB_PATH", externalBeadsPath)
+	t.Setenv("DOLT_ROOT_PATH", filepath.Join(external, "dolt-home"))
+	clearGCEnv(t)
+
+	dir := t.TempDir()
+	writePackToml(t, dir, `[pack]
+name = "demo-pack"
+schema = 1
+`)
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir(%q): %v", dir, err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(cwd); err != nil {
+			t.Fatalf("restore cwd: %v", err)
+		}
+	})
+
+	prevCityFlag := cityFlag
+	prevRigFlag := rigFlag
+	prevResolve := resolveImportVersion
+	prevConstraint := defaultImportConstraint
+	prevSync := syncImports
+	cityFlag = ""
+	rigFlag = ""
+	resolveImportVersion = func(_, _, _ string) (packman.ResolvedVersion, error) {
+		return packman.ResolvedVersion{Version: "1.4.2", Commit: "abc123"}, nil
+	}
+	defaultImportConstraint = func(_ string) (string, error) { return "^1.4", nil }
+	syncImports = func(_ string, _ map[string]config.Import, _ packman.InstallMode) (*packman.Lockfile, error) {
+		return &packman.Lockfile{
+			Schema: packman.LockfileSchema,
+			Packs: map[string]packman.LockedPack{
+				"https://github.com/example/tools.git": {Version: "1.4.2", Commit: "abc123"},
+			},
+		}, nil
+	}
+	t.Cleanup(func() {
+		cityFlag = prevCityFlag
+		rigFlag = prevRigFlag
+		resolveImportVersion = prevResolve
+		defaultImportConstraint = prevConstraint
+		syncImports = prevSync
+	})
+
+	var stdout, stderr bytes.Buffer
+	cmd := newImportCmd(&stdout, &stderr)
+	cmd.SetArgs([]string{"add", "https://github.com/example/tools.git"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v\nstderr=%s", err, stderr.String())
+	}
+
+	cfg, err := config.Load(fsys.OSFS{}, filepath.Join(dir, "pack.toml"))
+	if err != nil {
+		t.Fatalf("Load(pack.toml): %v", err)
+	}
+	if _, ok := cfg.Imports["tools"]; !ok {
+		t.Fatalf("imports = %#v, want tools in standalone pack", cfg.Imports)
+	}
+	externalPackAfter, err := os.ReadFile(externalPackPath)
+	if err != nil {
+		t.Fatalf("ReadFile(external pack.toml after import): %v", err)
+	}
+	if !bytes.Equal(externalPackAfter, externalPackBefore) {
+		t.Fatalf("external pack.toml was modified:\n%s", string(externalPackAfter))
+	}
+	externalBeadsAfter, err := os.ReadFile(externalBeadsPath)
+	if err != nil {
+		t.Fatalf("ReadFile(external beads after import): %v", err)
+	}
+	if !bytes.Equal(externalBeadsAfter, externalBeadsBefore) {
+		t.Fatalf("external beads store was modified:\n%s", string(externalBeadsAfter))
+	}
+}
+
 func TestImportAddCommandAcceptsCityFlagForStandalonePackDir(t *testing.T) {
 	clearGCEnv(t)
 	dir := t.TempDir()
@@ -2170,7 +3023,7 @@ schema = 1
 	prevSync := syncImports
 	cityFlag = dir
 	rigFlag = ""
-	resolveImportVersion = func(_, _ string) (packman.ResolvedVersion, error) {
+	resolveImportVersion = func(_, _, _ string) (packman.ResolvedVersion, error) {
 		return packman.ResolvedVersion{Version: "1.4.2", Commit: "abc123"}, nil
 	}
 	defaultImportConstraint = func(_ string) (string, error) { return "^1.4", nil }
@@ -2373,4 +3226,92 @@ func gitOutputImportE(t *testing.T, dir string, args ...string) (string, error) 
 		return "", fmt.Errorf("%w\n%s", err, string(out))
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// TestLocalGitRepoRootIgnoresPoisonedGitEnv proves localGitRepoRoot resolves
+// the toplevel of the requested targetDir even when git-locating environment
+// variables point at an unrelated repository. Running gc inside a pre-commit
+// hook or nested worktree tooling exports GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE
+// for the parent repo; the import probe must strip those so the local import
+// target is resolved from its own working directory.
+func TestLocalGitRepoRootIgnoresPoisonedGitEnv(t *testing.T) {
+	repo := t.TempDir()
+	mustGitImport(t, repo, "init")
+	// Capture git's own resolved toplevel before poisoning so symlink
+	// normalization matches localGitRepoRoot's later result.
+	wantRoot := gitOutputImport(t, repo, "rev-parse", "--show-toplevel")
+
+	poison := t.TempDir()
+	mustGitImport(t, poison, "init")
+	t.Setenv("GIT_DIR", filepath.Join(poison, ".git"))
+	t.Setenv("GIT_WORK_TREE", poison)
+	t.Setenv("GIT_INDEX_FILE", filepath.Join(poison, ".git", "index"))
+
+	got, ok, err := localGitRepoRoot(repo)
+	if err != nil {
+		t.Fatalf("localGitRepoRoot with poisoned git env: %v", err)
+	}
+	if !ok {
+		t.Fatalf("localGitRepoRoot ok = false, want true for an initialized repo")
+	}
+	if got != wantRoot {
+		t.Fatalf("localGitRepoRoot = %q, want %q (must ignore poisoned GIT_DIR)", got, wantRoot)
+	}
+}
+
+// TestDefaultImportHeadCommitIgnoresPoisonedGitEnv proves defaultImportHeadCommit
+// resolves the HEAD of the requested source under a poisoned git environment.
+// `git ls-remote <url>` lists refs from the explicit URL, so the sanitized
+// environment is defense-in-depth (against config injection or a future change
+// that relies on local repo discovery); the resolved HEAD must still be the
+// requested source's, never the leaked parent's.
+func TestDefaultImportHeadCommitIgnoresPoisonedGitEnv(t *testing.T) {
+	repo := t.TempDir()
+	mustGitImport(t, repo, "init")
+	if err := os.WriteFile(filepath.Join(repo, "f.txt"), []byte("hi\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	mustGitImport(t, repo, "add", ".")
+	mustGitImport(t, repo, "commit", "-m", "initial")
+	wantHead := gitOutputImport(t, repo, "rev-parse", "HEAD")
+
+	// A second repo whose HEAD differs from the source.
+	poison := t.TempDir()
+	mustGitImport(t, poison, "init")
+	if err := os.WriteFile(filepath.Join(poison, "p.txt"), []byte("poison\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile(poison): %v", err)
+	}
+	mustGitImport(t, poison, "add", ".")
+	mustGitImport(t, poison, "commit", "-m", "poison")
+	poisonHead := gitOutputImport(t, poison, "rev-parse", "HEAD")
+	if poisonHead == wantHead {
+		t.Fatalf("poison HEAD unexpectedly equals source HEAD %s", wantHead)
+	}
+	t.Setenv("GIT_DIR", filepath.Join(poison, ".git"))
+	t.Setenv("GIT_WORK_TREE", poison)
+	t.Setenv("GIT_INDEX_FILE", filepath.Join(poison, ".git", "index"))
+
+	got, err := defaultImportHeadCommit("", repo)
+	if err != nil {
+		t.Fatalf("defaultImportHeadCommit with poisoned git env: %v", err)
+	}
+	if got != wantHead {
+		t.Fatalf("defaultImportHeadCommit = %q, want %q (must resolve the requested source)", got, wantHead)
+	}
+}
+
+// TestDefaultImportHeadCommitRedactsUserinfo proves the HEAD-resolve error never
+// echoes a userinfo token in the source. GIT_ALLOW_PROTOCOL=file fails the https
+// probe instantly (offline) so the resolve error path runs without a network hit.
+func TestDefaultImportHeadCommitRedactsUserinfo(t *testing.T) {
+	t.Setenv("GIT_ALLOW_PROTOCOL", "file")
+	t.Setenv("GIT_TERMINAL_PROMPT", "0")
+
+	_, err := defaultImportHeadCommit("", "https://user:ghp_secret@github.com/example/repo")
+	if err == nil {
+		t.Fatalf("expected the offline https probe to fail")
+	}
+	if strings.Contains(err.Error(), "ghp_secret") {
+		t.Fatalf("resolve error leaked the userinfo token: %v", err)
+	}
 }

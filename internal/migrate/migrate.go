@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -33,6 +32,7 @@ type packFile struct {
 	NamedSessions  []config.NamedSession          `toml:"named_session,omitempty"`
 	Services       []config.Service               `toml:"service,omitempty"`
 	Providers      map[string]config.ProviderSpec `toml:"providers,omitempty"`
+	Upstreams      map[string]config.UpstreamSpec `toml:"upstreams,omitempty"`
 	Formulas       config.FormulasConfig          `toml:"formulas,omitempty"`
 	Patches        config.Patches                 `toml:"patches,omitempty"`
 	Doctor         []config.PackDoctorEntry       `toml:"doctor,omitempty"`
@@ -44,6 +44,7 @@ type packFile struct {
 	Agents         []config.Agent                 `toml:"agent"`
 
 	defaultRigImportOrder []string
+	metadata              toml.MetaData
 }
 
 type packDefaults struct {
@@ -58,13 +59,16 @@ type agentFile struct {
 	Description            string            `toml:"description,omitempty"`
 	Dir                    string            `toml:"dir,omitempty"`
 	WorkDir                string            `toml:"work_dir,omitempty"`
+	TmuxAlias              string            `toml:"tmux_alias,omitempty"`
 	Scope                  string            `toml:"scope,omitempty"`
 	Suspended              bool              `toml:"suspended,omitempty"`
 	PreStart               []string          `toml:"pre_start,omitempty"`
 	Nudge                  string            `toml:"nudge,omitempty"`
 	Session                string            `toml:"session,omitempty"`
 	Provider               string            `toml:"provider,omitempty"`
+	Upstream               string            `toml:"upstream,omitempty"`
 	StartCommand           string            `toml:"start_command,omitempty"`
+	Lifecycle              string            `toml:"lifecycle,omitempty"`
 	Args                   []string          `toml:"args,omitempty"`
 	PromptMode             string            `toml:"prompt_mode,omitempty"`
 	PromptFlag             string            `toml:"prompt_flag,omitempty"`
@@ -83,6 +87,8 @@ type agentFile struct {
 	WorkQuery              string            `toml:"work_query,omitempty"`
 	SlingQuery             string            `toml:"sling_query,omitempty"`
 	IdleTimeout            string            `toml:"idle_timeout,omitempty"`
+	MaxSessionAge          string            `toml:"max_session_age,omitempty"`
+	MaxSessionAgeJitter    string            `toml:"max_session_age_jitter,omitempty"`
 	SleepAfterIdle         string            `toml:"sleep_after_idle,omitempty"`
 	InstallAgentHooks      []string          `toml:"install_agent_hooks,omitempty"`
 	HooksInstalled         *bool             `toml:"hooks_installed,omitempty"`
@@ -97,6 +103,7 @@ type agentFile struct {
 	DependsOn              []string          `toml:"depends_on,omitempty"`
 	ResumeCommand          string            `toml:"resume_command,omitempty"`
 	WakeMode               string            `toml:"wake_mode,omitempty"`
+	MouseMode              string            `toml:"mouse_mode,omitempty"`
 }
 
 type usageCounts struct {
@@ -117,11 +124,6 @@ type agentEntry struct {
 	Origin agentOrigin
 }
 
-var (
-	invalidBindingChars = regexp.MustCompile(`[^A-Za-z0-9_-]+`)
-	repeatedDash        = regexp.MustCompile(`-+`)
-)
-
 // Apply migrates a city directory to the pack-first agent layout.
 func Apply(cityPath string, opts Options) (*Report, error) {
 	report := &Report{}
@@ -138,13 +140,7 @@ func Apply(cityPath string, opts Options) (*Report, error) {
 		return nil, err
 	}
 
-	selectedAgents, fallbackNames := selectAgents(packCfg.Agents, cityCfg.Agents)
-	if len(fallbackNames) > 0 {
-		sort.Strings(fallbackNames)
-		report.Warnings = append(report.Warnings,
-			fmt.Sprintf("dropped fallback field for agents: %s; review shadowing behavior manually",
-				strings.Join(fallbackNames, ", ")))
-	}
+	selectedAgents := selectAgents(packCfg.Agents, cityCfg.Agents)
 
 	usage := buildUsageCounts(cityPath, selectedAgents)
 	if err := validateAgentAssets(cityPath, selectedAgents); err != nil {
@@ -165,38 +161,91 @@ func Apply(cityPath string, opts Options) (*Report, error) {
 		cityCfg.Agents = nil
 	}
 
-	if len(selectedAgents) > 0 || len(cityCfg.Workspace.Includes) > 0 || len(cityCfg.Workspace.DefaultRigIncludes) > 0 {
+	// Canonical builtin system-pack includes (.gc/system/packs/<name>) are a
+	// retired transitional surface that `gc doctor --fix` converts to pinned
+	// [imports] entries. `gc migrate` deliberately preserves them in city.toml
+	// so a city authored by an older binary keeps composing through the
+	// migrate step; the follow-up `gc doctor --fix` completes the conversion.
+	// Only the other entries are legacy PackV1 includes that migrate rewrites
+	// here.
+	builtinIncludes := make([]string, 0, len(cityCfg.Workspace.LegacyIncludes()))
+	for _, inc := range cityCfg.Workspace.LegacyIncludes() {
+		if config.IsBuiltinSystemPackInclude(inc) {
+			builtinIncludes = append(builtinIncludes, inc)
+		}
+	}
+	legacyIncludes := config.NonBuiltinWorkspaceIncludes(cityCfg.Workspace.LegacyIncludes())
+
+	migratedPacks := packNamesReferencedByLegacyIncludes(nil, legacyIncludes, cityCfg.Packs)
+	migratedPacks = packNamesReferencedByLegacyIncludes(migratedPacks, cityCfg.Workspace.LegacyDefaultRigIncludes(), cityCfg.Packs)
+
+	if len(selectedAgents) > 0 || len(legacyIncludes) > 0 || len(cityCfg.Workspace.LegacyDefaultRigIncludes()) > 0 {
 		if ensurePackMeta(&packCfg, cityCfg, cityPath) {
 			packChanged = true
 		}
 	}
 
-	if len(cityCfg.Workspace.Includes) > 0 {
+	if len(legacyIncludes) > 0 {
 		if packCfg.Imports == nil {
 			packCfg.Imports = make(map[string]config.Import)
 		}
-		if addImports(packCfg.Imports, cityCfg.Workspace.Includes, cityCfg.Packs) {
+		if addImports(packCfg.Imports, legacyIncludes, cityCfg.Packs) {
 			packChanged = true
 		}
-		cityCfg.Workspace.Includes = nil
+		cityCfg.Workspace.SetLegacyIncludes(builtinIncludes)
 	}
 
-	if len(cityCfg.Workspace.DefaultRigIncludes) > 0 {
-		if packCfg.Defaults.Rig.Imports == nil {
-			packCfg.Defaults.Rig.Imports = make(map[string]config.Import)
+	if len(packCfg.Defaults.Rig.Imports) > 0 {
+		if cityCfg.Defaults.Rig.Imports == nil {
+			cityCfg.Defaults.Rig.Imports = make(map[string]config.Import, len(packCfg.Defaults.Rig.Imports))
 		}
-		var changed bool
-		packCfg.defaultRigImportOrder, changed = addOrderedImports(
-			packCfg.Defaults.Rig.Imports,
-			packCfg.defaultRigImportOrder,
-			cityCfg.Workspace.DefaultRigIncludes,
+		for _, name := range orderedPackDefaultRigImportNames(packCfg.Defaults.Rig.Imports, packCfg.defaultRigImportOrder) {
+			if _, exists := cityCfg.Defaults.Rig.Imports[name]; exists {
+				continue
+			}
+			cityCfg.Defaults.Rig.Imports[name] = packCfg.Defaults.Rig.Imports[name]
+		}
+		packCfg.Defaults.Rig.Imports = nil
+		packCfg.defaultRigImportOrder = nil
+		packChanged = true
+	}
+
+	if len(cityCfg.Workspace.LegacyDefaultRigIncludes()) > 0 {
+		if cityCfg.Defaults.Rig.Imports == nil {
+			cityCfg.Defaults.Rig.Imports = make(map[string]config.Import)
+		}
+		_, changed := addOrderedImports(
+			cityCfg.Defaults.Rig.Imports,
+			nil,
+			cityCfg.Workspace.LegacyDefaultRigIncludes(),
 			cityCfg.Packs,
 		)
-		if changed {
-			packChanged = true
-		}
-		cityCfg.Workspace.DefaultRigIncludes = nil
+		_ = changed
+		cityCfg.Workspace.SetLegacyDefaultRigIncludes(nil)
 	}
+
+	if migratePackAuthoringSurfaces(&packCfg, cityCfg, report) {
+		packChanged = true
+	}
+
+	// Drop the redundant control-dispatcher named session that gc init versions
+	// prior to v1.3.0-rc3 injected. The control dispatcher serves via
+	// demand-scaling of the core-pack agent template (openControlDispatcherDemand),
+	// so the named session is dead weight; on upgraded cities its bare backing
+	// template no longer resolves and it emits a confusing "backing template not
+	// found ... disabled" warning on every command. Removing it here lets
+	// `gc doctor --fix` clean up existing cities. Idempotent.
+	if updated, removed := dropRedundantControlDispatcherNamedSession(packCfg.NamedSessions); removed > 0 {
+		packCfg.NamedSessions = updated
+		packChanged = true
+		report.Changes = append(report.Changes, "drop redundant control-dispatcher named session from pack.toml")
+	}
+	if updated, removed := dropRedundantControlDispatcherNamedSession(cityCfg.NamedSessions); removed > 0 {
+		cityCfg.NamedSessions = updated
+		report.Changes = append(report.Changes, "drop redundant control-dispatcher named session from city.toml")
+	}
+
+	removeMigratedPackSources(cityCfg, migratedPacks)
 
 	cityContent, err := cityCfg.Marshal()
 	if err != nil {
@@ -219,6 +268,56 @@ func Apply(cityPath string, opts Options) (*Report, error) {
 	return report, nil
 }
 
+func packNamesReferencedByLegacyIncludes(names map[string]struct{}, includes []string, packs map[string]config.PackSource) map[string]struct{} {
+	if len(includes) == 0 || len(packs) == 0 {
+		return names
+	}
+	for _, include := range includes {
+		if _, ok := packs[include]; !ok {
+			continue
+		}
+		if names == nil {
+			names = make(map[string]struct{})
+		}
+		names[include] = struct{}{}
+	}
+	return names
+}
+
+func removeMigratedPackSources(cityCfg *config.City, names map[string]struct{}) {
+	if cityCfg == nil || len(names) == 0 || len(cityCfg.Packs) == 0 {
+		return
+	}
+	for name := range names {
+		if packNameStillReferencedByRigIncludes(cityCfg, name) {
+			continue
+		}
+		delete(cityCfg.Packs, name)
+	}
+	if len(cityCfg.Packs) == 0 {
+		cityCfg.Packs = nil
+	}
+}
+
+func packNameStillReferencedByRigIncludes(cityCfg *config.City, name string) bool {
+	for _, rig := range cityCfg.Rigs {
+		for _, include := range rig.Includes {
+			if include == name {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// loadCityFile reads, parses, and key-loss-guards a city.toml for migration.
+// Migration deliberately uses the real OS filesystem (fsys.OSFS) rather than a
+// parameterized fsys.FS: it is a one-shot CLI step over a concrete city
+// directory the operator names, it already reads bytes via os.ReadFile, and its
+// sibling calls (GuardCityRewriteKeyLoss, ResolveWorkspaceIdentity, and the
+// byte-level city.toml rewrites) all run against that same on-disk tree. No
+// runtime caller migrates over a virtual filesystem, so threading an fsys.FS
+// through the migration path would add abstraction with no consumer.
 func loadCityFile(path string) (*config.City, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -226,6 +325,13 @@ func loadCityFile(path string) (*config.City, error) {
 	}
 	cfg, err := config.Parse(data)
 	if err != nil {
+		return nil, fmt.Errorf("migrate %q: %w", path, err)
+	}
+	// Apply rewrites city.toml from this re-marshaled struct, so keys the
+	// binary does not recognize would vanish silently (the ga-lurp5d
+	// incident class). Refuse before any mutation, mirroring what
+	// loadPackFile does for pack.toml via migrationFatalPackWarnings.
+	if err := config.GuardCityRewriteKeyLoss(fsys.OSFS{}, path); err != nil {
 		return nil, fmt.Errorf("migrate %q: %w", path, err)
 	}
 	if err := config.ResolveWorkspaceIdentity(fsys.OSFS{}, filepath.Dir(path), cfg); err != nil {
@@ -248,10 +354,150 @@ func loadPackFile(path string) (packFile, bool, error) {
 		return packFile{}, true, fmt.Errorf("migrate %q: %w", path, err)
 	}
 	if warnings := config.CheckUndecodedKeys(md, path); len(warnings) > 0 {
-		return packFile{}, true, fmt.Errorf("migrate %q: %s", path, strings.Join(warnings, "; "))
+		if filtered := migrationFatalPackWarnings(warnings); len(filtered) > 0 {
+			return packFile{}, true, fmt.Errorf("migrate %q: %s", path, strings.Join(filtered, "; "))
+		}
 	}
 	cfg.defaultRigImportOrder = packDefaultRigImportOrder(md)
+	cfg.metadata = md
 	return cfg, true, nil
+}
+
+func migrationFatalPackWarnings(warnings []string) []string {
+	var fatal []string
+	for _, warning := range warnings {
+		if strings.Contains(warning, "[agents] is a deprecated compatibility alias for [agent_defaults]") {
+			continue
+		}
+		if strings.Contains(warning, "both [agent_defaults] and [agents] are present") {
+			continue
+		}
+		fatal = append(fatal, warning)
+	}
+	return fatal
+}
+
+func migratePackAuthoringSurfaces(packCfg *packFile, cityCfg *config.City, report *Report) bool {
+	if packCfg == nil || cityCfg == nil {
+		return false
+	}
+
+	packChanged := false
+	defaults := normalizedPackAgentDefaults(*packCfg)
+	if !isZeroAgentDefaults(defaults) {
+		mergeMigratedAgentDefaults(&cityCfg.AgentDefaults, defaults)
+		packCfg.AgentDefaults = config.AgentDefaults{}
+		packCfg.AgentsDefaults = config.AgentDefaults{}
+		packChanged = true
+	}
+
+	if len(packCfg.Patches.Rigs) > 0 {
+		cityCfg.Patches.Rigs = append(cityCfg.Patches.Rigs, packCfg.Patches.Rigs...)
+		packCfg.Patches.Rigs = nil
+		packChanged = true
+	}
+	if len(packCfg.Patches.Providers) > 0 {
+		cityCfg.Patches.Providers = append(cityCfg.Patches.Providers, packCfg.Patches.Providers...)
+		packCfg.Patches.Providers = nil
+		packChanged = true
+	}
+
+	if packCfg.Formulas.Dir != "" {
+		report.Warnings = append(report.Warnings,
+			fmt.Sprintf("dropped pack.toml formulas.dir ([formulas].dir) %q; use the well-known formulas/ directory", packCfg.Formulas.Dir))
+		packCfg.Formulas.Dir = ""
+		packChanged = true
+	}
+	if cityCfg.Formulas.Dir != "" {
+		report.Warnings = append(report.Warnings,
+			fmt.Sprintf("dropped city.toml formulas.dir ([formulas].dir) %q; use the well-known formulas/ directory", cityCfg.Formulas.Dir))
+		cityCfg.Formulas.Dir = ""
+	}
+
+	return packChanged
+}
+
+func normalizedPackAgentDefaults(packCfg packFile) config.AgentDefaults {
+	defaults := packCfg.AgentDefaults
+	if packCfg.metadata.IsDefined("agent_defaults") {
+		if packCfg.metadata.IsDefined("agents") {
+			mergeAgentDefaultsAliasForMigration(&defaults, packCfg.AgentsDefaults, packCfg.metadata)
+		}
+		return defaults
+	}
+	if packCfg.metadata.IsDefined("agents") {
+		return packCfg.AgentsDefaults
+	}
+	return config.AgentDefaults{}
+}
+
+func mergeAgentDefaultsAliasForMigration(dst *config.AgentDefaults, src config.AgentDefaults, meta toml.MetaData) {
+	if !meta.IsDefined("agent_defaults", "provider") {
+		dst.Provider = src.Provider
+	}
+	if !meta.IsDefined("agent_defaults", "model") {
+		dst.Model = src.Model
+	}
+	if !meta.IsDefined("agent_defaults", "upstream") {
+		dst.Upstream = src.Upstream
+	}
+	if !meta.IsDefined("agent_defaults", "wake_mode") {
+		dst.WakeMode = src.WakeMode
+	}
+	if !meta.IsDefined("agent_defaults", "default_sling_formula") {
+		dst.DefaultSlingFormula = src.DefaultSlingFormula
+	}
+	if !meta.IsDefined("agent_defaults", "allow_overlay") {
+		dst.AllowOverlay = append([]string(nil), src.AllowOverlay...)
+	}
+	if !meta.IsDefined("agent_defaults", "allow_env_override") {
+		dst.AllowEnvOverride = append([]string(nil), src.AllowEnvOverride...)
+	}
+	if !meta.IsDefined("agent_defaults", "append_fragments") {
+		dst.AppendFragments = append([]string(nil), src.AppendFragments...)
+	}
+	if !meta.IsDefined("agent_defaults", "skills") {
+		dst.Skills = append([]string(nil), src.Skills...)
+	}
+	if !meta.IsDefined("agent_defaults", "mcp") {
+		dst.MCP = append([]string(nil), src.MCP...)
+	}
+}
+
+func mergeMigratedAgentDefaults(dst *config.AgentDefaults, src config.AgentDefaults) {
+	if dst.Provider == "" {
+		dst.Provider = src.Provider
+	}
+	if dst.Model == "" {
+		dst.Model = src.Model
+	}
+	if dst.Upstream == "" {
+		dst.Upstream = src.Upstream
+	}
+	if dst.WakeMode == "" {
+		dst.WakeMode = src.WakeMode
+	}
+	if dst.DefaultSlingFormula == "" {
+		dst.DefaultSlingFormula = src.DefaultSlingFormula
+	}
+	dst.AllowOverlay = dedupeStrings(append(dst.AllowOverlay, src.AllowOverlay...))
+	dst.AllowEnvOverride = dedupeStrings(append(dst.AllowEnvOverride, src.AllowEnvOverride...))
+	dst.AppendFragments = dedupeStrings(append(dst.AppendFragments, src.AppendFragments...))
+	dst.Skills = dedupeStrings(append(dst.Skills, src.Skills...))
+	dst.MCP = dedupeStrings(append(dst.MCP, src.MCP...))
+}
+
+func isZeroAgentDefaults(defaults config.AgentDefaults) bool {
+	return defaults.Provider == "" &&
+		defaults.Model == "" &&
+		defaults.Upstream == "" &&
+		defaults.WakeMode == "" &&
+		defaults.DefaultSlingFormula == "" &&
+		len(defaults.AllowOverlay) == 0 &&
+		len(defaults.AllowEnvOverride) == 0 &&
+		len(defaults.AppendFragments) == 0 &&
+		len(defaults.Skills) == 0 &&
+		len(defaults.MCP) == 0
 }
 
 func packDefaultRigImportOrder(md toml.MetaData) []string {
@@ -273,17 +519,13 @@ func packDefaultRigImportOrder(md toml.MetaData) []string {
 	return order
 }
 
-func selectAgents(packAgents, cityAgents []config.Agent) ([]agentEntry, []string) {
+func selectAgents(packAgents, cityAgents []config.Agent) []agentEntry {
 	selected := make(map[string]agentEntry)
 	seenNames := make(map[string]bool)
 	var names []string
-	var fallbackNames []string
 
 	add := func(origin agentOrigin, agents []config.Agent, override bool) {
 		for _, agent := range agents {
-			if agent.Fallback {
-				fallbackNames = append(fallbackNames, agent.Name)
-			}
 			if !seenNames[agent.Name] {
 				seenNames[agent.Name] = true
 				names = append(names, agent.Name)
@@ -306,7 +548,7 @@ func selectAgents(packAgents, cityAgents []config.Agent) ([]agentEntry, []string
 	for _, name := range names {
 		result = append(result, selected[name])
 	}
-	return result, dedupeStrings(fallbackNames)
+	return result
 }
 
 func buildUsageCounts(cityPath string, agents []agentEntry) usageCounts {
@@ -434,123 +676,11 @@ func ensurePackMeta(packCfg *packFile, cityCfg *config.City, cityPath string) bo
 }
 
 func addImports(target map[string]config.Import, includes []string, packs map[string]config.PackSource) bool {
-	changed := false
-	for _, include := range includes {
-		source := importSourceFor(include, packs)
-		if _, exists := existingDefaultImportBindingForSource(target, source); exists {
-			continue
-		}
-		binding := uniqueBinding(target, deriveBindingName(include, source, packs))
-		target[binding] = config.Import{Source: source}
-		changed = true
-	}
-	return changed
+	return config.AddLegacyImports(target, includes, packs)
 }
 
 func addOrderedImports(target map[string]config.Import, order []string, includes []string, packs map[string]config.PackSource) ([]string, bool) {
-	changed := false
-	for _, include := range includes {
-		source := importSourceFor(include, packs)
-		binding, exists := existingDefaultImportBindingForSource(target, source)
-		if !exists {
-			binding = uniqueBinding(target, deriveBindingName(include, source, packs))
-			target[binding] = config.Import{Source: source}
-			changed = true
-		}
-		if !stringSliceContains(order, binding) {
-			order = append(order, binding)
-			changed = true
-		}
-	}
-	return order, changed
-}
-
-func existingDefaultImportBindingForSource(target map[string]config.Import, source string) (string, bool) {
-	for binding, imp := range target {
-		if imp.Source == source && importMatchesLegacyDefault(imp) {
-			return binding, true
-		}
-	}
-	return "", false
-}
-
-func importMatchesLegacyDefault(imp config.Import) bool {
-	if strings.TrimSpace(imp.Version) != "" || imp.Export {
-		return false
-	}
-	if imp.Transitive != nil && !*imp.Transitive {
-		return false
-	}
-	shadow := strings.TrimSpace(imp.Shadow)
-	return shadow == "" || shadow == "warn"
-}
-
-func stringSliceContains(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
-}
-
-func importSourceFor(include string, packs map[string]config.PackSource) string {
-	if spec, ok := packs[include]; ok {
-		source := spec.Source
-		if spec.Path != "" {
-			source += "//" + strings.TrimPrefix(spec.Path, "/")
-		}
-		if spec.Ref != "" {
-			source += "#" + spec.Ref
-		}
-		return source
-	}
-	if looksLikeLocalPath(include) && !strings.HasPrefix(include, "./") && !strings.HasPrefix(include, "../") && !filepath.IsAbs(include) {
-		return "./" + include
-	}
-	return include
-}
-
-func deriveBindingName(include, source string, packs map[string]config.PackSource) string {
-	if _, ok := packs[include]; ok {
-		return sanitizeBindingName(include)
-	}
-	base := source
-	if idx := strings.Index(base, "#"); idx >= 0 {
-		base = base[:idx]
-	}
-	if idx := strings.LastIndex(base, "//"); idx >= 0 && idx > strings.Index(base, "://")+2 {
-		base = base[idx+2:]
-	}
-	base = strings.TrimSuffix(base, "/")
-	base = strings.TrimSuffix(base, ".git")
-	base = pathBase(base)
-	return sanitizeBindingName(base)
-}
-
-func uniqueBinding(target map[string]config.Import, base string) string {
-	if base == "" {
-		base = "import"
-	}
-	if _, exists := target[base]; !exists {
-		return base
-	}
-	for i := 2; ; i++ {
-		candidate := fmt.Sprintf("%s-%d", base, i)
-		if _, exists := target[candidate]; !exists {
-			return candidate
-		}
-	}
-}
-
-func sanitizeBindingName(value string) string {
-	value = invalidBindingChars.ReplaceAllString(value, "-")
-	value = repeatedDash.ReplaceAllString(value, "-")
-	value = strings.Trim(value, "-")
-	if value == "" {
-		return "import"
-	}
-	return value
+	return config.AddOrderedLegacyImports(target, order, includes, packs)
 }
 
 func resolvePath(root, ref string) string {
@@ -558,24 +688,6 @@ func resolvePath(root, ref string) string {
 		return filepath.Clean(ref)
 	}
 	return filepath.Clean(filepath.Join(root, ref))
-}
-
-func looksLikeLocalPath(value string) bool {
-	if strings.Contains(value, "://") || strings.HasPrefix(value, "git@") {
-		return false
-	}
-	if strings.HasPrefix(value, "github.com/") {
-		return false
-	}
-	return true
-}
-
-func pathBase(value string) string {
-	value = strings.TrimRight(value, "/")
-	if idx := strings.LastIndex(value, "/"); idx >= 0 {
-		return value[idx+1:]
-	}
-	return value
 }
 
 func ensureDir(path string, report *Report, dryRun bool) error {
@@ -802,13 +914,16 @@ func agentConfigFromAgent(agent config.Agent) agentFile {
 		Description:            agent.Description,
 		Dir:                    agent.Dir,
 		WorkDir:                agent.WorkDir,
+		TmuxAlias:              agent.TmuxAlias,
 		Scope:                  agent.Scope,
 		Suspended:              agent.Suspended,
 		PreStart:               agent.PreStart,
 		Nudge:                  agent.Nudge,
 		Session:                agent.Session,
 		Provider:               agent.Provider,
+		Upstream:               agent.Upstream,
 		StartCommand:           agent.StartCommand,
+		Lifecycle:              agent.Lifecycle,
 		Args:                   agent.Args,
 		PromptMode:             agent.PromptMode,
 		PromptFlag:             agent.PromptFlag,
@@ -827,6 +942,8 @@ func agentConfigFromAgent(agent config.Agent) agentFile {
 		WorkQuery:              agent.WorkQuery,
 		SlingQuery:             agent.SlingQuery,
 		IdleTimeout:            agent.IdleTimeout,
+		MaxSessionAge:          agent.MaxSessionAge,
+		MaxSessionAgeJitter:    agent.MaxSessionAgeJitter,
 		SleepAfterIdle:         agent.SleepAfterIdle,
 		InstallAgentHooks:      agent.InstallAgentHooks,
 		HooksInstalled:         agent.HooksInstalled,
@@ -841,6 +958,7 @@ func agentConfigFromAgent(agent config.Agent) agentFile {
 		DependsOn:              agent.DependsOn,
 		ResumeCommand:          agent.ResumeCommand,
 		WakeMode:               agent.WakeMode,
+		MouseMode:              agent.MouseMode,
 	}
 }
 
@@ -848,13 +966,16 @@ func isZeroAgentConfig(cfg agentFile) bool {
 	return cfg.Description == "" &&
 		cfg.Dir == "" &&
 		cfg.WorkDir == "" &&
+		cfg.TmuxAlias == "" &&
 		cfg.Scope == "" &&
 		!cfg.Suspended &&
 		len(cfg.PreStart) == 0 &&
 		cfg.Nudge == "" &&
 		cfg.Session == "" &&
 		cfg.Provider == "" &&
+		cfg.Upstream == "" &&
 		cfg.StartCommand == "" &&
+		cfg.Lifecycle == "" &&
 		len(cfg.Args) == 0 &&
 		cfg.PromptMode == "" &&
 		cfg.PromptFlag == "" &&
@@ -873,6 +994,8 @@ func isZeroAgentConfig(cfg agentFile) bool {
 		cfg.WorkQuery == "" &&
 		cfg.SlingQuery == "" &&
 		cfg.IdleTimeout == "" &&
+		cfg.MaxSessionAge == "" &&
+		cfg.MaxSessionAgeJitter == "" &&
 		cfg.SleepAfterIdle == "" &&
 		len(cfg.InstallAgentHooks) == 0 &&
 		cfg.HooksInstalled == nil &&
@@ -886,7 +1009,8 @@ func isZeroAgentConfig(cfg agentFile) bool {
 		cfg.Attach == nil &&
 		len(cfg.DependsOn) == 0 &&
 		cfg.ResumeCommand == "" &&
-		cfg.WakeMode == ""
+		cfg.WakeMode == "" &&
+		cfg.MouseMode == ""
 }
 
 func dedupeStrings(values []string) []string {
@@ -900,6 +1024,38 @@ func dedupeStrings(values []string) []string {
 		out = append(out, value)
 	}
 	return out
+}
+
+// dropRedundantControlDispatcherNamedSession removes the on_demand
+// control-dispatcher named session that gc init versions prior to v1.3.0-rc3
+// injected. It matches only the auto-created shape (name=control-dispatcher,
+// template bare "control-dispatcher" or core-qualified "core.control-dispatcher")
+// so any user-defined named session is left untouched. Returns the filtered
+// slice and the number removed.
+func dropRedundantControlDispatcherNamedSession(sessions []config.NamedSession) ([]config.NamedSession, int) {
+	const dispatcher = config.ControlDispatcherAgentName
+	removed := 0
+	out := make([]config.NamedSession, 0, len(sessions))
+	for _, ns := range sessions {
+		// Match ONLY the auto-created shape: name=control-dispatcher, a bare or
+		// core-qualified backing template, on_demand (or unset) mode, and no
+		// explicit scope/dir. A user who hand-authored a control-dispatcher
+		// session with a custom template, always mode, or an explicit scope/dir
+		// expressed intent and must be left untouched.
+		autoCreated := ns.Name == dispatcher &&
+			(ns.Template == dispatcher || ns.Template == "core."+dispatcher) &&
+			(ns.Mode == "" || ns.Mode == "on_demand") &&
+			ns.Dir == "" && ns.Scope == ""
+		if autoCreated {
+			removed++
+			continue
+		}
+		out = append(out, ns)
+	}
+	if removed == 0 {
+		return sessions, 0
+	}
+	return out, removed
 }
 
 func relativeOrSame(path string) string {

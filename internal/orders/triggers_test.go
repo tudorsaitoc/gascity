@@ -2,11 +2,15 @@ package orders
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gastownhall/gascity/internal/events"
+	"github.com/gastownhall/gascity/internal/processgroup/processgrouptest"
 )
 
 func neverRan(_ string) (time.Time, error) { return time.Time{}, nil }
@@ -66,6 +70,15 @@ func TestCheckTriggerCronMatched(t *testing.T) {
 	}
 }
 
+func TestCheckTriggerCronEveryMinuteStepMatched(t *testing.T) {
+	a := Order{Name: "cleanup", Trigger: "cron", Schedule: "*/1 * * * *"}
+	now := time.Date(2026, 2, 27, 12, 34, 0, 0, time.UTC)
+	result := CheckTrigger(a, now, neverRan, nil, nil)
+	if !result.Due {
+		t.Errorf("Due = false, want true for */1 schedule; reason=%q", result.Reason)
+	}
+}
+
 func TestCheckTriggerCronNotMatched(t *testing.T) {
 	a := Order{Name: "cleanup", Trigger: "cron", Schedule: "0 3 * * *"}
 	// 12:00 UTC — should not match.
@@ -73,6 +86,23 @@ func TestCheckTriggerCronNotMatched(t *testing.T) {
 	result := CheckTrigger(a, now, neverRan, nil, nil)
 	if result.Due {
 		t.Errorf("Due = true, want false (schedule doesn't match 12:00)")
+	}
+}
+
+func TestCheckTriggerCronCatchesUpMissedBoundary(t *testing.T) {
+	// Regression (gastown td-4kziysy): a scheduled occurrence elapsed since
+	// lastRun, but the controller evaluates at an off-schedule minute (its
+	// eval cadence did not land in the exact matching minute). Cron must CATCH
+	// UP and fire, the way cooldown's elapsed>=interval does. Unpatched
+	// checkCron returns "schedule not matched" here and silently drops the
+	// slot — which is why a "0 */4 * * *" order missed every boundary for days.
+	a := Order{Name: "stale-db", Trigger: "cron", Schedule: "0 */4 * * *"}
+	lastRun := time.Date(2026, 5, 29, 0, 0, 0, 0, time.UTC) // fired at the 00:00 boundary
+	now := time.Date(2026, 5, 29, 4, 1, 0, 0, time.UTC)     // 04:00 boundary passed; eval at 04:01 (off-minute)
+	lastRunFn := func(_ string) (time.Time, error) { return lastRun, nil }
+	result := CheckTrigger(a, now, lastRunFn, nil, nil)
+	if !result.Due {
+		t.Errorf("Due = false, want true (catch up the missed 04:00 occurrence); reason=%q", result.Reason)
 	}
 }
 
@@ -127,6 +157,73 @@ func TestCheckTriggerConditionFails(t *testing.T) {
 	if result.Due {
 		t.Errorf("Due = true, want false (exit non-zero)")
 	}
+}
+
+func TestCheckTriggerConditionKillsProcessGroupOnTimeout(t *testing.T) {
+	processgrouptest.RequireRealProcessSignals(t)
+
+	dir := t.TempDir()
+	heartbeatPath := filepath.Join(dir, "heartbeat")
+	childPIDPath := filepath.Join(dir, "child.pid")
+	t.Cleanup(func() { processgrouptest.KillFromPIDFile(t, childPIDPath) })
+	oldSignalGrace := conditionCheckSignalGrace
+	conditionCheckSignalGrace = 100 * time.Millisecond
+	t.Cleanup(func() { conditionCheckSignalGrace = oldSignalGrace })
+	a := Order{
+		Name:    "check",
+		Trigger: "condition",
+		Check:   fmt.Sprintf("sh -c 'printf \"%%s\\n\" \"$$\" > %q; trap \"\" TERM; while :; do printf . >> %q; sleep 0.05; done' & wait", childPIDPath, heartbeatPath),
+	}
+	now := time.Date(2026, 2, 27, 12, 0, 0, 0, time.UTC)
+	result := CheckTriggerWithOptions(a, now, neverRan, nil, nil, TriggerOptions{
+		ConditionDir:     dir,
+		ConditionTimeout: 100 * time.Millisecond,
+	})
+	if result.Due {
+		t.Fatalf("Due = true, want false after condition timeout")
+	}
+	if !strings.Contains(result.Reason, "timed out") {
+		t.Fatalf("Reason = %q, want timeout", result.Reason)
+	}
+
+	size := processgrouptest.WaitForFileSize(t, heartbeatPath)
+	processgrouptest.AssertFileSizeStable(t, heartbeatPath, size, 300*time.Millisecond)
+}
+
+func TestCheckTriggerConditionKillsProcessGroupAfterWaitDelay(t *testing.T) {
+	processgrouptest.RequireRealProcessSignals(t)
+
+	dir := t.TempDir()
+	heartbeatPath := filepath.Join(dir, "heartbeat")
+	childPIDPath := filepath.Join(dir, "child.pid")
+	t.Cleanup(func() { processgrouptest.KillFromPIDFile(t, childPIDPath) })
+	oldWaitDelay := conditionCheckPostCancelWaitDelay
+	oldSignalGrace := conditionCheckSignalGrace
+	conditionCheckPostCancelWaitDelay = 100 * time.Millisecond
+	conditionCheckSignalGrace = 100 * time.Millisecond
+	t.Cleanup(func() {
+		conditionCheckPostCancelWaitDelay = oldWaitDelay
+		conditionCheckSignalGrace = oldSignalGrace
+	})
+	a := Order{
+		Name:    "check",
+		Trigger: "condition",
+		Check:   fmt.Sprintf("sh -c 'printf \"%%s\\n\" \"$$\" > %q; trap \"\" TERM; while :; do printf . >> %q; sleep 0.05; done' &", childPIDPath, heartbeatPath),
+	}
+	now := time.Date(2026, 2, 27, 12, 0, 0, 0, time.UTC)
+	result := CheckTriggerWithOptions(a, now, neverRan, nil, nil, TriggerOptions{
+		ConditionDir:     dir,
+		ConditionTimeout: 10 * time.Second,
+	})
+	if result.Due {
+		t.Fatalf("Due = true, want false after condition post-cancel wait delay")
+	}
+	if !strings.Contains(result.Reason, "post-cancel wait delay") {
+		t.Fatalf("Reason = %q, want post-cancel wait delay", result.Reason)
+	}
+
+	size := processgrouptest.WaitForFileSize(t, heartbeatPath)
+	processgrouptest.AssertFileSizeStable(t, heartbeatPath, size, 300*time.Millisecond)
 }
 
 func TestCronFieldMatches(t *testing.T) {
@@ -280,6 +377,68 @@ func TestCheckTriggerCronRigScoped(t *testing.T) {
 	if queriedName != "cleanup:rig:my-rig" {
 		t.Errorf("cron query = %q, want %q", queriedName, "cleanup:rig:my-rig")
 	}
+}
+
+func TestCheckTriggerEventOrderTrackingBeadsFiltered(t *testing.T) {
+	// Regression: event orders must not self-fire on bead lifecycle events emitted
+	// by order-tracking beads (controller bookkeeping). This was the root cause of
+	// the ~80 events/min feedback loop after ce32c6bf6 switched tracking beads from
+	// Ephemeral to NoHistory, making their lifecycle events visible to the cache.
+	trackingPayload := mustMarshalLabels(t, []string{"order-run:nudge-on-route", "order-tracking"})
+	regularPayload := mustMarshalLabels(t, []string{"work:some-bead"})
+
+	ep := newEventsProvider(t, []events.Event{
+		{Type: "bead.updated", Payload: trackingPayload}, // order-tracking — excluded
+		{Type: "bead.updated", Payload: regularPayload},  // real work bead — counted
+		{Type: "bead.updated", Payload: trackingPayload}, // order-tracking — excluded
+	})
+	a := Order{Name: "nudge-on-route", Trigger: "event", On: "bead.updated"}
+	result := CheckTrigger(a, time.Time{}, neverRan, ep, nil)
+	if !result.Due {
+		t.Errorf("Due = false, want true (one non-tracking bead.updated exists); reason: %s", result.Reason)
+	}
+	if result.Reason != "event: 1 bead.updated event(s)" {
+		t.Errorf("Reason = %q, want %q", result.Reason, "event: 1 bead.updated event(s)")
+	}
+}
+
+func TestCheckTriggerEventAllOrderTrackingFiltered(t *testing.T) {
+	// When ALL matched events come from order-tracking beads the order is not due.
+	trackingPayload := mustMarshalLabels(t, []string{"order-run:nudge-on-route", "order-tracking"})
+
+	ep := newEventsProvider(t, []events.Event{
+		{Type: "bead.updated", Payload: trackingPayload},
+		{Type: "bead.closed", Payload: trackingPayload},
+	})
+	a := Order{Name: "nudge-on-route", Trigger: "event", On: "bead.updated"}
+	result := CheckTrigger(a, time.Time{}, neverRan, ep, nil)
+	if result.Due {
+		t.Errorf("Due = true, want false (all events from order-tracking beads); reason: %s", result.Reason)
+	}
+}
+
+func TestCheckTriggerEventNoPayloadNotFiltered(t *testing.T) {
+	// Events with no payload (legacy or non-bead events) must pass through —
+	// absence of a label is not the same as having the order-tracking label.
+	ep := newEventsProvider(t, []events.Event{
+		{Type: "bead.closed"}, // no payload
+	})
+	a := Order{Name: "convoy-check", Trigger: "event", On: "bead.closed"}
+	result := CheckTrigger(a, time.Time{}, neverRan, ep, nil)
+	if !result.Due {
+		t.Errorf("Due = false, want true (no-payload events must not be filtered); reason: %s", result.Reason)
+	}
+}
+
+func mustMarshalLabels(t *testing.T, labels []string) json.RawMessage {
+	t.Helper()
+	b, err := json.Marshal(struct {
+		Labels []string `json:"labels"`
+	}{Labels: labels})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }
 
 func TestCheckTriggerEventRigScoped(t *testing.T) {

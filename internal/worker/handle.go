@@ -7,8 +7,10 @@ import (
 	"sync"
 
 	"github.com/gastownhall/gascity/internal/events"
+	"github.com/gastownhall/gascity/internal/pricing"
 	"github.com/gastownhall/gascity/internal/runtime"
 	sessionpkg "github.com/gastownhall/gascity/internal/session"
+	"github.com/gastownhall/gascity/internal/usage"
 )
 
 var (
@@ -35,6 +37,7 @@ type LifecycleHandle interface {
 	Stop(context.Context) error
 	Kill(context.Context) error
 	Close(context.Context) error
+	CloseDetailed(context.Context) (sessionpkg.CloseResult, error)
 	Rename(context.Context, string) error
 	StateHandle
 }
@@ -245,20 +248,33 @@ type SessionHandleConfig struct {
 	SearchPaths []string
 	Adapter     SessionLogAdapter
 	Recorder    events.Recorder
+	UsageSink   usage.Sink
 	Session     SessionSpec
+	// Pricing estimates per-invocation cost for telemetry. Nil falls back
+	// to the registry built from shipped defaults.
+	Pricing *pricing.Registry
 }
 
 // SessionHandle is the production worker handle backed by session.Manager.
 type SessionHandle struct {
-	mu          sync.Mutex
-	manager     *sessionpkg.Manager
-	adapter     SessionLogAdapter
-	recorder    events.Recorder
-	searchPaths []string
-	session     SessionSpec
-	sessionID   string
-	history     *HistorySnapshot
-	historyRaw  historyGeneration
+	mu             sync.Mutex
+	manager        *sessionpkg.Manager
+	adapter        SessionLogAdapter
+	recorder       events.Recorder
+	usageSink      usage.Sink
+	searchPaths    []string
+	session        SessionSpec
+	sessionID      string
+	history        *HistorySnapshot
+	historyRaw     historyGeneration
+	pricing        *pricing.Registry
+	invTelemetryMu sync.Mutex
+	// sidecarDoneID is the session id whose transcript-session sidecar has been
+	// confirmed written, guarded by sidecarMu. The keyed transcript path is stable
+	// once the session key exists, so a matching id lets repeated turn/poll calls
+	// skip both the keyed-path resolve and the write once the sidecar is current.
+	sidecarMu     sync.Mutex
+	sidecarDoneID string
 }
 
 var (

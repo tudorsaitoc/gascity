@@ -50,6 +50,7 @@ name collision. For the materialized set, inspect the
 func newSkillListCmd(stdout, stderr io.Writer) *cobra.Command {
 	var agentName string
 	var sessionID string
+	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List visible skills",
@@ -80,10 +81,19 @@ func newSkillListCmd(stdout, stderr io.Writer) *cobra.Command {
 				}
 			}
 
-			entries, err := listVisibleSkillEntries(cityPath, cfg, store, agentName, sessionID)
+			entries, err := listVisibleSkillEntries(cityPath, cfg, cliSessionFrontDoor(store, cfg, cityPath), agentName, sessionID)
 			if err != nil {
 				fmt.Fprintf(stderr, "gc skill list: %v\n", err) //nolint:errcheck // best-effort stderr
 				return errExit
+			}
+			if jsonOut {
+				return writeCLIJSONLineOrErr(stdout, stderr, "gc skill list", skillListJSONResult{
+					SchemaVersion: "1",
+					Agent:         strings.TrimSpace(agentName),
+					Session:       strings.TrimSpace(sessionID),
+					Count:         len(entries),
+					Entries:       entries,
+				})
 			}
 			writeVisibilityEntries(stdout, entries)
 			return nil
@@ -91,31 +101,16 @@ func newSkillListCmd(stdout, stderr io.Writer) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&agentName, "agent", "", "show the effective skill view for this agent")
 	cmd.Flags().StringVar(&sessionID, "session", "", "show the effective skill view for this session")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit JSON summary")
 	return cmd
 }
 
-func listVisibleSkillEntries(cityPath string, cfg *config.City, store beads.Store, agentName, sessionID string) ([]visibilityEntry, error) {
-	entries := discoverSkillEntries(cityPath, "city")
-	// Legacy implicit-import compatibility packs may still contribute
-	// shared skills on upgraded installs. Keep surfacing them here while
-	// the compatibility path exists; normal launch-time system packs come
-	// from .gc/system/packs and are not part of this listing.
-	entries = append(entries, discoverBootstrapSkillEntries()...)
-	if strings.TrimSpace(agentName) == "" && strings.TrimSpace(sessionID) == "" {
-		entries = append(entries, discoverImportedSkillEntries(sharedSkillCatalogInputs(cfg, currentRigContext(cfg)))...)
-		sortVisibilityEntries(entries)
-		return entries, nil
-	}
-	agent, err := resolveVisibilityAgent(cityPath, cfg, store, agentName, sessionID)
-	if err != nil {
-		return nil, err
-	}
-	// Every agent sees the entire shared catalog plus its own agent-local
-	// skills. No attachment filtering.
-	entries = append(entries, discoverImportedSkillEntries(sharedSkillCatalogInputs(cfg, agentRigScopeName(agent, cfg.Rigs)))...)
-	entries = append(entries, discoverAgentSkillEntries(agentAssetRoot(cityPath, agent), agent.Name, "agent")...)
-	sortVisibilityEntries(entries)
-	return entries, nil
+type skillListJSONResult struct {
+	SchemaVersion string            `json:"schema_version"`
+	Agent         string            `json:"agent,omitempty"`
+	Session       string            `json:"session,omitempty"`
+	Count         int               `json:"count"`
+	Entries       []visibilityEntry `json:"entries"`
 }
 
 // discoverBootstrapSkillEntries enumerates skills that come from any
@@ -149,49 +144,9 @@ func discoverBootstrapSkillEntries() []visibilityEntry {
 }
 
 type visibilityEntry struct {
-	Name   string
-	Source string
-	Path   string
-}
-
-func resolveVisibilityAgent(cityPath string, cfg *config.City, store beads.Store, agentName, sessionID string) (*config.Agent, error) {
-	switch {
-	case strings.TrimSpace(agentName) != "":
-		resolved, ok := resolveAgentIdentity(cfg, agentName, currentRigContext(cfg))
-		if !ok {
-			return nil, fmt.Errorf("unknown agent %q", agentName)
-		}
-		template := resolveAgentTemplate(resolved.QualifiedName(), cfg)
-		agent := findAgentByTemplate(cfg, template)
-		if agent == nil {
-			return nil, fmt.Errorf("unknown agent %q", agentName)
-		}
-		return agent, nil
-	case strings.TrimSpace(sessionID) != "":
-		if store == nil {
-			return nil, fmt.Errorf("session store unavailable")
-		}
-		id, err := resolveSessionIDAllowClosedWithConfig(cityPath, cfg, store, sessionID)
-		if err != nil {
-			return nil, err
-		}
-		bead, err := store.Get(id)
-		if err != nil {
-			return nil, fmt.Errorf("loading session %q: %w", sessionID, err)
-		}
-		template := normalizedSessionTemplate(bead, cfg)
-		if template == "" {
-			template = strings.TrimSpace(bead.Metadata["agent_name"])
-		}
-		template = resolveAgentTemplate(template, cfg)
-		agent := findAgentByTemplate(cfg, template)
-		if agent == nil {
-			return nil, fmt.Errorf("session %q maps to unknown agent template %q", sessionID, template)
-		}
-		return agent, nil
-	default:
-		return nil, nil
-	}
+	Name   string `json:"name"`
+	Source string `json:"source"`
+	Path   string `json:"path"`
 }
 
 func agentAssetRoot(cityPath string, agent *config.Agent) string {

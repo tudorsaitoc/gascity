@@ -74,7 +74,10 @@ func runFreshInitSlingClaudeWork(t *testing.T, prompt, outputRel string) freshIn
 
 	c := helpers.NewCity(t, testEnvC)
 	c.Init("claude")
-	applyTierCAcceptanceConfig(c)
+	applyTierCAcceptanceConfig(t, c)
+	// The built-in maintenance dog pool is auto-included; this fixture needs
+	// a generic claude pool target for mol-do-work.
+	configureFreshInitClaudePool(t, c)
 
 	initialSessionBeadsOut, err := bdCmd(testEnvC, c.Dir, "list", "--include-infra", "--label", "gc:session", "--json", "--limit=20")
 	require.NoError(t, err, "bd list session beads before sling: %s", initialSessionBeadsOut)
@@ -118,6 +121,7 @@ func runFreshInitSlingClaudeWork(t *testing.T, prompt, outputRel string) freshIn
 			return false
 		}
 		sessionBeads := parseBeadListJSON(t, sessionsOut)
+		sessionListOut, sessionListErr := runGCWithTimeout(10*time.Second, testEnvC, c.Dir, "session", "list")
 		for _, sessionBead := range sessionBeads {
 			if metaString(sessionBead.Metadata, "template") != "claude" {
 				continue
@@ -126,12 +130,18 @@ func runFreshInitSlingClaudeWork(t *testing.T, prompt, outputRel string) freshIn
 			if state != "creating" && state != "active" && state != "awake" {
 				continue
 			}
-			if metaString(sessionBead.Metadata, "session_name") == "" {
+			sessionName := metaString(sessionBead.Metadata, "session_name")
+			if sessionName == "" {
 				continue
 			}
 			spawnedSessionBead = sessionBead
-			running, total, ok := parseRunningAgents(statusOut)
-			return ok && total > 0 && running > 0
+			if state == "active" || state == "awake" {
+				return true
+			}
+			if sessionListErr != nil {
+				return false
+			}
+			return sessionListShowsActive(sessionListOut, sessionBead.ID, sessionName)
 		}
 		return false
 	})
@@ -226,6 +236,22 @@ func runFreshInitSlingClaudeWork(t *testing.T, prompt, outputRel string) freshIn
 	}
 }
 
+func configureFreshInitClaudePool(t *testing.T, c *helpers.City) {
+	t.Helper()
+	c.WriteV2AgentDir("claude",
+		`provider = "claude"`,
+		`default_sling_formula = "mol-do-work"`,
+		`min_active_sessions = 0`,
+		`max_active_sessions = 1`,
+	)
+	promptPath := filepath.Join(helpers.FindModuleRoot(), "internal", "bootstrap", "packs", "core", "assets", "prompts", "pool-worker.md")
+	prompt, err := os.ReadFile(promptPath)
+	require.NoError(t, err, "read canonical pool-worker prompt")
+	prompt = append(prompt, []byte("\n## Acceptance Fixture\n\nFor file-writing tasks in this acceptance test, create or update the requested file in the city directory before closing the work bead.\n")...)
+	err = os.WriteFile(filepath.Join(c.Dir, "agents", "claude", "prompt.template.md"), []byte(prompt), 0o644)
+	require.NoError(t, err, "write claude test prompt")
+}
+
 func runGCWithTimeout(timeout time.Duration, env *helpers.Env, dir string, args ...string) (string, error) {
 	gcPath, err := helpers.ResolveGCPath(env)
 	if err != nil {
@@ -267,6 +293,54 @@ func parseCreatedBeadID(output string) string {
 		return ""
 	}
 	return strings.TrimSpace(match[1])
+}
+
+func TestSessionListShowsActiveAcceptsLiveStateDuringMetadataLag(t *testing.T) {
+	output := `2026/06/13 22:51:49 WARN native_store_unavailable
+ID           TEMPLATE  STATE   REASON          TARGET              TITLE   AGE  LAST ACTIVE  LAST NUDGE
+a9-wisp-0my  claude    active  session,config  claude-a9-wisp-0my  claude  19s  0s ago       -
+a9-wisp-q0w  claude    creating create,config  s-a9-wisp-q0w       claude  27s  -            -
+`
+
+	if !sessionListShowsActive(output, "a9-wisp-0my", "claude-a9-wisp-0my") {
+		t.Fatal("expected active live session row to satisfy spawned-worker check")
+	}
+	if sessionListShowsActive(output, "a9-wisp-q0w", "s-a9-wisp-q0w") {
+		t.Fatal("creating live session row must not satisfy spawned-worker check")
+	}
+	if sessionListShowsActive(output, "missing", "missing") {
+		t.Fatal("unrelated session must not satisfy spawned-worker check")
+	}
+}
+
+func sessionListShowsActive(output, beadID, sessionName string) bool {
+	beadID = strings.TrimSpace(beadID)
+	sessionName = strings.TrimSpace(sessionName)
+	if beadID == "" && sessionName == "" {
+		return false
+	}
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+		state := fields[2]
+		if state != "active" && state != "awake" {
+			continue
+		}
+		if beadID != "" && fields[0] == beadID {
+			return true
+		}
+		if sessionName == "" {
+			continue
+		}
+		for _, field := range fields[3:] {
+			if field == sessionName {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func parseBeadListJSON(t *testing.T, out string) []beadJSON {

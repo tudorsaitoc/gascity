@@ -32,6 +32,131 @@ func TestValidateRigEndpointOptionsRejectsWildcardExternalHost(t *testing.T) {
 	}
 }
 
+func TestValidateRigEndpointOptionsSelfRequiresPort(t *testing.T) {
+	err := validateRigEndpointOptions(rigEndpointOptions{Self: true})
+	if err == nil || !strings.Contains(err.Error(), "--self requires --port") {
+		t.Fatalf("validateRigEndpointOptions(Self without port) error = %v", err)
+	}
+}
+
+func TestValidateRigEndpointOptionsSelfRejectsHost(t *testing.T) {
+	err := validateRigEndpointOptions(rigEndpointOptions{Self: true, Port: "28232", Host: "db.example.com"})
+	if err == nil || !strings.Contains(err.Error(), "--self") || !strings.Contains(err.Error(), "--host") {
+		t.Fatalf("validateRigEndpointOptions(Self+Host) error = %v", err)
+	}
+}
+
+func TestValidateRigEndpointOptionsSelfRejectsUser(t *testing.T) {
+	err := validateRigEndpointOptions(rigEndpointOptions{Self: true, Port: "28232", User: "someone"})
+	if err == nil || !strings.Contains(err.Error(), "--self") || !strings.Contains(err.Error(), "--user") {
+		t.Fatalf("validateRigEndpointOptions(Self+User) error = %v", err)
+	}
+}
+
+func TestValidateRigEndpointOptionsForceRequiresSelf(t *testing.T) {
+	err := validateRigEndpointOptions(rigEndpointOptions{External: true, Host: "db.example.com", Port: "3307", Force: true})
+	if err == nil || !strings.Contains(err.Error(), "--force") {
+		t.Fatalf("validateRigEndpointOptions(External+Force) error = %v", err)
+	}
+}
+
+func TestValidateRigEndpointOptionsRejectsMultipleModes(t *testing.T) {
+	err := validateRigEndpointOptions(rigEndpointOptions{Inherit: true, Self: true, Port: "28232"})
+	if err == nil || !strings.Contains(err.Error(), "exactly one") {
+		t.Fatalf("validateRigEndpointOptions(Inherit+Self) error = %v", err)
+	}
+}
+
+func TestDoRigSetEndpointSelfManagedCityRequiresForce(t *testing.T) {
+	t.Setenv("GC_BEADS", "bd")
+
+	cityDir := t.TempDir()
+	rigDir := filepath.Join(t.TempDir(), "frontend")
+	if err := os.MkdirAll(rigDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeRigEndpointCityConfig(t, cityDir, rigDir)
+	writeRigEndpointMetadata(t, cityDir, "hq")
+	writeRigEndpointMetadata(t, rigDir, "fe")
+	writeRigEndpointRuntimeState(t, cityDir, 3311)
+	writeRigEndpointCanonicalConfig(t, rigDir, contract.ConfigState{
+		IssuePrefix:    "fe",
+		EndpointOrigin: contract.EndpointOriginInheritedCity,
+		EndpointStatus: contract.EndpointStatusVerified,
+	})
+
+	var stdout, stderr bytes.Buffer
+	code := doRigSetEndpoint(fsys.OSFS{}, cityDir, "frontend", rigEndpointOptions{
+		Self: true,
+		Port: "28232",
+	}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("doRigSetEndpoint(Self, managed_city, no --force) exit = 0, want non-zero")
+	}
+	if !strings.Contains(stderr.String(), "--force") {
+		t.Errorf("want stderr to mention --force, got:\n%s", stderr.String())
+	}
+	// Canonical config must not have been mutated.
+	state := readRigEndpointConfigState(t, rigDir)
+	if state.EndpointOrigin != contract.EndpointOriginInheritedCity {
+		t.Fatalf("EndpointOrigin = %q, want unchanged %q", state.EndpointOrigin, contract.EndpointOriginInheritedCity)
+	}
+}
+
+func TestDoRigSetEndpointSelfWithForceSucceeds(t *testing.T) {
+	t.Setenv("GC_BEADS", "bd")
+
+	cityDir := t.TempDir()
+	rigDir := filepath.Join(t.TempDir(), "frontend")
+	if err := os.MkdirAll(rigDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeRigEndpointCityConfig(t, cityDir, rigDir)
+	writeRigEndpointMetadata(t, cityDir, "hq")
+	writeRigEndpointMetadata(t, rigDir, "fe")
+	writeRigEndpointRuntimeState(t, cityDir, 3311)
+	writeRigEndpointCanonicalConfig(t, rigDir, contract.ConfigState{
+		IssuePrefix:    "fe",
+		EndpointOrigin: contract.EndpointOriginInheritedCity,
+		EndpointStatus: contract.EndpointStatusVerified,
+	})
+	rigPortFile := filepath.Join(rigDir, ".beads", "dolt-server.port")
+	if err := os.WriteFile(rigPortFile, []byte("3311\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origVerify := verifyRigExternalEndpoint
+	defer func() { verifyRigExternalEndpoint = origVerify }()
+	verifyRigExternalEndpoint = func(contract.ConfigState, string, string) error { return nil }
+
+	var stdout, stderr bytes.Buffer
+	code := doRigSetEndpoint(fsys.OSFS{}, cityDir, "frontend", rigEndpointOptions{
+		Self:  true,
+		Port:  "28232",
+		Force: true,
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("doRigSetEndpoint(Self+Force, managed_city) = %d, stderr = %s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "WARN") {
+		t.Errorf("want WARN in stderr, got:\n%s", stderr.String())
+	}
+
+	state := readRigEndpointConfigState(t, rigDir)
+	if state.EndpointOrigin != contract.EndpointOriginExplicit {
+		t.Fatalf("EndpointOrigin = %q, want %q", state.EndpointOrigin, contract.EndpointOriginExplicit)
+	}
+	if state.DoltHost != "127.0.0.1" {
+		t.Fatalf("DoltHost = %q, want 127.0.0.1", state.DoltHost)
+	}
+	if state.DoltPort != "28232" {
+		t.Fatalf("DoltPort = %q, want 28232", state.DoltPort)
+	}
+	if _, err := os.Stat(rigPortFile); !os.IsNotExist(err) {
+		t.Fatalf("rig port file after --self --force: err = %v, want not exist", err)
+	}
+}
+
 func TestDoRigSetEndpointInheritWritesManagedInheritedRigConfig(t *testing.T) {
 	t.Setenv("GC_BEADS", "bd")
 
@@ -728,6 +853,54 @@ func TestDoRigSetEndpointInheritManagedUnavailableDoesNotWriteFiles(t *testing.T
 	}
 }
 
+func TestDoRigSetEndpointInheritPostgresCityIgnoresStaleManagedRuntime(t *testing.T) {
+	t.Setenv("GC_BEADS", "bd")
+
+	cityDir := t.TempDir()
+	rigDir := filepath.Join(t.TempDir(), "frontend")
+	if err := os.MkdirAll(filepath.Join(cityDir, ".beads"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(rigDir, ".beads"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeRigEndpointCityConfig(t, cityDir, rigDir)
+	writeRigEndpointMetadata(t, rigDir, "fe")
+	writeRigEndpointCanonicalConfig(t, cityDir, contract.ConfigState{
+		IssuePrefix:    "gc",
+		EndpointOrigin: contract.EndpointOriginManagedCity,
+		EndpointStatus: contract.EndpointStatusVerified,
+	})
+	if err := os.WriteFile(filepath.Join(cityDir, ".beads", "metadata.json"), []byte(`{"database":"beads","backend":"postgres","postgres_host":"db.example.test","postgres_port":"5432","postgres_user":"bd","postgres_database":"beads_pg"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeRigEndpointCanonicalConfig(t, rigDir, contract.ConfigState{
+		IssuePrefix:    "fe",
+		EndpointOrigin: contract.EndpointOriginExplicit,
+		EndpointStatus: contract.EndpointStatusVerified,
+		DoltHost:       "old-db.example.com",
+		DoltPort:       "3307",
+		DoltUser:       "old-user",
+	})
+	writeRigEndpointRuntimeState(t, cityDir, 3311)
+
+	beforeConfig := mustReadFile(t, filepath.Join(rigDir, ".beads", "config.yaml"))
+	var stdout, stderr bytes.Buffer
+	code := doRigSetEndpoint(fsys.OSFS{}, cityDir, "frontend", rigEndpointOptions{Inherit: true}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("doRigSetEndpoint() = %d, want 1", code)
+	}
+	if got := mustReadFile(t, filepath.Join(rigDir, ".beads", "config.yaml")); string(got) != string(beforeConfig) {
+		t.Fatalf("config.yaml changed after stale postgres managed runtime:\n%s", got)
+	}
+	if _, err := os.Stat(filepath.Join(rigDir, ".beads", "dolt-server.port")); !os.IsNotExist(err) {
+		t.Fatalf("stale managed port should not be copied to postgres-backed rig, stat err = %v", err)
+	}
+	if !strings.Contains(stderr.String(), "managed city endpoint unavailable") {
+		t.Fatalf("stderr = %q, want managed city endpoint unavailable", stderr.String())
+	}
+}
+
 func TestReadManagedRuntimePublishedPortRejectsDeadState(t *testing.T) {
 	cityDir := t.TempDir()
 	runtimeDir := filepath.Join(cityDir, ".gc", "runtime", "packs", "dolt")
@@ -780,6 +953,93 @@ func TestWriteDoltPortFileStrictUsesAtomicWrite(t *testing.T) {
 	}
 }
 
+func TestWriteDoltPortFileStrictWritesThroughSymlink(t *testing.T) {
+	dir := t.TempDir()
+	beadsDir := filepath.Join(dir, ".beads")
+	if err := os.MkdirAll(beadsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	targetDir := filepath.Join(t.TempDir(), "ports")
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(targetDir, "dolt-server.port")
+	if err := os.WriteFile(target, []byte("3307\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(beadsDir, "dolt-server.port")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := writeDoltPortFileStrict(fsys.OSFS{}, dir, "3311"); err != nil {
+		t.Fatalf("writeDoltPortFileStrict: %v", err)
+	}
+
+	info, err := os.Lstat(link)
+	if err != nil {
+		t.Fatalf("Lstat link: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("dolt-server.port symlink was replaced by a %v entry; rewrite must write through the link", info.Mode())
+	}
+	if got := strings.TrimSpace(string(mustReadFile(t, target))); got != "3311" {
+		t.Fatalf("target port = %q, want 3311", got)
+	}
+}
+
+func TestRemoveDoltPortFileStrictClearsThroughSymlink(t *testing.T) {
+	dir := t.TempDir()
+	beadsDir := filepath.Join(dir, ".beads")
+	if err := os.MkdirAll(beadsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	targetDir := filepath.Join(t.TempDir(), "ports")
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(targetDir, "dolt-server.port")
+	if err := os.WriteFile(target, []byte("3311\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(beadsDir, "dolt-server.port")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := removeDoltPortFileStrict(dir); err != nil {
+		t.Fatalf("removeDoltPortFileStrict: %v", err)
+	}
+
+	// The operator's link must survive; only the resolved target is cleared.
+	info, err := os.Lstat(link)
+	if err != nil {
+		t.Fatalf("Lstat link: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("dolt-server.port symlink was replaced by a %v entry; cleanup must clear through the link", info.Mode())
+	}
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		t.Fatalf("target stat err = %v, want resolved target removed", err)
+	}
+
+	// A later publication must write through the preserved link to the
+	// operator's target instead of recreating a regular file at the link path.
+	if err := writeDoltPortFileStrict(fsys.OSFS{}, dir, "3320"); err != nil {
+		t.Fatalf("re-publish writeDoltPortFileStrict: %v", err)
+	}
+	info, err = os.Lstat(link)
+	if err != nil {
+		t.Fatalf("Lstat link after re-publish: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("after re-publish, link mode = %v; want symlink preserved", info.Mode())
+	}
+	if got := strings.TrimSpace(string(mustReadFile(t, target))); got != "3320" {
+		t.Fatalf("re-published target port = %q, want 3320", got)
+	}
+}
+
 func TestSyncRigEndpointCompatConfigUsesAtomicWrite(t *testing.T) {
 	fs := fsys.NewFake()
 	cityDir := "/city"
@@ -820,6 +1080,183 @@ func TestRestoreSnapshotUsesAtomicWrite(t *testing.T) {
 	}
 	if got := string(fs.Files[snap.path]); got != "updated = true\n" {
 		t.Fatalf("restored file = %q", got)
+	}
+}
+
+// setupSymlinkedCityToml creates cityDir/city.toml as a symlink into a
+// checkout directory holding the original content, mirroring the ga-lurp5d
+// production layout where city.toml links into a checked-out repo.
+const symlinkedCityTomlOriginal = "[workspace]\nname = \"test-city\"\n"
+
+func setupSymlinkedCityToml(t *testing.T) (cityDir, link, target string) {
+	t.Helper()
+	dir := t.TempDir()
+	checkoutDir := filepath.Join(dir, "checkout")
+	if err := os.MkdirAll(checkoutDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target = filepath.Join(checkoutDir, "city.toml")
+	if err := os.WriteFile(target, []byte(symlinkedCityTomlOriginal), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cityDir = filepath.Join(dir, "city")
+	if err := os.MkdirAll(cityDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link = filepath.Join(cityDir, "city.toml")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	return cityDir, link, target
+}
+
+// assertCityTomlSymlinkRestored fails the test unless link is still a symlink
+// and target holds the original content after a rollback restore.
+func assertCityTomlSymlinkRestored(t *testing.T, link, target, original string) {
+	t.Helper()
+	info, err := os.Lstat(link)
+	if err != nil {
+		t.Fatalf("Lstat link: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("city.toml symlink was replaced by a %v entry; rollback must restore through the link", info.Mode())
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("ReadFile target: %v", err)
+	}
+	if string(data) != original {
+		t.Fatalf("target content = %q, want restored original %q", data, original)
+	}
+}
+
+// Regression test for the ga-lurp5d follow-up: a failed endpoint change must
+// roll back a symlinked city.toml by restoring the link target, not by
+// replacing the link with a regular file.
+func TestRigEndpointRollbackRestoresThroughCityTomlSymlink(t *testing.T) {
+	fs := fsys.OSFS{}
+	cityDir, link, target := setupSymlinkedCityToml(t)
+	scopeRoot := filepath.Join(cityDir, "rig")
+	if err := os.MkdirAll(scopeRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshots, err := snapshotRigEndpointFiles(fs, cityDir, scopeRoot)
+	if err != nil {
+		t.Fatalf("snapshotRigEndpointFiles: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("[workspace]\nname = \"mutated\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := restoreSnapshots(fs, snapshots); err != nil {
+		t.Fatalf("restoreSnapshots: %v", err)
+	}
+	assertCityTomlSymlinkRestored(t, link, target, symlinkedCityTomlOriginal)
+}
+
+// Regression for the attempt-3 review's consistency finding: cmd-side
+// rollback snapshots must resolve every captured file the way the API-side
+// capture does, not just city.toml — restoring a symlinked .gc/site.toml
+// must write the link target, not replace the link with a regular file.
+func TestRigEndpointRollbackRestoresThroughSiteTomlSymlink(t *testing.T) {
+	fs := fsys.OSFS{}
+	original := "name = \"bound-site\"\n"
+	cityDir, _, _ := setupSymlinkedCityToml(t)
+	checkout := filepath.Join(cityDir, "site-checkout")
+	if err := os.MkdirAll(checkout, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(checkout, "site.toml")
+	if err := os.WriteFile(target, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := config.SiteBindingPath(cityDir)
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	scopeRoot := filepath.Join(cityDir, "rig")
+	if err := os.MkdirAll(scopeRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshots, err := snapshotRigEndpointFiles(fs, cityDir, scopeRoot)
+	if err != nil {
+		t.Fatalf("snapshotRigEndpointFiles: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("name = \"mutated\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := restoreSnapshots(fs, snapshots); err != nil {
+		t.Fatalf("restoreSnapshots: %v", err)
+	}
+
+	info, err := os.Lstat(link)
+	if err != nil {
+		t.Fatalf("Lstat link: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("site.toml symlink was replaced by a %v entry; rollback must restore through the link", info.Mode())
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("ReadFile target: %v", err)
+	}
+	if string(data) != original {
+		t.Fatalf("target content = %q, want restored original %q", data, original)
+	}
+}
+
+func TestRigEndpointRollbackRestoresAfterSiteBindingForwardWriteThroughSymlink(t *testing.T) {
+	fs := fsys.OSFS{}
+	original := "workspace_name = \"bound-site\"\nworkspace_prefix = \"bs\"\n"
+	cityDir, _, _ := setupSymlinkedCityToml(t)
+	checkout := filepath.Join(cityDir, "site-checkout")
+	if err := os.MkdirAll(checkout, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(checkout, "site.toml")
+	if err := os.WriteFile(target, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := config.SiteBindingPath(cityDir)
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	scopeRoot := filepath.Join(cityDir, "rig")
+	if err := os.MkdirAll(scopeRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshots, err := snapshotRigEndpointFiles(fs, cityDir, scopeRoot)
+	if err != nil {
+		t.Fatalf("snapshotRigEndpointFiles: %v", err)
+	}
+	if err := config.PersistWorkspaceSiteBinding(fs, cityDir, "mutated-site", "ms"); err != nil {
+		t.Fatalf("PersistWorkspaceSiteBinding: %v", err)
+	}
+	if err := restoreSnapshots(fs, snapshots); err != nil {
+		t.Fatalf("restoreSnapshots: %v", err)
+	}
+
+	info, err := os.Lstat(link)
+	if err != nil {
+		t.Fatalf("Lstat link: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("site.toml symlink was replaced by a %v entry; rollback must restore the effective linked state", info.Mode())
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("ReadFile target: %v", err)
+	}
+	if string(data) != original {
+		t.Fatalf("target content = %q, want restored original %q", data, original)
 	}
 }
 
@@ -1065,6 +1502,53 @@ func TestCanonicalValidationPasswordUsesCredentialsFileOverride(t *testing.T) {
 	}
 }
 
+func TestReadCanonicalProjectIDReadsL1Authoritatively(t *testing.T) {
+	scopeRoot := t.TempDir()
+	writeRigEndpointMetadata(t, scopeRoot, "hq")
+	metadataPath := filepath.Join(scopeRoot, ".beads", "metadata.json")
+	writeMetadataProjectID(t, metadataPath, "legacy-l2")
+	if err := contract.WriteProjectIdentity(fsys.OSFS{}, scopeRoot, "canonical-l1"); err != nil {
+		t.Fatalf("WriteProjectIdentity: %v", err)
+	}
+
+	got, err := readCanonicalProjectID(metadataPath)
+	if err != nil {
+		t.Fatalf("readCanonicalProjectID: %v", err)
+	}
+	if got != "canonical-l1" {
+		t.Fatalf("readCanonicalProjectID() = %q, want canonical-l1", got)
+	}
+}
+
+func TestReadCanonicalProjectIDFallsBackToL2WhenL1Absent(t *testing.T) {
+	scopeRoot := t.TempDir()
+	writeRigEndpointMetadata(t, scopeRoot, "hq")
+	metadataPath := filepath.Join(scopeRoot, ".beads", "metadata.json")
+	writeMetadataProjectID(t, metadataPath, "legacy-l2")
+
+	got, err := readCanonicalProjectID(metadataPath)
+	if err != nil {
+		t.Fatalf("readCanonicalProjectID: %v", err)
+	}
+	if got != "legacy-l2" {
+		t.Fatalf("readCanonicalProjectID() = %q, want legacy-l2", got)
+	}
+}
+
+func TestReadCanonicalProjectIDReturnsEmptyWhenL1AndL2Missing(t *testing.T) {
+	scopeRoot := t.TempDir()
+	writeRigEndpointMetadata(t, scopeRoot, "hq")
+	metadataPath := filepath.Join(scopeRoot, ".beads", "metadata.json")
+
+	got, err := readCanonicalProjectID(metadataPath)
+	if err != nil {
+		t.Fatalf("readCanonicalProjectID: %v", err)
+	}
+	if got != "" {
+		t.Fatalf("readCanonicalProjectID() = %q, want empty", got)
+	}
+}
+
 func TestVerifyExternalDoltEndpointRejectsEmptyExternalDoltDatabase(t *testing.T) {
 	skipSlowCmdGCTest(t, "requires a managed external dolt endpoint; run make test-cmd-gc-process for full coverage")
 	doltPath, err := exec.LookPath("dolt")
@@ -1080,9 +1564,7 @@ func TestVerifyExternalDoltEndpointRejectsEmptyExternalDoltDatabase(t *testing.T
 		t.Fatal(err)
 	}
 
-	if err := MaterializeBuiltinPacks(cityDir); err != nil {
-		t.Fatalf("MaterializeBuiltinPacks: %v", err)
-	}
+	materializeBuiltinPacksForTest(t, cityDir)
 	script := gcBeadsBdScriptPath(cityDir)
 
 	homeDir := filepath.Join(t.TempDir(), "home")
@@ -1173,8 +1655,9 @@ func TestVerifyExternalDoltEndpointRejectsProjectIdentityMismatch(t *testing.T) 
 		t.Skip("dolt not installed")
 	}
 	bdPath := waitTestRealBDPath(t)
+	gcBin := currentGCBinaryForTests(t)
 	oldResolve := resolveProviderLifecycleGCBinary
-	resolveProviderLifecycleGCBinary = func() string { return currentGCBinaryForTests(t) }
+	resolveProviderLifecycleGCBinary = func() string { return gcBin }
 	t.Cleanup(func() { resolveProviderLifecycleGCBinary = oldResolve })
 
 	cityDir := t.TempDir()
@@ -1184,9 +1667,7 @@ func TestVerifyExternalDoltEndpointRejectsProjectIdentityMismatch(t *testing.T) 
 	if err := os.WriteFile(filepath.Join(cityDir, "city.toml"), []byte("[workspace]\nname = \"demo\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := MaterializeBuiltinPacks(cityDir); err != nil {
-		t.Fatalf("MaterializeBuiltinPacks: %v", err)
-	}
+	materializeBuiltinPacksForTest(t, cityDir)
 
 	homeDir := filepath.Join(t.TempDir(), "home")
 	if err := os.MkdirAll(homeDir, 0o755); err != nil {
@@ -1244,14 +1725,8 @@ func TestVerifyExternalDoltEndpointRejectsProjectIdentityMismatch(t *testing.T) 
 	if _, err := db.ExecContext(ctx, "INSERT INTO metadata (`key`, value) VALUES ('_project_id', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)", originalProjectID); err != nil {
 		t.Fatalf("seed database _project_id: %v", err)
 	}
-	meta["project_id"] = "different-project-id"
-	patched, err := json.MarshalIndent(meta, "", "  ")
-	if err != nil {
-		t.Fatalf("MarshalIndent(metadata.json): %v", err)
-	}
-	patched = append(patched, '\n')
-	if err := os.WriteFile(metadataPath, patched, 0o644); err != nil {
-		t.Fatalf("WriteFile(metadata.json): %v", err)
+	if err := contract.WriteProjectIdentity(fsys.OSFS{}, cityDir, "different-project-id"); err != nil {
+		t.Fatalf("WriteProjectIdentity: %v", err)
 	}
 
 	state := contract.ConfigState{
@@ -1269,6 +1744,9 @@ func TestVerifyExternalDoltEndpointRejectsProjectIdentityMismatch(t *testing.T) 
 	if !strings.Contains(strings.ToLower(err.Error()), "project identity mismatch") {
 		t.Fatalf("verifyExternalDoltEndpoint() error = %v", err)
 	}
+	if !strings.Contains(err.Error(), "different-project-id") || !strings.Contains(err.Error(), originalProjectID) {
+		t.Fatalf("verifyExternalDoltEndpoint() error = %v, want both project ids", err)
+	}
 }
 
 func TestVerifyExternalDoltEndpointRejectsMissingLocalProjectID(t *testing.T) {
@@ -1278,8 +1756,9 @@ func TestVerifyExternalDoltEndpointRejectsMissingLocalProjectID(t *testing.T) {
 		t.Skip("dolt not installed")
 	}
 	bdPath := waitTestRealBDPath(t)
+	gcBin := currentGCBinaryForTests(t)
 	oldResolve := resolveProviderLifecycleGCBinary
-	resolveProviderLifecycleGCBinary = func() string { return currentGCBinaryForTests(t) }
+	resolveProviderLifecycleGCBinary = func() string { return gcBin }
 	t.Cleanup(func() { resolveProviderLifecycleGCBinary = oldResolve })
 
 	cityDir := t.TempDir()
@@ -1289,9 +1768,7 @@ func TestVerifyExternalDoltEndpointRejectsMissingLocalProjectID(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cityDir, "city.toml"), []byte("[workspace]\nname = \"demo\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := MaterializeBuiltinPacks(cityDir); err != nil {
-		t.Fatalf("MaterializeBuiltinPacks: %v", err)
-	}
+	materializeBuiltinPacksForTest(t, cityDir)
 
 	homeDir := filepath.Join(t.TempDir(), "home")
 	if err := os.MkdirAll(homeDir, 0o755); err != nil {
@@ -1344,6 +1821,9 @@ func TestVerifyExternalDoltEndpointRejectsMissingLocalProjectID(t *testing.T) {
 	if err := os.WriteFile(metadataPath, patched, 0o644); err != nil {
 		t.Fatalf("WriteFile(metadata.json): %v", err)
 	}
+	if err := os.Remove(contract.ProjectIdentityPath(cityDir)); err != nil && !os.IsNotExist(err) {
+		t.Fatalf("Remove(identity.toml): %v", err)
+	}
 
 	db, err := sql.Open("mysql", fmt.Sprintf("root@tcp(127.0.0.1:%s)/hq", port))
 	if err != nil {
@@ -1368,7 +1848,7 @@ func TestVerifyExternalDoltEndpointRejectsMissingLocalProjectID(t *testing.T) {
 	if err == nil {
 		t.Fatal("verifyExternalDoltEndpoint() unexpectedly succeeded for missing local project_id")
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "missing project_id") {
+	if !strings.Contains(err.Error(), "neither .beads/identity.toml nor .beads/metadata.json carry a project_id") {
 		t.Fatalf("verifyExternalDoltEndpoint() error = %v", err)
 	}
 }
@@ -1417,7 +1897,16 @@ func writeRigEndpointCityConfig(t *testing.T, cityDir, rigDir string) {
 	if err := os.MkdirAll(filepath.Join(cityDir, ".gc"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	content := fmt.Sprintf("[workspace]\nname = \"test-city\"\n\n[[rigs]]\nname = \"frontend\"\npath = %q\nprefix = \"fe\"\n", rigDir)
+	if err := os.WriteFile(filepath.Join(cityDir, "pack.toml"), []byte("[pack]\nname = \"test-city\"\nschema = 2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.PersistWorkspaceSiteBinding(fsys.OSFS{}, cityDir, "test-city", ""); err != nil {
+		t.Fatalf("PersistWorkspaceSiteBinding: %v", err)
+	}
+	if err := config.PersistRigSiteBindings(fsys.OSFS{}, cityDir, []config.Rig{{Name: "frontend", Path: rigDir}}); err != nil {
+		t.Fatalf("PersistRigSiteBindings: %v", err)
+	}
+	content := "[workspace]\n\n[[rigs]]\nname = \"frontend\"\nprefix = \"fe\"\n"
 	if err := os.WriteFile(filepath.Join(cityDir, "city.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1460,6 +1949,24 @@ func writeRigEndpointMetadata(t *testing.T, dir, doltDatabase string) {
 	}
 }
 
+func writeMetadataProjectID(t *testing.T, metadataPath string, projectID string) {
+	t.Helper()
+	data := mustReadFile(t, metadataPath)
+	var meta map[string]any
+	if err := json.Unmarshal(data, &meta); err != nil {
+		t.Fatal(err)
+	}
+	meta["project_id"] = projectID
+	encoded, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded = append(encoded, '\n')
+	if err := os.WriteFile(metadataPath, encoded, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func mustReadFile(t *testing.T, path string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -1479,4 +1986,66 @@ func readRigEndpointConfigState(t *testing.T, dir string) contract.ConfigState {
 		t.Fatal("config state missing")
 	}
 	return state
+}
+
+// Regression for PR #3428 review: the gc rig set-endpoint outer rollback
+// snapshots city.toml at its symlink-resolved path, so restoring after a later
+// step fails rewrites the real target and leaves the live symlink intact
+// instead of replacing it with a regular file.
+func TestSnapshotRigEndpointFilesRestoresSymlinkedCityToml(t *testing.T) {
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "repo")
+	cityDir := filepath.Join(dir, "city")
+	scopeRoot := filepath.Join(dir, "rig")
+	if err := os.MkdirAll(repoDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(cityDir, ".gc"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(scopeRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	repoCityPath := filepath.Join(repoDir, "city.toml")
+	liveCityPath := filepath.Join(cityDir, "city.toml")
+	original := []byte("[workspace]\nname = \"test-city\"\n")
+	if err := os.WriteFile(repoCityPath, original, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("..", "repo", "city.toml"), liveCityPath); err != nil {
+		t.Fatal(err)
+	}
+
+	fs := fsys.OSFS{}
+	snapshots, err := snapshotRigEndpointFiles(fs, cityDir, scopeRoot)
+	if err != nil {
+		t.Fatalf("snapshotRigEndpointFiles: %v", err)
+	}
+
+	// Simulate the endpoint config rewrite mutating the resolved target before
+	// a later step fails and triggers rollback.
+	mutated := []byte("[workspace]\nname = \"mutated\"\n")
+	if err := os.WriteFile(repoCityPath, mutated, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := restoreSnapshots(fs, snapshots); err != nil {
+		t.Fatalf("restoreSnapshots: %v", err)
+	}
+
+	info, err := os.Lstat(liveCityPath)
+	if err != nil {
+		t.Fatalf("Lstat(live city.toml): %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("rollback replaced the live city.toml symlink with a regular file")
+	}
+	restored, err := os.ReadFile(repoCityPath)
+	if err != nil {
+		t.Fatalf("read repo city.toml: %v", err)
+	}
+	if !bytes.Equal(restored, original) {
+		t.Fatalf("repo city.toml = %q, want restored original %q", restored, original)
+	}
 }

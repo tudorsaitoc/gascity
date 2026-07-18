@@ -11,15 +11,17 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
 
-// testSocketName is the dedicated tmux socket used by all integration tests.
-// Using a separate socket ensures tests never interfere with the user's
-// running tmux server.
-const testSocketName = "gc-test"
+// testSocketName is the dedicated tmux socket used by this integration test
+// process. It uses the tmuxtest cleanup prefix and a per-process suffix so
+// reused CI runners cannot inherit a stale fixed test socket from an aborted
+// run.
+var testSocketName = fmt.Sprintf("gctest-%d-%d", os.Getpid(), time.Now().UnixNano())
 
 func hasTmux() bool {
 	_, err := exec.LookPath("tmux")
@@ -766,7 +768,13 @@ func TestGetPaneCommand_MultiPane(t *testing.T) {
 }
 
 func TestHasDescendantWithNames(t *testing.T) {
-	// Test the hasDescendantWithNames helper function directly
+	if os.Getenv("GC_TMUX_DESCENDANT_HELPER") == "1" {
+		time.Sleep(time.Minute)
+		return
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("process-tree traversal uses pgrep")
+	}
 
 	// Test with a definitely nonexistent PID
 	got := hasDescendantWithNames("999999999", []string{"node", "claude"}, 0)
@@ -786,15 +794,18 @@ func TestHasDescendantWithNames(t *testing.T) {
 		t.Error("hasDescendantWithNames should return false for nil names slice")
 	}
 
-	// Test with PID 1 (init/launchd) - should have children but not specific agent processes
-	got = hasDescendantWithNames("1", []string{"node", "claude"}, 0)
-	if got {
-		t.Logf("hasDescendantWithNames(\"1\", [node,claude]) = true - init has matching child?")
+	// Exercise a real process-tree edge without recursively scanning every
+	// process on the host. The helper is a direct child of this test binary.
+	helper := startDescendantTestProcess(t)
+	if !hasDescendantWithNames(strconv.Itoa(os.Getpid()), []string{filepath.Base(os.Args[0])}, 0) {
+		t.Fatalf("hasDescendantWithNames did not find controlled child pid %d", helper.Process.Pid)
 	}
 }
 
 func TestGetAllDescendants(t *testing.T) {
-	// Test the getAllDescendants helper function
+	if runtime.GOOS == "windows" {
+		t.Skip("process-tree traversal uses pgrep")
+	}
 
 	// Test with nonexistent PID - should return empty slice
 	got := getAllDescendants("999999999")
@@ -802,20 +813,40 @@ func TestGetAllDescendants(t *testing.T) {
 		t.Errorf("getAllDescendants(nonexistent) = %v, want empty slice", got)
 	}
 
-	// Test with PID 1 (init/launchd) - should find some descendants
-	// Note: We can't test exact PIDs, just that the function doesn't panic
-	// and returns reasonable results
-	descendants := getAllDescendants("1")
-	t.Logf("getAllDescendants(\"1\") found %d descendants", len(descendants))
+	helper := startDescendantTestProcess(t)
+	helperPID := strconv.Itoa(helper.Process.Pid)
+	descendants := getAllDescendants(strconv.Itoa(os.Getpid()))
+	foundHelper := false
 
 	// Verify returned PIDs are all numeric strings
 	for _, pid := range descendants {
+		if pid == helperPID {
+			foundHelper = true
+		}
 		for _, c := range pid {
 			if c < '0' || c > '9' {
 				t.Errorf("getAllDescendants returned non-numeric PID: %q", pid)
 			}
 		}
 	}
+	if !foundHelper {
+		t.Fatalf("getAllDescendants(%d) = %v, want controlled child %s", os.Getpid(), descendants, helperPID)
+	}
+}
+
+func startDescendantTestProcess(t *testing.T) *exec.Cmd {
+	t.Helper()
+
+	cmd := exec.Command(os.Args[0], "-test.run=^TestHasDescendantWithNames$")
+	cmd.Env = append(os.Environ(), "GC_TMUX_DESCENDANT_HELPER=1")
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start descendant helper: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_, _ = cmd.Process.Wait()
+	})
+	return cmd
 }
 
 func TestKillSessionWithProcesses(t *testing.T) {
@@ -1257,8 +1288,12 @@ func TestCleanupOrphanedSessions_NoSessions(t *testing.T) {
 
 func TestCollectReparentedGroupMembers(t *testing.T) {
 	// Test that collectReparentedGroupMembers correctly filters group members.
-	// Only processes reparented to init (PPID == 1) that aren't in the known set
-	// should be returned.
+	// A returned member must not be in the known set and must have a parent
+	// outside the known descendant set (parents that reparented to init OR to a
+	// user-session subreaper both qualify). The full parent-outside-set rule is
+	// covered deterministically with an injected parentOf by
+	// TestReparentedOrphans_* in tmux_unit_test.go; this test exercises the real
+	// getProcessGroupID/getParentPID integration.
 
 	// Test with current process's PGID
 	pid := fmt.Sprintf("%d", os.Getpid())
@@ -1276,17 +1311,18 @@ func TestCollectReparentedGroupMembers(t *testing.T) {
 		if rpid == pid {
 			t.Errorf("collectReparentedGroupMembers returned known PID %s", pid)
 		}
-		// Each reparented PID should have PPID == 1.
-		// The process may have exited between collection and this check
-		// (TOCTOU race), so skip verification if getParentPID returns empty.
+		// A returned member's parent must be outside the known set (the
+		// "parent outside the known descendant set" rule). The process may
+		// exit between collection and this check (TOCTOU race), so skip
+		// verification if getParentPID returns empty for a since-exited PID.
 		ppid := getParentPID(rpid)
 		if ppid == "" && runtime.GOOS != "windows" {
 			if err := exec.Command("kill", "-0", rpid).Run(); err != nil {
 				continue
 			}
 		}
-		if ppid != "1" {
-			t.Errorf("collectReparentedGroupMembers returned PID %s with PPID %s (expected 1)", rpid, ppid)
+		if knownPIDs[ppid] {
+			t.Errorf("collectReparentedGroupMembers returned PID %s whose parent %s is in the known set", rpid, ppid)
 		}
 	}
 }
@@ -1923,6 +1959,26 @@ func TestIsTransientSendKeysError(t *testing.T) {
 	}
 }
 
+func TestNudgeSubmitDebounceUsesKimiProviderHint(t *testing.T) {
+	if !hasTmux() {
+		t.Skip("tmux not installed")
+	}
+
+	tm := testTmux()
+	sessionName := "gt-test-kimi-debounce-" + fmt.Sprintf("%d", time.Now().UnixNano()%10000)
+	if err := tm.NewSession(sessionName, os.TempDir()); err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	defer func() { _ = tm.KillSession(sessionName) }()
+
+	if err := tm.SetEnvironment(sessionName, "GC_PROVIDER", "kimi"); err != nil {
+		t.Fatalf("SetEnvironment: %v", err)
+	}
+	if got, want := tm.nudgeSubmitDebounce(sessionName), 1500*time.Millisecond; got != want {
+		t.Fatalf("nudgeSubmitDebounce = %s, want %s", got, want)
+	}
+}
+
 func TestSendKeysLiteralWithRetry_ImmediateSuccess(t *testing.T) {
 	if !hasTmux() {
 		t.Skip("tmux not installed")
@@ -1983,6 +2039,61 @@ func TestSendKeysLiteralWithRetry_NonTransientFailsFast(t *testing.T) {
 	// Non-transient errors should fail immediately, not wait for timeout.
 	if elapsed > 2*time.Second {
 		t.Errorf("non-transient error took %v — should have failed fast, not retried until timeout", elapsed)
+	}
+}
+
+func TestSendKeysLiteralWithRetryFallsBackToPasteBufferOnCommandTooLong(t *testing.T) {
+	fe := &fakeExecutor{
+		errs: []error{errors.New("command too long")},
+	}
+	tm := NewTmuxWithConfig(DefaultConfig())
+	tm.exec = fe
+
+	err := tm.sendKeysLiteralWithRetry("%1", "large startup prompt", time.Second)
+	if err != nil {
+		t.Fatalf("sendKeysLiteralWithRetry() = %v, want nil", err)
+	}
+
+	if len(fe.calls) != 3 {
+		t.Fatalf("tmux calls = %d, want 3: %#v", len(fe.calls), fe.calls)
+	}
+	first := strings.Join(fe.calls[0], " ")
+	if !strings.Contains(first, "send-keys") || !strings.Contains(first, "-l") {
+		t.Fatalf("first call = %v, want literal send-keys", fe.calls[0])
+	}
+	assertTmuxCommand(t, fe.calls[1], "load-buffer")
+	assertTmuxCommand(t, fe.calls[2], "paste-buffer")
+	third := strings.Join(fe.calls[2], "\x00")
+	for _, want := range []string{"\x00-p\x00", "\x00-d\x00", "\x00-t\x00%1"} {
+		if !strings.Contains(third, want) {
+			t.Fatalf("paste-buffer call = %v, missing %q", fe.calls[2], want)
+		}
+	}
+}
+
+func TestSendKeysLiteralWithRetryUsesPasteBufferForLargeText(t *testing.T) {
+	fe := &fakeExecutor{}
+	tm := NewTmuxWithConfig(DefaultConfig())
+	tm.exec = fe
+
+	err := tm.sendKeysLiteralWithRetry("%1", strings.Repeat("x", maxSendKeysLiteralLen+1), time.Second)
+	if err != nil {
+		t.Fatalf("sendKeysLiteralWithRetry() = %v, want nil", err)
+	}
+
+	if len(fe.calls) != 2 {
+		t.Fatalf("tmux calls = %d, want 2: %#v", len(fe.calls), fe.calls)
+	}
+	assertTmuxCommand(t, fe.calls[0], "load-buffer")
+	assertTmuxCommand(t, fe.calls[1], "paste-buffer")
+}
+
+func assertTmuxCommand(t *testing.T, args []string, want string) {
+	t.Helper()
+
+	joined := "\x00" + strings.Join(args, "\x00") + "\x00"
+	if !strings.Contains(joined, "\x00"+want+"\x00") {
+		t.Fatalf("tmux call = %v, want command %q", args, want)
 	}
 }
 
@@ -2268,6 +2379,12 @@ func TestMatchesPromptPrefix(t *testing.T) {
 
 		// Bare prompt character without any space
 		{"bare prompt no space", "❯", regularPrefix, true},
+
+		// Boxed prompt: TUIs (e.g. grok) render the input line inside a box
+		// border, so the captured line is "│ ❯ …" rather than "❯ …".
+		{"boxed prompt bare", "│ ❯ ", regularPrefix, true},
+		{"boxed prompt with content", "│ ❯ do the work", regularPrefix, true},
+		{"heavy box border", "┃ ❯ ", regularPrefix, true},
 	}
 
 	for _, tt := range tests {
@@ -2281,12 +2398,19 @@ func TestMatchesPromptPrefix(t *testing.T) {
 	}
 }
 
+// TestProviderEnvSkipsEscapeGrok guards the grok engagement fix: grok's TUI
+// treats a pre-Enter Escape as "clear input", so synthesizing one between the
+// pasted prompt and the submit Enter prevents submission and the worker idles
+// at the welcome screen forever. grok must be on the skip list.
+func TestProviderEnvSkipsEscapeGrok(t *testing.T) {
+	if !providerEnvSkipsEscape("grok") {
+		t.Error("grok must skip pre-Enter Escape (TUI treats Escape as clear-input)")
+	}
+}
+
 func TestWaitForIdle_Timeout(t *testing.T) {
 	if !hasTmux() {
 		t.Skip("tmux not installed")
-	}
-	if os.Getenv("TMUX") == "" {
-		t.Skip("not inside tmux")
 	}
 	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
 		t.Skip("test requires unix")
@@ -2327,6 +2451,18 @@ func TestPaneContainsBusyIndicator(t *testing.T) {
 		{"gemini auth spinner", []string{"Waiting for authentication... (Press Esc or Ctrl+C to cancel)"}, true},
 		{"gemini shell tool panel", []string{"│ ?  Shell sleep 12 [current working directory /tmp/city] (Sleep … │"}, true},
 		{"no indicator", []string{"some output", "building..."}, false},
+		// Current Claude Code (bypass mode) shows a live spinner with an elapsed
+		// timer + token stream, not "esc to interrupt", while working.
+		{"claude busy spinner token footer", []string{"· Boogieing… (2m 28s · ↓ 10.9k tokens)"}, true},
+		{"claude busy spinner long turn", []string{"✶ Investigating… (31m 40s · ↓ 108.6k tokens)"}, true},
+		{"claude busy spinner thinking", []string{"✢ Clauding… (56s · ↓ 1.7k tokens · thinking with max effort)"}, true},
+		{"codex busy spinner bullet", []string{"◦ Working (2m 48s • esc to interrupt)"}, true},
+		// Idle/done markers and status chrome must NOT read as busy — a false
+		// positive makes WaitForIdle never return, so the agent is never nudged.
+		{"claude done marker", []string{"✻ Worked for 1m 49s", "❯ "}, false},
+		{"claude status bar time", []string{"🧠 Sonnet 4.6 | 📁 witness | ⏱️  Jun 3 20:10:09"}, false},
+		{"scrollback truncation parens", []string{"  … +9 lines (ctrl+o to expand)"}, false},
+		{"git branch in status bar", []string{"  🚀 Opus 4.8 | 📁 thriva | (main) | ⏱️  Jun 4 02:57:04"}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

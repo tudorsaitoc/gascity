@@ -6,7 +6,18 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
+
+// PreserveExistingWarningPrefix prefixes nonfatal warnings for provider overlay
+// files that intentionally preserve an existing destination file.
+const PreserveExistingWarningPrefix = "overlay: preserving existing "
+
+// IsPreserveExistingWarning reports whether line is a nonfatal preservation
+// warning emitted by provider-aware overlay staging.
+func IsPreserveExistingWarning(line string) bool {
+	return strings.HasPrefix(strings.TrimSpace(line), PreserveExistingWarningPrefix)
+}
 
 // CopyFileOrDir copies src into dst. If src is a directory, it recursively
 // copies all files into dst (like CopyDir). If src is a single file, it
@@ -34,6 +45,12 @@ func CopyFileOrDir(src, dst string, stderr io.Writer) error {
 // If srcDir does not exist, returns nil (no-op).
 // Individual file copy failures are logged to stderr but don't abort.
 func CopyDir(srcDir, dstDir string, stderr io.Writer) error {
+	return copyDir(srcDir, dstDir, stderr, nil)
+}
+
+type preserveExistingFunc func(relPath string) bool
+
+func copyDir(srcDir, dstDir string, stderr io.Writer, preserveExisting preserveExistingFunc) error {
 	info, err := os.Stat(srcDir)
 	if os.IsNotExist(err) {
 		return nil // Missing source dir is a no-op (like Gas Town).
@@ -44,11 +61,11 @@ func CopyDir(srcDir, dstDir string, stderr io.Writer) error {
 	if !info.IsDir() {
 		return fmt.Errorf("overlay: %q is not a directory", srcDir)
 	}
-	return copyDirRecursive(srcDir, dstDir, "", stderr)
+	return copyDirRecursive(srcDir, dstDir, "", stderr, preserveExisting)
 }
 
 // copyDirRecursive walks srcBase/rel and copies files into dstBase/rel.
-func copyDirRecursive(srcBase, dstBase, rel string, stderr io.Writer) error {
+func copyDirRecursive(srcBase, dstBase, rel string, stderr io.Writer, preserveExisting preserveExistingFunc) error {
 	srcPath := srcBase
 	if rel != "" {
 		srcPath = filepath.Join(srcBase, rel)
@@ -72,7 +89,7 @@ func copyDirRecursive(srcBase, dstBase, rel string, stderr io.Writer) error {
 				fmt.Fprintf(stderr, "overlay: mkdir %q: %v\n", dstSubDir, err) //nolint:errcheck
 				continue
 			}
-			if err := copyDirRecursive(srcBase, dstBase, entryRel, stderr); err != nil {
+			if err := copyDirRecursive(srcBase, dstBase, entryRel, stderr, preserveExisting); err != nil {
 				fmt.Fprintf(stderr, "overlay: %v\n", err) //nolint:errcheck
 			}
 			continue
@@ -81,7 +98,16 @@ func copyDirRecursive(srcBase, dstBase, rel string, stderr io.Writer) error {
 		// Copy file (merge if applicable).
 		src := filepath.Join(srcBase, entryRel)
 		dst := filepath.Join(dstBase, entryRel)
-		if err := copyOrMergeFile(src, dst, IsMergeablePath(entryRel)); err != nil {
+		if preserveExisting != nil && preserveExisting(entryRel) {
+			if _, err := os.Stat(dst); err == nil {
+				fmt.Fprintf(stderr, "%s%q; skipped %q\n", PreserveExistingWarningPrefix, dst, src) //nolint:errcheck
+				continue
+			} else if !os.IsNotExist(err) {
+				fmt.Fprintf(stderr, "overlay: stat %q: %v\n", dst, err) //nolint:errcheck
+				continue
+			}
+		}
+		if err := copyOrMergeFile(src, dst, IsMergeablePath(entryRel), WrapsBareHooks(entryRel)); err != nil {
 			fmt.Fprintf(stderr, "overlay: %v\n", err) //nolint:errcheck
 		}
 	}
@@ -146,7 +172,7 @@ func copyDirWithSkipRecursive(srcBase, dstBase, rel string, skip SkipFunc) error
 
 		src := filepath.Join(srcBase, entryRel)
 		dst := filepath.Join(dstBase, entryRel)
-		if err := copyOrMergeFile(src, dst, IsMergeablePath(entryRel)); err != nil {
+		if err := copyOrMergeFile(src, dst, IsMergeablePath(entryRel), WrapsBareHooks(entryRel)); err != nil {
 			return err
 		}
 	}
@@ -157,6 +183,18 @@ func copyDirWithSkipRecursive(srcBase, dstBase, rel string, skip SkipFunc) error
 // overlay files. Files in overlay/per-provider/<provider>/ are copied to the
 // agent's working directory only when the agent's resolved provider matches.
 const PerProviderDir = "per-provider"
+
+// HasProviderDir reports whether srcDir contains a per-provider overlay
+// directory for providerName (per-provider/<providerName>/). Staging uses it to
+// decide whether a concrete provider overlay exists before falling back to the
+// launch family overlay (gc-6bw8o).
+func HasProviderDir(srcDir, providerName string) bool {
+	if srcDir == "" || providerName == "" {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(srcDir, PerProviderDir, providerName))
+	return err == nil && info.IsDir()
+}
 
 // CopyDirForProvider copies overlay files with provider awareness:
 //  1. Copies everything EXCEPT the per-provider/ subtree (universal files).
@@ -189,7 +227,7 @@ func CopyDirForProvider(srcDir, dstDir, providerName string, stderr io.Writer) e
 	// Step 2: copy provider-specific files (flattened into dst).
 	if providerName != "" {
 		providerDir := filepath.Join(srcDir, PerProviderDir, providerName)
-		if err := CopyDir(providerDir, dstDir, stderr); err != nil {
+		if err := copyDir(providerDir, dstDir, stderr, providerPreserveExisting(providerName)); err != nil {
 			return err
 		}
 	}
@@ -237,34 +275,55 @@ func CopyDirForProviders(srcDir, dstDir string, providers []string, stderr io.Wr
 		}
 		seen[p] = true
 		providerDir := filepath.Join(srcDir, PerProviderDir, p)
-		if err := CopyDir(providerDir, dstDir, stderr); err != nil {
+		if err := copyDir(providerDir, dstDir, stderr, providerPreserveExisting(p)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+func providerPreserveExisting(providerName string) preserveExistingFunc {
+	if providerName != "kiro" {
+		return nil
+	}
+	return func(relPath string) bool {
+		// Kiro's AGENTS.md is a workspace-root instruction fallback. Once any
+		// workspace, pack, or earlier overlay has provided it, later Kiro
+		// overlays preserve that file instead of replacing instructions.
+		return filepath.Clean(relPath) == "AGENTS.md"
+	}
+}
+
 // copyOrMergeFile copies src to dst, optionally merging JSON if merge is true
-// and dst already exists. Falls back to plain copy on any merge error.
-func copyOrMergeFile(src, dst string, merge bool) error {
+// and dst already exists. When wrapBareHooks is true (Claude settings), bare
+// hook entries in the result are normalized into wrapped form, both when
+// merging and when creating the file fresh. Falls back to plain copy on any
+// merge error.
+func copyOrMergeFile(src, dst string, merge, wrapBareHooks bool) error {
 	if !merge {
 		return copyFile(src, dst)
 	}
 	// Only merge if destination already exists.
 	dstInfo, dstErr := os.Stat(dst)
 	if dstErr != nil {
-		// Destination doesn't exist or can't be stat'd — plain copy.
-		return copyFile(src, dst)
+		// Destination doesn't exist or can't be stat'd — canonicalize (and
+		// normalize hook shape for wrap-style files) the source before
+		// creating it.
+		return createCanonicalSettingsFile(src, dst, wrapBareHooks)
 	}
 	dstData, err := os.ReadFile(dst)
 	if err != nil {
-		return copyFile(src, dst)
+		return createCanonicalSettingsFile(src, dst, wrapBareHooks)
 	}
 	srcData, err := os.ReadFile(src)
 	if err != nil {
-		return copyFile(src, dst)
+		return createCanonicalSettingsFile(src, dst, wrapBareHooks)
 	}
-	merged, err := MergeSettingsJSON(dstData, srcData)
+	var opts []MergeOption
+	if wrapBareHooks {
+		opts = append(opts, WithWrapBareHooks())
+	}
+	merged, err := MergeSettingsJSON(dstData, srcData, opts...)
 	if err != nil {
 		// Merge failed — fall back to overwrite.
 		return copyFile(src, dst)
@@ -275,6 +334,52 @@ func copyOrMergeFile(src, dst string, merge bool) error {
 	}
 	// Preserve the destination file's permissions.
 	return os.WriteFile(dst, merged, dstInfo.Mode().Perm())
+}
+
+// createCanonicalSettingsFile writes dst from src's canonicalized JSON. For
+// wrap-style files (wrapBareHooks) it also normalizes bare hook entries into
+// wrapped form by merging the source over an empty object. Falls back to a
+// plain canonical copy if the source can't be read or isn't a JSON object.
+func createCanonicalSettingsFile(src, dst string, wrapBareHooks bool) error {
+	if !wrapBareHooks {
+		return copyCanonicalJSONFile(src, dst)
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return copyCanonicalJSONFile(src, dst)
+	}
+	out, err := MergeSettingsJSON([]byte("{}"), data, WithWrapBareHooks())
+	if err != nil {
+		// Source isn't a mergeable JSON object — fall back to canonical copy.
+		return copyCanonicalJSONFile(src, dst)
+	}
+	info, err := os.Stat(src)
+	if err != nil {
+		return copyCanonicalJSONFile(src, dst)
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return fmt.Errorf("creating parent for %q: %w", dst, err)
+	}
+	return os.WriteFile(dst, out, info.Mode().Perm())
+}
+
+func copyCanonicalJSONFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return copyFile(src, dst)
+	}
+	canonical, err := CanonicalJSON(data)
+	if err != nil {
+		return copyFile(src, dst)
+	}
+	info, err := os.Stat(src)
+	if err != nil {
+		return copyFile(src, dst)
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return fmt.Errorf("creating parent for %q: %w", dst, err)
+	}
+	return os.WriteFile(dst, canonical, info.Mode().Perm())
 }
 
 // copyFile copies a single file preserving permissions.

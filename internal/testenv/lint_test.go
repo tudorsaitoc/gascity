@@ -41,7 +41,7 @@ func TestRequiresDedicatedTestenvImportFile(t *testing.T) {
 			return err
 		}
 		if d.IsDir() {
-			if skipRepoLintDir(d.Name()) {
+			if skipRepoLintDir(d.Name()) || (path != root && isNestedWorktreeRoot(path)) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -151,8 +151,8 @@ func TestRequiresDedicatedTestenvImportFile(t *testing.T) {
 		b.WriteString("\"")
 		b.WriteString(importPath)
 		b.WriteString("\"\n\n")
-		b.WriteString("This guarantees GC_* env vars are scrubbed before tests run,\n")
-		b.WriteString("so a leak from an agent session cannot corrupt a live city.\n")
+		b.WriteString("This guarantees leak-vector env vars are scrubbed before tests run,\n")
+		b.WriteString("so a leak from an agent session cannot corrupt a live city or spawn orphaned infrastructure.\n")
 		b.WriteString("Run `go run scripts/add-testenv-import.go` to generate the canonical files,\n")
 		b.WriteString("scrub legacy imports, and remove stale stubs.")
 		t.Fatal(b.String())
@@ -175,7 +175,7 @@ func TestNoLeakVectorReadsAtPackageInit(t *testing.T) {
 			return err
 		}
 		if d.IsDir() {
-			if skipRepoLintDir(d.Name()) {
+			if skipRepoLintDir(d.Name()) || (path != root && isNestedWorktreeRoot(path)) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -226,10 +226,26 @@ func skipRepoLintDir(name string) bool {
 	if name == "vendor" || name == "node_modules" {
 		return true
 	}
+	// pkg/ is the public, OSS-consumable tree: its tests must stay testenv-free
+	// so an external module can run them (cross-module conformance replay). Do
+	// not require the internal/testenv blank-import there.
+	if name == "pkg" {
+		return true
+	}
 	if strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") {
 		return true
 	}
 	return name == "worktrees" || strings.HasPrefix(name, "worktree-")
+}
+
+// isNestedWorktreeRoot reports whether path is the root of a linked git
+// worktree checked out inside this tree. Linked worktrees have a .git FILE
+// (a "gitdir: ..." pointer) rather than a .git directory, so this catches
+// worktrees regardless of naming convention — unlike the name-based checks
+// in skipRepoLintDir above, which only catch "worktrees"/"worktree-*" names.
+func isNestedWorktreeRoot(path string) bool {
+	info, err := os.Lstat(filepath.Join(path, ".git"))
+	return err == nil && !info.IsDir()
 }
 
 // repoRoot returns the repository root by asking git. Falls back to walking up

@@ -52,17 +52,27 @@ jobs:
     needs: runner-policy
     runs-on: ${{ needs.runner-policy.outputs.runner_2vcpu }}
     outputs:
-      mail: ${{ steps.filter.outputs.mail }}
-      docker: ${{ steps.filter.outputs.docker }}
-      k8s: ${{ steps.filter.outputs.k8s }}
-      beads: ${{ steps.filter.outputs.beads }}
-      packs: ${{ steps.filter.outputs.packs }}
-      worker: ${{ steps.filter.outputs.worker }}
-      worker_phase2: ${{ steps.filter.outputs.worker_phase2 }}
-      cmd_gc_process: ${{ steps.filter.outputs.cmd_gc_process }}
+      # Gated outputs fold in the `shared` filter: a change to a cross-cutting
+      # core path runs the full suite (union run) even when the path-scoped
+      # filter would not match on its own. This closes the path-filter
+      # asymmetry where a subtle change in shared code skips the jobs it could
+      # break. Downstream consumers read these outputs unchanged.
+      mail: ${{ steps.filter.outputs.mail == 'true' || steps.filter.outputs.shared == 'true' }}
+      docker: ${{ steps.filter.outputs.docker == 'true' || steps.filter.outputs.shared == 'true' }}
+      k8s: ${{ steps.filter.outputs.k8s == 'true' || steps.filter.outputs.shared == 'true' }}
+      beads: ${{ steps.filter.outputs.beads == 'true' || steps.filter.outputs.shared == 'true' }}
+      packs: ${{ steps.filter.outputs.packs == 'true' || steps.filter.outputs.shared == 'true' }}
+      worker: ${{ steps.filter.outputs.worker == 'true' || steps.filter.outputs.shared == 'true' }}
+      worker_phase2: ${{ steps.filter.outputs.worker_phase2 == 'true' || steps.filter.outputs.shared == 'true' }}
+      cmd_gc_process: ${{ steps.filter.outputs.cmd_gc_process == 'true' || steps.filter.outputs.shared == 'true' }}
+      integration: ${{ steps.filter.outputs.integration == 'true' || steps.filter.outputs.shared == 'true' }}
+      openclaw_bridge: ${{ steps.filter.outputs.openclaw_bridge }}
+      # Raw cross-cutting signal and per-run coverage classification (metric).
+      shared: ${{ steps.filter.outputs.shared }}
+      suite_mode: ${{ steps.coverage.outputs.suite_mode }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
           filters: |
@@ -81,11 +91,16 @@ jobs:
             beads:
               - 'go.mod'
               - 'internal/beads/**'
+              - 'test/acceptance/beads_cli_contract_test.go'
+              - 'deps.env'
+              - '.github/scripts/install-bd-archive.sh'
+              - 'cmd/gc/init_provider_readiness.go'
             packs:
-              - 'examples/gastown/packs/**'
+              - 'examples/gastown/**'
               - 'internal/config/pack.go'
               - 'internal/config/compose.go'
               - 'cmd/gc/embed_builtin_packs.go'
+              - 'scripts/update-bundled-gastown-pack'
             worker:
               - 'go.mod'
               - 'go.sum'
@@ -115,25 +130,86 @@ jobs:
               - 'Makefile'
               - 'cmd/gc/**'
               - 'internal/**'
-              - 'examples/gastown/packs/**'
+              - 'examples/gastown/**'
+            integration:
+              - 'go.mod'
+              - 'go.sum'
+              - '.github/workflows/**'
+              - 'Makefile'
+              - '**/*.go'
+              - 'scripts/test-integration-shard'
+              - 'scripts/test-go-test-shard'
+              - 'scripts/go-test-observable'
+              - 'examples/gastown/**'
+            openclaw_bridge:
+              - 'contrib/openclaw-bridge/**'
+              - '.github/workflows/**'
+            # Cross-cutting core paths. A change here is folded into every
+            # gated output above, forcing a full union run. Beads is the
+            # universal persistence substrate, events the universal observation
+            # substrate, config the universal activation mechanism; build,
+            # dependency, and CI workflow/composite-action files affect every
+            # job. The setup-gascity-ubuntu composite action and the installer
+            # scripts it invokes are shared by nearly every job, so a change to
+            # them must re-run all path-gated suites.
+            shared:
+              - 'go.mod'
+              - 'go.sum'
+              - 'Makefile'
+              - '.github/workflows/**'
+              - '.github/actions/setup-gascity-ubuntu/**'
+              - '.github/scripts/install-dolt-archive.sh'
+              - '.github/scripts/install-bd-archive.sh'
+              - '.github/scripts/install-claude-native.sh'
+              - 'internal/beads/**'
+              - 'internal/events/**'
+              - 'internal/config/**'
+      - name: Classify suite coverage
+        id: coverage
+        env:
+          SHARED_FILTER_RESULT: ${{ steps.filter.outputs.shared }}
+        run: python3 .github/workflows/scripts/ci_suite_coverage.py classify "$SHARED_FILTER_RESULT"
 
-  preflight-smoke:
-    name: Preflight / lint and smoke
+  preflight-static:
+    name: Preflight / static checks
     needs: runner-policy
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
-    env:
-      DOLT_VERSION: "1.86.6"
-      BD_VERSION: "v1.0.3"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: ./.github/actions/setup-gascity-ubuntu
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
-          dolt-version: ${{ env.DOLT_VERSION }}
-          bd-version: ${{ env.BD_VERSION }}
-          install-claude-cli: "false"
-      - name: Install tools
-        run: make install-tools
+          go-version-file: go.mod
+      - name: go.mod replace guard
+        run: make check-gomod-replace
+      - name: Native dependency surface guard
+        run: make check-native-dependency-surface
+      - name: Event-export isolation guard
+        run: make check-eventexport-isolation
+      - name: Open-core boundary guard
+        run: make check-core-boundary
+      - name: Native DoltLite beads tests
+        run: make test-native-doltlite-beads
+      - name: Get golangci-lint + Go toolchain versions for cache key
+        id: glint-version
+        run: |
+          version=$(grep -m1 '^GOLANGCI_LINT_VERSION := ' Makefile | awk '{print $3}')
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          # staticcheck (bundled in golangci-lint) caches type/CFG facts whose
+          # validity depends on the Go toolchain it was built with. Keying the
+          # cache on GOVERSION prevents a cache populated under one Go toolchain
+          # from being replayed under another, which produced a stale-fact
+          # SA5011 false-positive flood on main (ga-v7x9vk).
+          echo "goversion=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
+      - name: Restore golangci-lint cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .cache/golangci-lint
+          key: ${{ runner.os }}-golangci-lint-${{ steps.glint-version.outputs.version }}-${{ steps.glint-version.outputs.goversion }}-${{ hashFiles('go.sum', '.golangci.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-golangci-lint-${{ steps.glint-version.outputs.version }}-${{ steps.glint-version.outputs.goversion }}-
       - name: Lint
+        env:
+          GOLANGCI_LINT_CACHE: ${{ github.workspace }}/.cache/golangci-lint
         run: make lint
       - name: Format
         run: make fmt-check
@@ -141,18 +217,21 @@ jobs:
         run: make vet
       - name: Docs
         run: make check-docs
-      - name: Smoke unit tests
-        run: make test
 
-  preflight-unit-cover:
-    name: Preflight / unit cover
+  # Coverage reporting only matters on the main branch — codecov regression
+  # info doesn't need to gate every PR, and the full ./... unit suite is
+  # already covered by integration-shards, cmd-gc-process, and acceptance A.
+  # Split into two parallel push-only jobs to take the serial cmd/gc loop off
+  # the critical path (ga-29jlpr); Codecov merges uploads server-side.
+  preflight-unit-cover-noncmdgc:
+    name: Preflight / unit cover (noncmdgc)
     needs:
       - runner-policy
-      - preflight-smoke
+    if: github.event_name == 'push'
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
     env:
-      DOLT_VERSION: "1.86.6"
-      BD_VERSION: "v1.0.3"
+      DOLT_VERSION: "2.1.7"
+      BD_VERSION: "v1.1.0"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: ./.github/actions/setup-gascity-ubuntu
@@ -162,12 +241,47 @@ jobs:
           install-claude-cli: "false"
       - name: Install tools
         run: make install-tools
-      - name: Test
-        run: make test-cover
+      - name: Unit cover (non-cmd/gc)
+        run: make test-cover-noncmdgc
       - name: Upload coverage to Codecov
+        if: hashFiles('coverage.noncmdgc.txt') != ''
         uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5
         with:
-          files: coverage.txt
+          files: coverage.noncmdgc.txt
+          flags: unit-cover-noncmdgc
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+
+  preflight-unit-cover-cmdgc:
+    name: Preflight / unit cover (cmd/gc ${{ matrix.shard }} of 6)
+    needs:
+      - runner-policy
+    if: github.event_name == 'push'
+    runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
+    env:
+      DOLT_VERSION: "2.1.7"
+      BD_VERSION: "v1.1.0"
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: ./.github/actions/setup-gascity-ubuntu
+        with:
+          dolt-version: ${{ env.DOLT_VERSION }}
+          bd-version: ${{ env.BD_VERSION }}
+          install-claude-cli: "false"
+      - name: Install tools
+        run: make install-tools
+      - name: Unit cover (cmd/gc shard ${{ matrix.shard }} of 6)
+        run: make test-cover-cmdgc-shard CMD_GC_COVER_SHARD=${{ matrix.shard }} CMD_GC_COVER_TOTAL=6
+      - name: Upload coverage to Codecov
+        if: hashFiles(format('coverage.cmdgc.{0}.txt', matrix.shard)) != ''
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5
+        with:
+          files: coverage.cmdgc.${{ matrix.shard }}.txt
+          flags: unit-cover-cmdgc
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
 
@@ -175,26 +289,125 @@ jobs:
     name: Preflight / acceptance A
     needs:
       - runner-policy
-      - preflight-smoke
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
-    env:
-      DOLT_VERSION: "1.86.6"
-      BD_VERSION: "v1.0.3"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: ./.github/actions/setup-gascity-ubuntu
+      # Tier A deliberately selects subprocess sessions, file beads, and
+      # skipped Dolt. Installing the live provider stack here adds startup
+      # latency without exercising it.
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
-          dolt-version: ${{ env.DOLT_VERSION }}
-          bd-version: ${{ env.BD_VERSION }}
-          install-claude-cli: "true"
+          go-version-file: go.mod
       - name: Acceptance tests (Tier A)
         run: make test-acceptance
+
+  # Minimum-supported bd compatibility is a focused external contract. Run it
+  # alongside hermetic Tier A instead of repeating unrelated acceptance flows.
+  contract-acceptance-previous:
+    name: Contract / bd CLI (minimum supported)
+    needs:
+      - runner-policy
+    runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        with:
+          go-version-file: go.mod
+      - name: Install minimum-supported bd
+        run: |
+          set -euo pipefail
+          bd_version="$(sed -n 's/^BD_PREV_VERSION=//p' deps.env)"
+          if [ -z "$bd_version" ]; then
+            echo "::error::BD_PREV_VERSION missing or empty in deps.env" >&2
+            exit 1
+          fi
+          .github/scripts/install-bd-archive.sh "$bd_version" --cache
+      - name: Verify bd on PATH
+        run: bd version
+      - name: bd CLI contract (minimum supported)
+        run: make test-bd-cli-contract
+
+  # Cross-version contract gate: the "current" cell of the bd matrix. The
+  # "prev" cell is contract-acceptance-previous above (the min-supported
+  # release). This cell builds bd from gastownhall/beads source at
+  # BD_CURRENT_REF (deps.env) — the bleeding-edge rc has no release tarball —
+  # and runs the same focused CLI contract, so a bd change that breaks gc's
+  # decoder/classifier surface against the newer bd is caught before merge.
+  # Path-gated on the beads filter; tolerated as a skip by the Check gate.
+  contract-acceptance-current:
+    name: Contract / acceptance A (bd current)
+    needs:
+      - runner-policy
+      - changes
+    if: ${{ needs.changes.outputs.beads == 'true' }}
+    runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        with:
+          go-version-file: go.mod
+      - name: Resolve bd current pin
+        id: bd
+        run: |
+          set -euo pipefail
+          ref="$(grep -E '^BD_CURRENT_REF=' deps.env | cut -d= -f2)"
+          ver="$(grep -E '^BD_CURRENT_VERSION=' deps.env | cut -d= -f2)"
+          if [ -z "$ref" ] || [ -z "$ver" ]; then
+            echo "::error::BD_CURRENT_REF/BD_CURRENT_VERSION missing or empty in deps.env" >&2
+            exit 1
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "ver=$ver" >> "$GITHUB_OUTPUT"
+      - name: Build bd ${{ steps.bd.outputs.ver }} from source @ ${{ steps.bd.outputs.ref }}
+        run: |
+          set -euo pipefail
+          src="${RUNNER_TEMP}/beads-src"
+          git clone --filter=blob:none https://github.com/gastownhall/beads "$src"
+          git -C "$src" checkout "${{ steps.bd.outputs.ref }}"
+          mkdir -p "${HOME}/.local/bin"
+          go -C "$src" build -tags gms_pure_go -o "${HOME}/.local/bin/bd" ./cmd/bd
+          echo "${HOME}/.local/bin" >> "$GITHUB_PATH"
+      - name: Verify bd on PATH
+        run: bd version
+      - name: bd CLI contract (current)
+        run: make test-bd-cli-contract
+
+  # NON-REQUIRED HEADxHEAD radar: builds bd from beads MAIN HEAD (live, not the
+  # pinned BD_CURRENT_REF) and runs gc-HEAD's real bd CLI contract against it —
+  # early warning when bd's bleeding edge diverges from what
+  # gc expects, before the next deliberate pin bump. Deliberately NOT wired into
+  # ci-required: a bd-main break must never block a gascity merge (that is the
+  # cross-HEAD deadlock the pinned cells avoid). A red here is an advisory signal
+  # to stage a coordinated change, not a gate. Path-gated on the beads filter.
+  contract-radar-bd-head:
+    name: Contract radar (gc HEAD x bd main HEAD)
+    needs:
+      - runner-policy
+      - changes
+    if: ${{ needs.changes.outputs.beads == 'true' }}
+    runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        with:
+          go-version-file: go.mod
+      - name: Build bd from beads main HEAD
+        run: |
+          set -euo pipefail
+          src="${RUNNER_TEMP}/beads-src"
+          git clone --depth 1 --filter=blob:none https://github.com/gastownhall/beads "$src"
+          mkdir -p "${HOME}/.local/bin"
+          go -C "$src" build -tags gms_pure_go -o "${HOME}/.local/bin/bd" ./cmd/bd
+          echo "${HOME}/.local/bin" >> "$GITHUB_PATH"
+      - name: Verify bd on PATH
+        run: bd version
+      - name: bd CLI contract (main HEAD)
+        run: make test-bd-cli-contract
 
   preflight-generated:
     name: Preflight / generated artifacts
     needs:
       - runner-policy
-      - preflight-smoke
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
     env:
       # Make TestGeneratedClientInSync fatal on missing oapi-codegen so the
@@ -212,17 +425,37 @@ jobs:
         run: make dashboard-ci
       - name: OpenAPI spec + client drift check
         run: make spec-ci
+      # On drift this fails the job and leaves the exact regen patch, which
+      # the Docs Autofix workflow (docs-autofix.yml) applies to the PR branch.
+      - name: Generated reference docs drift check
+        run: ./scripts/check-generated-docs-drift.sh
+      - name: Upload generated-docs freshness patch
+        if: failure() && hashFiles('generated-docs-freshness.patch') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: generated-docs-freshness-patch
+          path: generated-docs-freshness.patch
+          retention-days: 7
 
-  # Historical fan-in name. During the Blacksmith proof, branch protection can
-  # move to `CI / required`; this job keeps the old name meaningful.
+  # Historical fan-in name and the branch-protection-enforced required status.
+  # Branch protection requires `Check`, so the cross-version contract matrix
+  # must gate here: the `prev` cell is contract-acceptance-previous above, and the
+  # path-gated `current` cell (contract-acceptance-current) is folded in below.
+  # During the Blacksmith proof, branch protection can move to `CI / required`;
+  # this job keeps the old name meaningful either way.
   check:
     name: Check
     needs:
       - runner-policy
-      - preflight-smoke
-      - preflight-unit-cover
+      # `changes` is a hard dependency (kept out of allow_skipped) so a
+      # filter-job flake fails Check directly instead of silently skipping
+      # the path-gated contract-acceptance-current cell. Mirrors ci-required.
+      - changes
+      - preflight-static
       - preflight-acceptance
       - preflight-generated
+      - contract-acceptance-previous
+      - contract-acceptance-current
     if: ${{ always() }}
     runs-on: ${{ needs.runner-policy.outputs.runner_2vcpu }}
     env:
@@ -235,12 +468,19 @@ jobs:
           import os
           import sys
 
+          # contract-acceptance-current is path-gated on the beads filter: it
+          # skips on PRs that touch no beads/contract path, which is the
+          # expected pass case. Every other dependency runs unconditionally.
+          allow_skipped = {"contract-acceptance-current"}
           needs = json.loads(os.environ["NEEDS_JSON"])
-          failures = {
-              job: meta.get("result", "unknown")
-              for job, meta in sorted(needs.items())
-              if meta.get("result") != "success"
-          }
+          failures = {}
+          for job, meta in sorted(needs.items()):
+              result = meta.get("result", "unknown")
+              if result == "success":
+                  continue
+              if result == "skipped" and job in allow_skipped:
+                  continue
+              failures[job] = result
           summary_path = os.environ["GITHUB_STEP_SUMMARY"]
           with open(summary_path, "a", encoding="utf-8") as handle:
               handle.write("## CI Preflight\n\n")
@@ -267,132 +507,129 @@ jobs:
           args: check
 
   cmd-gc-process:
-    name: cmd/gc process / shards ${{ matrix.shard_group }}
+    name: cmd/gc process / shard ${{ matrix.shard }} of 12
     needs:
       - runner-policy
       - changes
-      - preflight-smoke
     if: needs.changes.outputs.cmd_gc_process == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
-    timeout-minutes: 35
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - shard_group: 1-2 of 6
-            shards: 1 2
-          - shard_group: 3-4 of 6
-            shards: 3 4
-          - shard_group: 5-6 of 6
-            shards: 5 6
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     env:
-      DOLT_VERSION: "1.86.6"
-      BD_VERSION: "v1.0.3"
+      DOLT_VERSION: "2.1.7"
+      BD_VERSION: "v1.1.0"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: ./.github/actions/setup-gascity-ubuntu
         with:
           dolt-version: ${{ env.DOLT_VERSION }}
           bd-version: ${{ env.BD_VERSION }}
-          install-claude-cli: "true"
-      - name: Install tools
-        run: make install-tools
-      - name: Run cmd/gc process suite
-        run: |
-          for shard in ${{ matrix.shards }}; do
-            make test-cmd-gc-process-shard CMD_GC_PROCESS_SHARD="$shard" CMD_GC_PROCESS_TOTAL=6
-          done
+          install-claude-cli: "false"
+      - name: Run cmd/gc process shard
+        run: make test-cmd-gc-process-shard CMD_GC_PROCESS_SHARD=${{ matrix.shard }} CMD_GC_PROCESS_TOTAL=12
 
   integration-shards:
     name: Integration / ${{ matrix.shard_name }}
     needs:
       - runner-policy
-      - preflight-smoke
+      - changes
+    if: needs.changes.outputs.integration == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
     timeout-minutes: ${{ matrix.timeout_minutes }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - shard_name: packages-core
-            timeout_minutes: 35
-            command: |
-              ./scripts/test-integration-shard packages-core-1-of-4
-              ./scripts/test-integration-shard packages-core-2-of-4
-              ./scripts/test-integration-shard packages-core-3-of-4
-              ./scripts/test-integration-shard packages-core-4-of-4
-          - shard_name: packages-cmd-gc
-            timeout_minutes: 45
-            command: |
-              ./scripts/test-integration-shard packages-cmd-gc-1-of-6
-              ./scripts/test-integration-shard packages-cmd-gc-2-of-6
-              ./scripts/test-integration-shard packages-cmd-gc-3-of-6
-              ./scripts/test-integration-shard packages-cmd-gc-4-of-6
-              ./scripts/test-integration-shard packages-cmd-gc-5-of-6
-              ./scripts/test-integration-shard packages-cmd-gc-6-of-6
-          - shard_name: packages-runtime-tmux
-            timeout_minutes: 30
-            command: |
-              ./scripts/test-integration-shard packages-runtime-tmux-1-of-3
-              ./scripts/test-integration-shard packages-runtime-tmux-2-of-3
-              ./scripts/test-integration-shard packages-runtime-tmux-3-of-3
-          - shard_name: review-formulas-basic
-            timeout_minutes: 30
-            command: make test-integration-review-formulas-basic
-          - shard_name: review-formulas-retries
-            timeout_minutes: 30
-            command: make test-integration-review-formulas-retries
-          - shard_name: review-formulas-recovery
-            timeout_minutes: 25
-            command: make test-integration-review-formulas-recovery
+          - shard_name: packages-core-1-of-4
+            timeout_minutes: 15
+            command: ./scripts/test-integration-shard packages-core-1-of-4
+          - shard_name: packages-core-2-of-4
+            timeout_minutes: 15
+            command: ./scripts/test-integration-shard packages-core-2-of-4
+          - shard_name: packages-core-3-of-4
+            timeout_minutes: 15
+            command: ./scripts/test-integration-shard packages-core-3-of-4
+          - shard_name: packages-core-4-of-4
+            timeout_minutes: 15
+            command: ./scripts/test-integration-shard packages-core-4-of-4
+          - shard_name: packages-cmd-gc-integration
+            timeout_minutes: 15
+            command: ./scripts/test-integration-shard packages-cmd-gc-integration
+          - shard_name: packages-runtime-tmux-1-of-6
+            timeout_minutes: 10
+            command: ./scripts/test-integration-shard packages-runtime-tmux-1-of-6
+          - shard_name: packages-runtime-tmux-2-of-6
+            timeout_minutes: 10
+            command: ./scripts/test-integration-shard packages-runtime-tmux-2-of-6
+          - shard_name: packages-runtime-tmux-3-of-6
+            timeout_minutes: 10
+            command: ./scripts/test-integration-shard packages-runtime-tmux-3-of-6
+          - shard_name: packages-runtime-tmux-4-of-6
+            timeout_minutes: 10
+            command: ./scripts/test-integration-shard packages-runtime-tmux-4-of-6
+          - shard_name: packages-runtime-tmux-5-of-6
+            timeout_minutes: 10
+            command: ./scripts/test-integration-shard packages-runtime-tmux-5-of-6
+          - shard_name: packages-runtime-tmux-6-of-6
+            timeout_minutes: 10
+            command: ./scripts/test-integration-shard packages-runtime-tmux-6-of-6
           - shard_name: bdstore
             timeout_minutes: 15
             command: make test-integration-bdstore
-          - shard_name: rest-smoke
-            timeout_minutes: 25
-            command: make test-integration-rest-smoke
-          - shard_name: rest-full-1-2-of-8
-            timeout_minutes: 35
-            command: |
-              ./scripts/test-integration-shard rest-full-1-of-8
-              ./scripts/test-integration-shard rest-full-2-of-8
-          - shard_name: rest-full-3-4-of-8
-            timeout_minutes: 35
-            command: |
-              ./scripts/test-integration-shard rest-full-3-of-8
-              ./scripts/test-integration-shard rest-full-4-of-8
-          - shard_name: rest-full-5-6-of-8
-            timeout_minutes: 35
-            command: |
-              ./scripts/test-integration-shard rest-full-5-of-8
-              ./scripts/test-integration-shard rest-full-6-of-8
-          - shard_name: rest-full-7-of-8
-            timeout_minutes: 35
-            command: ./scripts/test-integration-shard rest-full-7-of-8
-          - shard_name: rest-full-8-of-8
-            timeout_minutes: 35
-            command: ./scripts/test-integration-shard rest-full-8-of-8
+          - shard_name: rest-smoke-1-of-2
+            timeout_minutes: 15
+            command: ./scripts/test-integration-shard rest-smoke-1-of-2
+          - shard_name: rest-smoke-2-of-2
+            timeout_minutes: 15
+            command: ./scripts/test-integration-shard rest-smoke-2-of-2
     env:
-      DOLT_VERSION: "1.86.6"
-      BD_VERSION: "v1.0.3"
+      DOLT_VERSION: "2.1.7"
+      BD_VERSION: "v1.1.0"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: ./.github/actions/setup-gascity-ubuntu
         with:
           dolt-version: ${{ env.DOLT_VERSION }}
           bd-version: ${{ env.BD_VERSION }}
-          install-claude-cli: "true"
-      - name: Install tools
-        run: make install-tools
+          install-claude-cli: "false"
       - name: Run integration shard
         run: ${{ matrix.command }}
+
+  # The full REST suite is broad release/post-merge coverage. PRs run the
+  # focused REST smoke contract above; pushes retain all full-suite shards.
+  integration-rest-full:
+    name: Integration / rest-full-${{ matrix.shard }}-of-16
+    needs:
+      - runner-policy
+      - changes
+    if: github.event_name == 'push' && needs.changes.outputs.integration == 'true'
+    runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    env:
+      DOLT_VERSION: "2.1.7"
+      BD_VERSION: "v1.1.0"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: ./.github/actions/setup-gascity-ubuntu
+        with:
+          dolt-version: ${{ env.DOLT_VERSION }}
+          bd-version: ${{ env.BD_VERSION }}
+          install-claude-cli: "false"
+      - name: Run full REST shard
+        run: ./scripts/test-integration-shard rest-full-${{ matrix.shard }}-of-16
 
   worker-core-claude:
     name: Worker core (Claude)
     needs:
       - runner-policy
       - changes
-      - preflight-smoke
     if: needs.changes.outputs.worker == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
     env:
@@ -427,7 +664,6 @@ jobs:
     needs:
       - runner-policy
       - changes
-      - preflight-smoke
     if: needs.changes.outputs.worker == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
     env:
@@ -462,7 +698,6 @@ jobs:
     needs:
       - runner-policy
       - changes
-      - preflight-smoke
     if: needs.changes.outputs.worker == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
     env:
@@ -497,7 +732,6 @@ jobs:
     needs:
       - runner-policy
       - changes
-      - preflight-smoke
       - worker-core-claude
       - worker-core-codex
       - worker-core-gemini
@@ -607,7 +841,6 @@ jobs:
     needs:
       - runner-policy
       - changes
-      - preflight-smoke
     if: needs.changes.outputs.worker_phase2 == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
     env:
@@ -646,7 +879,6 @@ jobs:
     needs:
       - runner-policy
       - changes
-      - preflight-smoke
     if: needs.changes.outputs.worker_phase2 == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
     env:
@@ -685,7 +917,6 @@ jobs:
     needs:
       - runner-policy
       - changes
-      - preflight-smoke
     if: needs.changes.outputs.worker_phase2 == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
     env:
@@ -828,29 +1059,55 @@ jobs:
             exit 1
           fi
 
-  # Runs when pack-related files change — full gastown integration suite.
+  # Runs distinct live/provenance checks when pack-related files change.
+  # The unconditional preflight-acceptance job already runs the complete Tier
+  # A suite, including gastown materialization and smoke coverage. Keep this
+  # job parallel and focused so pack changes add confidence, not a serialized
+  # duplicate of the same suite.
   pack-gate:
     name: Pack compatibility gate
     needs:
       - runner-policy
       - changes
-      - check
     if: needs.changes.outputs.packs == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: ./.github/actions/setup-gascity-ubuntu
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
-          dolt-version: ${{ env.DOLT_VERSION }}
-          bd-version: ${{ env.BD_VERSION }}
-          install-claude-cli: "true"
-      - name: Install tools
-        run: make install-tools
-      - name: Pack compatibility tests
-        run: make test-acceptance
-    env:
-      DOLT_VERSION: "1.86.6"
-      BD_VERSION: "v1.0.3"
+          go-version-file: go.mod
+      # The gastown pack ships via the gascity-packs Go module, so a routine
+      # go.mod bump can silently desync the embedded pack bytes from the
+      # provenance pins in internal/config/public_packs.go and the
+      # examples/gastown import. This check fails when any pin drifts from
+      # the latest registry release; every in-repo test stays green after
+      # such a drift, so this is the only automated guard.
+      - name: Bundled gastown pack pin check
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            if scripts/update-bundled-gastown-pack --check; then
+              exit 0
+            fi
+            if [ "$attempt" = "3" ]; then
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
+      - name: Live registry smoke
+        timeout-minutes: 12
+        run: |
+          for attempt in 1 2 3; do
+            if make test-pack-registry-live; then
+              exit 0
+            fi
+            if [ "$attempt" = "3" ]; then
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
+        env:
+          GC_TEST_GASCITY_PACKS_REGISTRY: main
 
   # Dashboard SPA typecheck + tests + build. Runs on every push/PR
   # so TS drift against the spec (e.g. a query param tightening from
@@ -862,7 +1119,6 @@ jobs:
     name: Dashboard SPA
     needs:
       - runner-policy
-      - preflight-smoke
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -874,24 +1130,40 @@ jobs:
           node-version: "22"
       - name: Install SPA dependencies
         run: npm ci --silent
-        working-directory: cmd/gc/dashboard/web
-      - name: Verify generated TS schema is in sync
-        run: |
-          npm run gen --silent
-          if ! git diff --exit-code src/generated/schema.d.ts; then
-            echo "::error::Generated TS schema drifted. Regenerate via 'npm run gen' in cmd/gc/dashboard/web."
-            exit 1
-          fi
-        working-directory: cmd/gc/dashboard/web
+        working-directory: internal/api/dashboardspa/web
       - name: Typecheck (tsc --noEmit)
         run: npm run typecheck
-        working-directory: cmd/gc/dashboard/web
+        working-directory: internal/api/dashboardspa/web
+      - name: Typecheck test files (tsc -p tsconfig.test.json)
+        run: npm run --workspace gas-city-dashboard-frontend typecheck:test
+        working-directory: internal/api/dashboardspa/web
       - name: Vitest
-        run: npm test
-        working-directory: cmd/gc/dashboard/web
+        run: npm run --workspace gas-city-dashboard-frontend test
+        working-directory: internal/api/dashboardspa/web
       - name: Build
         run: npm run build --silent
-        working-directory: cmd/gc/dashboard/web
+        working-directory: internal/api/dashboardspa/web
+
+  # openclaw-bridge Node test suite. The bridge ships its own npm tests
+  # (inbound at-least-once redelivery + gc client wire shapes); without this
+  # gate, regressions under contrib/openclaw-bridge/** could merge because the
+  # only other npm job runs in internal/api/dashboardspa/web. Path-gated, so non-bridge
+  # PRs skip it (and ci-required allows the skip).
+  openclaw-bridge:
+    name: openclaw-bridge Node tests
+    needs:
+      - runner-policy
+      - changes
+    if: needs.changes.outputs.openclaw_bridge == 'true'
+    runs-on: ${{ needs.runner-policy.outputs.runner_2vcpu }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - name: Install and test
+        run: npm ci --no-audit --no-fund && npm test
+        working-directory: contrib/openclaw-bridge
 
   # Runs when mail-related source paths change.
   mcp-mail:
@@ -899,7 +1171,6 @@ jobs:
     needs:
       - runner-policy
       - changes
-      - preflight-smoke
     if: needs.changes.outputs.mail == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_8vcpu }}
     continue-on-error: true  # upstream mcp_agent_mail API may drift
@@ -918,7 +1189,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install mcp_agent_mail
-        run: python -m pip install --require-hashes -r .github/requirements/mcp-agent-mail.txt
+        run: python -m pip install --no-deps --require-hashes -r .github/requirements/mcp-agent-mail.txt
 
       - name: MCP mail conformance test
         run: make test-mcp-mail
@@ -929,7 +1200,6 @@ jobs:
     needs:
       - runner-policy
       - changes
-      - preflight-smoke
     if: needs.changes.outputs.docker == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
     steps:
@@ -945,9 +1215,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: Install tools
-        run: make install-tools
-
       - name: Docker session tests
         run: make test-docker
 
@@ -958,7 +1225,6 @@ jobs:
     needs:
       - runner-policy
       - changes
-      - preflight-smoke
     if: needs.changes.outputs.k8s == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_8vcpu }}
     steps:
@@ -981,7 +1247,12 @@ jobs:
     name: CI / preflight
     needs:
       - runner-policy
-      - check
+      - changes
+      - preflight-static
+      - preflight-acceptance
+      - preflight-generated
+      - contract-acceptance-previous
+      - contract-acceptance-current
       - release-config
       - dashboard
     if: ${{ always() }}
@@ -997,11 +1268,15 @@ jobs:
           import sys
 
           needs = json.loads(os.environ["NEEDS_JSON"])
-          failed = {
-              job: meta.get("result", "unknown")
-              for job, meta in sorted(needs.items())
-              if meta.get("result") != "success"
-          }
+          allow_skipped = {"contract-acceptance-current"}
+          failed = {}
+          for job, meta in sorted(needs.items()):
+              result = meta.get("result", "unknown")
+              if result == "success":
+                  continue
+              if result == "skipped" and job in allow_skipped:
+                  continue
+              failed[job] = result
           if failed:
               for job, result in failed.items():
                   print(f"{job}: {result}", file=sys.stderr)
@@ -1013,6 +1288,7 @@ jobs:
     needs:
       - runner-policy
       - integration-shards
+      - integration-rest-full
     if: ${{ always() }}
     runs-on: ${{ needs.runner-policy.outputs.runner_2vcpu }}
     env:
@@ -1025,12 +1301,19 @@ jobs:
           import os
           import sys
 
+          # integration-shards is path-gated, while integration-rest-full is
+          # additionally push-only. Their skipped results are expected for
+          # docs-only changes and pull requests, respectively.
+          allow_skipped = {"integration-shards", "integration-rest-full"}
           needs = json.loads(os.environ["NEEDS_JSON"])
-          failed = {
-              job: meta.get("result", "unknown")
-              for job, meta in sorted(needs.items())
-              if meta.get("result") != "success"
-          }
+          failed = {}
+          for job, meta in sorted(needs.items()):
+              result = meta.get("result", "unknown")
+              if result == "success":
+                  continue
+              if result == "skipped" and job in allow_skipped:
+                  continue
+              failed[job] = result
           if failed:
               for job, result in failed.items():
                   print(f"{job}: {result}", file=sys.stderr)
@@ -1050,6 +1333,7 @@ jobs:
       - pack-gate
       - docker-session
       - k8s-session
+      - openclaw-bridge
     if: ${{ always() }}
     runs-on: ${{ needs.runner-policy.outputs.runner_2vcpu }}
     env:
@@ -1068,6 +1352,7 @@ jobs:
               "pack-gate",
               "docker-session",
               "k8s-session",
+              "openclaw-bridge",
           }
           failed = {}
           for job, meta in sorted(needs.items()):

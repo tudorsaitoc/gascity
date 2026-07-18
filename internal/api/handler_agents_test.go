@@ -253,6 +253,157 @@ func TestFindAgentUnlimitedPoolMember(t *testing.T) {
 	}
 }
 
+func TestFindAgentCanonicalSingletonPoolRejectsSuffix(t *testing.T) {
+	cfg := &config.City{
+		Agents: []config.Agent{
+			{Name: "worker", Dir: "myrig", MinActiveSessions: intPtr(0), MaxActiveSessions: intPtr(1)},
+		},
+	}
+	if a, ok := findAgent(cfg, "myrig/worker"); !ok || a.QualifiedName() != "myrig/worker" {
+		t.Fatalf("findAgent(myrig/worker) = (%q, %v), want canonical template", a.QualifiedName(), ok)
+	}
+	if _, ok := findAgent(cfg, "myrig/worker-1"); ok {
+		t.Fatal("findAgent(myrig/worker-1) = true, want false for canonical singleton pool")
+	}
+	expanded := expandAgent(cfg.Agents[0], "city", "", nil)
+	if len(expanded) != 1 {
+		t.Fatalf("expandAgent() returned %d entries, want 1", len(expanded))
+	}
+	if expanded[0].qualifiedName != "myrig/worker" {
+		t.Fatalf("expandAgent()[0].qualifiedName = %q, want myrig/worker", expanded[0].qualifiedName)
+	}
+}
+
+func TestExpandAgentDisabledAgentUsesConfiguredIdentity(t *testing.T) {
+	cfg := &config.City{
+		Agents: []config.Agent{
+			{Name: "worker", Dir: "myrig", MinActiveSessions: intPtr(0), MaxActiveSessions: intPtr(0)},
+		},
+	}
+	if isMultiSessionAgent(cfg.Agents[0]) {
+		t.Fatal("isMultiSessionAgent(max=0) = true, want false")
+	}
+	expanded := expandAgent(cfg.Agents[0], "city", "", nil)
+	if len(expanded) != 1 {
+		t.Fatalf("expandAgent() returned %d entries, want 1", len(expanded))
+	}
+	if expanded[0].qualifiedName != "myrig/worker" {
+		t.Fatalf("expandAgent()[0].qualifiedName = %q, want myrig/worker", expanded[0].qualifiedName)
+	}
+	if expanded[0].pool != "" {
+		t.Fatalf("expandAgent()[0].pool = %q, want empty", expanded[0].pool)
+	}
+}
+
+// TestFindAgentBoundedPoolMember covers bounded multi-session pools — both
+// V1 (no BindingName) and V2 (with BindingName), with and without
+// NamepoolNames. The V2 cases regressed silently because the bounded
+// path enumerated raw member names without applying the binding prefix
+// the listing endpoint adds via Agent.QualifiedInstanceName, so detail
+// lookups for those instances 404'd while the listing happily emitted
+// them. The unlimited path already handled this correctly.
+func TestFindAgentBoundedPoolMember(t *testing.T) {
+	tests := []struct {
+		name     string
+		agent    config.Agent
+		query    string
+		wantOK   bool
+		wantName string
+	}{
+		{
+			name: "v1 numeric in rig",
+			agent: config.Agent{
+				Name:              "polecat",
+				Dir:               "myrig",
+				MinActiveSessions: intPtr(0), MaxActiveSessions: intPtr(3),
+			},
+			query: "myrig/polecat-1", wantOK: true, wantName: "polecat",
+		},
+		{
+			name: "v1 namepool in rig",
+			agent: config.Agent{
+				Name:              "polecat",
+				Dir:               "myrig",
+				MinActiveSessions: intPtr(0), MaxActiveSessions: intPtr(3),
+				NamepoolNames: []string{"alpha", "bravo", "charlie"},
+			},
+			query: "myrig/bravo", wantOK: true, wantName: "polecat",
+		},
+		{
+			name: "v2 numeric city-scoped",
+			agent: config.Agent{
+				Name:              "dog",
+				BindingName:       "gastown",
+				MinActiveSessions: intPtr(0), MaxActiveSessions: intPtr(3),
+			},
+			query: "gastown.dog-1", wantOK: true, wantName: "dog",
+		},
+		{
+			name: "v2 numeric in rig",
+			agent: config.Agent{
+				Name:              "polecat",
+				Dir:               "myrig",
+				BindingName:       "gastown",
+				MinActiveSessions: intPtr(0), MaxActiveSessions: intPtr(3),
+			},
+			query: "myrig/gastown.polecat-2", wantOK: true, wantName: "polecat",
+		},
+		{
+			name: "v2 namepool in rig",
+			agent: config.Agent{
+				Name:              "polecat",
+				Dir:               "nextlex-legal-rag",
+				BindingName:       "gastown",
+				MinActiveSessions: intPtr(0), MaxActiveSessions: intPtr(5),
+				NamepoolNames: []string{"furiosa", "nux", "slit", "rictus", "capable"},
+			},
+			query: "nextlex-legal-rag/gastown.furiosa", wantOK: true, wantName: "polecat",
+		},
+		{
+			name: "v2 namepool city-scoped",
+			agent: config.Agent{
+				Name:              "polecat",
+				BindingName:       "gastown",
+				MinActiveSessions: intPtr(0), MaxActiveSessions: intPtr(2),
+				NamepoolNames: []string{"furiosa", "nux"},
+			},
+			query: "gastown.nux", wantOK: true, wantName: "polecat",
+		},
+		{
+			name: "v2 unknown instance does not match",
+			agent: config.Agent{
+				Name:              "dog",
+				BindingName:       "gastown",
+				MinActiveSessions: intPtr(0), MaxActiveSessions: intPtr(3),
+			},
+			query: "gastown.dog-99", wantOK: false,
+		},
+		{
+			name: "v2 namepool unknown member does not match",
+			agent: config.Agent{
+				Name:              "polecat",
+				BindingName:       "gastown",
+				MinActiveSessions: intPtr(0), MaxActiveSessions: intPtr(2),
+				NamepoolNames: []string{"furiosa", "nux"},
+			},
+			query: "gastown.unknown", wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.City{Agents: []config.Agent{tt.agent}}
+			a, ok := findAgent(cfg, tt.query)
+			if ok != tt.wantOK {
+				t.Fatalf("findAgent(%q) ok = %v, want %v", tt.query, ok, tt.wantOK)
+			}
+			if tt.wantOK && a.Name != tt.wantName {
+				t.Errorf("findAgent(%q).Name = %q, want %q", tt.query, a.Name, tt.wantName)
+			}
+		})
+	}
+}
+
 func TestAgentListFilterByRig(t *testing.T) {
 	state := newFakeState(t)
 	state.cfg.Agents = []config.Agent{
@@ -539,6 +690,26 @@ func TestFindAgentPoolMaxZero(t *testing.T) {
 	}
 	if a.Name != "polecat" {
 		t.Errorf("agent.Name = %q, want %q", a.Name, "polecat")
+	}
+}
+
+func TestFindAgent_QualifiedGenericRigScopedTemplate(t *testing.T) {
+	cfg := &config.City{
+		Agents: []config.Agent{
+			{Name: "reviewer", Scope: "rig"},
+		},
+		Rigs: []config.Rig{
+			{Name: "alpha"},
+			{Name: "beta"},
+		},
+	}
+
+	a, ok := findAgent(cfg, "alpha/reviewer")
+	if !ok {
+		t.Fatal("findAgent(alpha/reviewer) = false, want true")
+	}
+	if got := a.QualifiedName(); got != "alpha/reviewer" {
+		t.Fatalf("QualifiedName() = %q, want alpha/reviewer", got)
 	}
 }
 
@@ -1086,5 +1257,224 @@ func TestWaitForAgentVisibilityIn_RespectsContext(t *testing.T) {
 	}
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("error = %v, want wrapped DeadlineExceeded", err)
+	}
+}
+
+// TestAgentListProvenanceCityNative verifies that an agent declared inline in
+// city.toml (present in both raw and expanded config) reports pack_derived=false
+// with an empty pack binding. A UI uses this to route an edit to the direct
+// PATCH /agent/{name} route rather than the patch overlay.
+func TestAgentListProvenanceCityNative(t *testing.T) {
+	state := newFakeState(t)
+	// Default fake: "worker" in "myrig" is inline (raw == expanded), so it
+	// is city-native, not pack-derived.
+	srv := New(state)
+	h := newTestCityHandlerWith(t, state, srv)
+
+	req := httptest.NewRequest("GET", cityURL(state, "/agents"), nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	var resp struct {
+		Items []agentResponse `json:"items"`
+		Total int             `json:"total"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Total != 1 {
+		t.Fatalf("Total = %d, want 1", resp.Total)
+	}
+	if resp.Items[0].PackDerived {
+		t.Errorf("PackDerived = true, want false for city-native agent")
+	}
+	if resp.Items[0].Pack != "" {
+		t.Errorf("Pack = %q, want empty for city-native agent", resp.Items[0].Pack)
+	}
+}
+
+// TestAgentListProvenancePackDerived verifies that an agent originating from an
+// imported pack (present in expanded config but absent from raw) reports
+// pack_derived=true and pack = its import binding name. A UI uses this to route
+// an edit through the patch overlay (PUT /patches/agents) instead of attempting
+// a direct mutation that would return ErrPackDerived / 409.
+func TestAgentListProvenancePackDerived(t *testing.T) {
+	state := newFakeState(t)
+	// Expanded agent carries the import binding name that brought it into
+	// scope. Mirrors config-explain's TestHandleConfigExplain_PackDerivedAgent:
+	// pack-derived means present in expanded (cfg) but absent from raw.
+	state.cfg.Agents = []config.Agent{
+		{
+			Name:              "worker",
+			Dir:               "myrig",
+			Provider:          "test-agent",
+			BindingName:       "gastown",
+			MaxActiveSessions: intPtr(1),
+		},
+	}
+	state.cfg.NamedSessions = nil
+	state.rawCfg = &config.City{
+		Workspace: config.Workspace{Name: "test-city"},
+		// No agents in raw — worker comes from pack expansion.
+		Rigs: []config.Rig{
+			{Name: "myrig", Path: "/tmp/myrig"},
+		},
+	}
+	srv := New(state)
+	h := newTestCityHandlerWith(t, state, srv)
+
+	req := httptest.NewRequest("GET", cityURL(state, "/agents"), nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	var resp struct {
+		Items []agentResponse `json:"items"`
+		Total int             `json:"total"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Total != 1 {
+		t.Fatalf("Total = %d, want 1", resp.Total)
+	}
+	if !resp.Items[0].PackDerived {
+		t.Errorf("PackDerived = false, want true for pack-derived agent")
+	}
+	if resp.Items[0].Pack != "gastown" {
+		t.Errorf("Pack = %q, want %q (the import binding name)", resp.Items[0].Pack, "gastown")
+	}
+}
+
+// TestAgentGetProvenanceCityNative verifies the single-agent GET carries the
+// same provenance as the list: a city-native agent reports pack_derived=false
+// with an empty pack. (The non-omitempty pack_derived bool would otherwise
+// read as a confident false on this surface.)
+func TestAgentGetProvenanceCityNative(t *testing.T) {
+	state := newFakeState(t)
+	srv := New(state)
+	h := newTestCityHandlerWith(t, state, srv)
+
+	req := httptest.NewRequest("GET", cityURL(state, "/agent/myrig/worker"), nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var resp agentResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.PackDerived {
+		t.Errorf("PackDerived = true, want false for city-native agent")
+	}
+	if resp.Pack != "" {
+		t.Errorf("Pack = %q, want empty for city-native agent", resp.Pack)
+	}
+}
+
+// TestAgentGetProvenancePackDerived verifies the single-agent GET reports
+// pack_derived=true and the import binding name for a pack-derived agent,
+// matching the list surface so a UI gets the same routing signal either way.
+func TestAgentGetProvenancePackDerived(t *testing.T) {
+	state := newFakeState(t)
+	state.cfg.Agents = []config.Agent{
+		{
+			Name:              "worker",
+			Dir:               "myrig",
+			Provider:          "test-agent",
+			BindingName:       "gastown",
+			MaxActiveSessions: intPtr(1),
+		},
+	}
+	state.cfg.NamedSessions = nil
+	state.rawCfg = &config.City{
+		Workspace: config.Workspace{Name: "test-city"},
+		Rigs: []config.Rig{
+			{Name: "myrig", Path: "/tmp/myrig"},
+		},
+	}
+	srv := New(state)
+	h := newTestCityHandlerWith(t, state, srv)
+
+	// Binding-stamped agents are addressed by their qualified name
+	// (dir/binding.base), matching AgentMatchesIdentity.
+	req := httptest.NewRequest("GET", cityURL(state, "/agent/myrig/gastown.worker"), nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var resp agentResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !resp.PackDerived {
+		t.Errorf("PackDerived = false, want true for pack-derived agent")
+	}
+	if resp.Pack != "gastown" {
+		t.Errorf("Pack = %q, want %q (the import binding name)", resp.Pack, "gastown")
+	}
+}
+
+// TestAgentListProvenancePoolInheritance verifies that every instance of a
+// bounded multi-session (pool) agent inherits the declared agent's provenance.
+// Provenance is a property of the declared agent, so all expanded members of a
+// pack-derived pool must report pack_derived=true with the same binding name.
+func TestAgentListProvenancePoolInheritance(t *testing.T) {
+	state := newFakeState(t)
+	state.cfg.Agents = []config.Agent{
+		{
+			Name:              "polecat",
+			Dir:               "myrig",
+			BindingName:       "gastown",
+			MinActiveSessions: intPtr(1),
+			MaxActiveSessions: intPtr(3),
+			ScaleCheck:        "echo 3",
+		},
+	}
+	state.cfg.NamedSessions = nil
+	state.rawCfg = &config.City{
+		Workspace: config.Workspace{Name: "test-city"},
+		Rigs: []config.Rig{
+			{Name: "myrig", Path: "/tmp/myrig"},
+		},
+	}
+	srv := New(state)
+	h := newTestCityHandlerWith(t, state, srv)
+
+	req := httptest.NewRequest("GET", cityURL(state, "/agents"), nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var resp struct {
+		Items []agentResponse `json:"items"`
+		Total int             `json:"total"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Total != 3 {
+		t.Fatalf("Total = %d, want 3 (bounded pool members)", resp.Total)
+	}
+	for i, item := range resp.Items {
+		if !item.PackDerived {
+			t.Errorf("Items[%d] (%s) PackDerived = false, want true", i, item.Name)
+		}
+		if item.Pack != "gastown" {
+			t.Errorf("Items[%d] (%s) Pack = %q, want %q", i, item.Name, item.Pack, "gastown")
+		}
 	}
 }

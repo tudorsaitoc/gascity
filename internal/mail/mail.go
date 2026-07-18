@@ -9,14 +9,21 @@ import (
 	"time"
 )
 
-// ErrAlreadyArchived is returned by [Provider.Archive] when the message
-// has already been archived. CLI code uses this to print a distinct message.
+// ErrAlreadyArchived is returned by [Provider.Archive] when the message has
+// already been archived or deleted. CLI code uses this to print a distinct
+// message.
 var ErrAlreadyArchived = errors.New("already archived")
 
 // ErrNotFound is returned when a message ID does not exist.
 var ErrNotFound = errors.New("message not found")
 
 const (
+	// AutoHandoffLabel marks mail created by gc handoff --auto for provider
+	// context-cycle delivery.
+	AutoHandoffLabel = "gc:auto-handoff"
+	// ArchiveAfterInjectLabel marks system mail that should be archived after
+	// successful hook injection.
+	ArchiveAfterInjectLabel = "gc:archive-after-inject"
 	// FromSessionIDMetadataKey stores the stable session bead ID used for
 	// reply routing when a message's display sender may later be renamed.
 	FromSessionIDMetadataKey = "mail.from_session_id"
@@ -29,6 +36,10 @@ const (
 	// ToDisplayMetadataKey stores the human-readable recipient captured when
 	// the message was created.
 	ToDisplayMetadataKey = "mail.to_display"
+	// ReadMetadataKey mirrors the "read" label as a queryable metadata flag
+	// ("true"/"false"), set alongside the label by MarkRead/MarkUnread. Retention
+	// sweeps query it directly (the label-based query is recipient-scoped).
+	ReadMetadataKey = "mail.read"
 )
 
 // Message represents a mail message between agents or humans.
@@ -47,17 +58,37 @@ type Message struct {
 	Rig       string    `json:"rig,omitempty"`
 }
 
+// HandoffIntent is the domain-shaped request for handoff mail. It lets the
+// gc handoff command express a message in mail terms — sender, recipient,
+// subject, body — plus the two handoff-specific routing details that ordinary
+// [Provider.Send] does not surface: an explicit thread ID (so a handoff thread
+// is stable and addressable) and extra labels (the auto-handoff / archive-after-
+// inject markers). The bead translation of these fields is confined to the
+// backend implementation; callers never construct a message bead themselves.
+type HandoffIntent struct {
+	From        string
+	To          string
+	Subject     string
+	Body        string
+	ThreadID    string
+	ExtraLabels []string
+}
+
 // ArchiveResult is one message's outcome in a batch [Provider.ArchiveMany] or
-// [Provider.DeleteMany] call. Err is nil for a newly-closed message,
-// [ErrAlreadyArchived] for an idempotent re-close, or a provider error.
+// [Provider.DeleteMany] call. Err is nil for a newly-archived/deleted message,
+// [ErrAlreadyArchived] for an idempotent repeat, or a provider error.
 type ArchiveResult struct {
 	ID  string
 	Err error
 }
 
-// Provider is the internal interface for mail backends. Implementations
-// include beadmail (built-in default backed by beads.Store) and exec
-// (user-supplied script via fork/exec).
+// Provider is the internal interface for mail backends and the canonical
+// domain seam for mail: every mail caller speaks mail.Message (and
+// [HandoffIntent]) here, never a raw message bead. The translation between mail
+// and storage rows is confined to each backend — for the built-in default that
+// edge is beadmail.Provider, where a message becomes a Type="message" bead.
+// Implementations include beadmail (built-in default backed by beads.Store) and
+// exec (user-supplied script via fork/exec).
 type Provider interface {
 	// Send creates a message. Subject is the summary line, body is the
 	// full content. Returns the created message with assigned ID.
@@ -79,7 +110,8 @@ type Provider interface {
 	// MarkUnread marks a message as unread (removes "read" label).
 	MarkUnread(id string) error
 
-	// Archive closes a message bead (removes from all views).
+	// Archive removes a message from all views. Bead-backed implementations
+	// delete the message bead eagerly.
 	Archive(id string) error
 
 	// ArchiveMany archives a batch of messages in one round-trip where the
@@ -87,7 +119,7 @@ type Provider interface {
 	// Implementations MUST preserve per-id error reporting.
 	ArchiveMany(ids []string) ([]ArchiveResult, error)
 
-	// Delete is an alias for Archive (closes the bead).
+	// Delete is an alias for Archive.
 	Delete(id string) error
 
 	// DeleteMany deletes a batch of messages in one round-trip where the
@@ -112,4 +144,10 @@ type Provider interface {
 
 	// Count returns (total, unread) message counts for a recipient.
 	Count(recipient string) (total int, unread int, err error)
+}
+
+// MultiRecipientInboxer is an optional extension for providers that can return
+// unread inbox messages for multiple recipients in one backend pass.
+type MultiRecipientInboxer interface {
+	InboxRecipients(recipients []string) ([]Message, error)
 }

@@ -29,6 +29,7 @@ func repoRoot() string {
 //   - internal/beads/ — that's where bd calls belong
 //   - test/integration/ — integration tests may use real bd for setup
 //   - Config defaults returning bd command templates (WorkQuery, SlingQuery)
+//     and command-name token consts (bdReadyOracleCommand = "bd ready")
 //   - Test fixture data (map keys, runner output, assertions)
 //   - Binary existence checks (LookPath)
 //   - Provider comparisons (== "bd", != "bd")
@@ -41,8 +42,15 @@ func TestNoBdExecOutsideBeads(t *testing.T) {
 		filepath.Join("internal", "deps") + string(filepath.Separator),   // version checks only (bd version)
 		filepath.Join("internal", "doctor") + string(filepath.Separator), // health checks query bd config directly
 		filepath.Join("internal", "dolt") + string(filepath.Separator),   // upstream-synced from gastown
+		// env.ledger conformance probe execs `bd ready` INSIDE the provisioned
+		// box (via the runtime exec op), to verify the session's bd can reach the
+		// work ledger — a box-side capability probe, not a gc-side bd subprocess.
+		filepath.Join("internal", "runtime", "runtimecapability") + string(filepath.Separator),
 		filepath.Join("test", "integration") + string(filepath.Separator),
-		filepath.Join("cmd", "gc", "dashboard") + string(filepath.Separator), // dashboard server uses bd directly
+		// dashboard BFF runs read-only `bd doctor` health probes against
+		// arbitrary per-rig .beads stores (supervisor-reported paths). This is
+		// the same direct-bd usage the retired cmd/gc/dashboard server had.
+		filepath.Join("internal", "api", "dashboardbff") + string(filepath.Separator),
 	}
 
 	var violations []string
@@ -53,7 +61,11 @@ func TestNoBdExecOutsideBeads(t *testing.T) {
 		}
 		if info.IsDir() {
 			base := filepath.Base(path)
-			if base == ".git" || base == "vendor" || base == ".claude" || strings.HasPrefix(base, ".beads-src") {
+			if base == ".git" || base == "vendor" || base == ".claude" || base == ".gc" || strings.HasPrefix(base, ".beads-src") {
+				return filepath.SkipDir
+			}
+			// Skip git worktrees embedded in the repo (have a .git file, not dir).
+			if fi, serr := os.Stat(filepath.Join(path, ".git")); serr == nil && !fi.IsDir() {
 				return filepath.SkipDir
 			}
 			return nil
@@ -154,6 +166,15 @@ func isBdCommandAssignment(trimmed string) bool {
 	// commands for the SlingRunner pattern — architectural, not direct exec).
 	if strings.Contains(trimmed, "Errorf") || strings.Contains(trimmed, "Fprint") ||
 		strings.Contains(trimmed, "Sprintf") {
+		return false
+	}
+	// Category 2 targets commands BUILT for shell execution — dynamic arguments
+	// concatenated onto a "bd " prefix (cmd := "bd mol cook --formula=" + name).
+	// A complete standalone literal with no concatenation is a command-name
+	// token or config default (e.g. bdReadyOracleCommand = "bd ready", the
+	// ready-oracle template used for query rewriting), which this invariant
+	// explicitly allows — so require a concatenation before flagging.
+	if !strings.Contains(trimmed, "+") {
 		return false
 	}
 	return true

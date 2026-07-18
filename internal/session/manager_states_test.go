@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -45,7 +46,7 @@ func getState(t *testing.T, m *Manager, id string) State {
 func TestConformance_CreatingState(t *testing.T) {
 	store := beads.NewMemStore()
 	sp := runtime.NewFake()
-	m := NewManager(store, sp)
+	m := NewManagerWithOptions(store, sp)
 
 	// Create a bead in creating state.
 	b, err := store.Create(beads.Bead{
@@ -86,7 +87,7 @@ func TestConformance_CreatingState(t *testing.T) {
 func TestConformance_DrainState(t *testing.T) {
 	store := beads.NewMemStore()
 	sp := runtime.NewFake()
-	m := NewManager(store, sp)
+	m := NewManagerWithOptions(store, sp)
 
 	id := createTestSession(t, m, "worker")
 
@@ -127,7 +128,7 @@ func TestConformance_DrainState(t *testing.T) {
 func TestConformance_QuarantineState(t *testing.T) {
 	store := beads.NewMemStore()
 	sp := runtime.NewFake()
-	m := NewManager(store, sp)
+	m := NewManagerWithOptions(store, sp)
 
 	id := createTestSession(t, m, "worker")
 	if err := store.SetMetadata(id, "last_woke_at", time.Now().UTC().Format(time.RFC3339)); err != nil {
@@ -156,7 +157,7 @@ func TestConformance_QuarantineState(t *testing.T) {
 func TestConformance_ArchivedReactivation(t *testing.T) {
 	store := beads.NewMemStore()
 	sp := runtime.NewFake()
-	m := NewManager(store, sp)
+	m := NewManagerWithOptions(store, sp)
 
 	id := createTestSession(t, m, "worker")
 
@@ -202,7 +203,7 @@ func TestConformance_IllegalTransitionDraining(t *testing.T) {
 	// Drain puts a session in Draining; Suspend from Draining is illegal.
 	store := beads.NewMemStore()
 	sp := runtime.NewFake()
-	m := NewManager(store, sp)
+	m := NewManagerWithOptions(store, sp)
 
 	id := createTestSession(t, m, "worker")
 
@@ -229,10 +230,53 @@ func TestConformance_IllegalTransitionDraining(t *testing.T) {
 	}
 }
 
+func TestConformance_SuspendFailedCreateTearsDownRuntime(t *testing.T) {
+	// #2597: `gc stop` issues suspend on every session bead, including
+	// failed-create ones (it does not pre-filter by state). failed-create is a
+	// create-rollback terminal state with no live turn to suspend, but it may
+	// have leaked a runtime process. Under a backing-store outage the reconciler
+	// cannot reap these (its close path requires a reachable store), so suspend
+	// is the only thing that can tear the leaked process down. Suspend must
+	// therefore succeed and stop the runtime rather than reject the command
+	// with an illegal-transition error that blocks `gc stop` city-wide.
+	store := beads.NewMemStore()
+	sp := runtime.NewFake()
+	m := NewManagerWithOptions(store, sp)
+
+	id := createTestSession(t, m, "dog")
+	b, err := store.Get(id)
+	if err != nil {
+		t.Fatalf("get bead: %v", err)
+	}
+	sessName := b.Metadata["session_name"]
+
+	// Seed a leaked runtime process and the failed-create landing state.
+	if err := sp.Start(context.Background(), sessName, runtime.Config{}); err != nil {
+		t.Fatalf("seeding runtime: %v", err)
+	}
+	if err := store.SetMetadata(id, "state", string(StateFailedCreate)); err != nil {
+		t.Fatalf("set failed-create state: %v", err)
+	}
+
+	// Suspend(failed-create) must succeed so `gc stop` is not blocked
+	// city-wide. The pre-fix regression returned a wrapped ErrIllegalTransition;
+	// either symptom (any non-nil) trips this assertion and pinpoints the
+	// regression by quoting the returned error.
+	if err := m.Suspend(id); err != nil {
+		t.Fatalf("Suspend(failed-create) = %v, want nil (must not block gc stop)", err)
+	}
+	if sp.CountCalls("Stop", sessName) == 0 {
+		t.Errorf("Suspend(failed-create) did not tear down the leaked runtime session %q", sessName)
+	}
+	if sp.IsRunning(sessName) {
+		t.Errorf("runtime session %q still running after Suspend(failed-create)", sessName)
+	}
+}
+
 func TestConformance_QuarantineReactivation(t *testing.T) {
 	store := beads.NewMemStore()
 	sp := runtime.NewFake()
-	m := NewManager(store, sp)
+	m := NewManagerWithOptions(store, sp)
 
 	id := createTestSession(t, m, "crasher")
 
@@ -266,5 +310,28 @@ func TestConformance_QuarantineReactivation(t *testing.T) {
 	// Quarantined non-terminal sessions remain continuity eligible by default.
 	if b.Metadata["continuity_eligible"] != "true" {
 		t.Errorf("continuity_eligible = %q, want true", b.Metadata["continuity_eligible"])
+	}
+}
+
+func TestCanonicalLifecycleState(t *testing.T) {
+	cases := []struct {
+		name string
+		in   State
+		want State
+	}{
+		{"empty legacy state normalizes to active", StateNone, StateActive},
+		{"awake alias normalizes to active", StateAwake, StateActive},
+		{"active is unchanged", StateActive, StateActive},
+		{"asleep is unchanged", StateAsleep, StateAsleep},
+		{"suspended is unchanged", StateSuspended, StateSuspended},
+		{"failed-create is unchanged", StateFailedCreate, StateFailedCreate},
+		{"drained is not remapped here", State("drained"), State("drained")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := canonicalLifecycleState(tc.in); got != tc.want {
+				t.Errorf("canonicalLifecycleState(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
 	}
 }

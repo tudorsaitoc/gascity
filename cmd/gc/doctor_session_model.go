@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
+	"github.com/gastownhall/gascity/internal/beadmeta"
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/doctor"
@@ -93,7 +95,7 @@ func (c *sessionModelDoctorCheck) Run(_ *doctor.CheckContext) *doctor.CheckResul
 				}
 			}
 		}
-		if routedTo := strings.TrimSpace(b.Metadata["gc.routed_to"]); routedTo != "" {
+		if routedTo := strings.TrimSpace(b.Metadata[beadmeta.RoutedToMetadataKey]); routedTo != "" {
 			cityName := config.EffectiveCityName(c.cfg, "")
 			if config.FindAgent(c.cfg, routedTo) == nil {
 				if _, ok, _ := resolveNamedSessionSpecForConfigTarget(c.cfg, cityName, routedTo, currentRigContext(c.cfg)); !ok {
@@ -129,21 +131,44 @@ func loadSessionModelDoctorBeads(store beads.Store) ([]beads.Bead, error) {
 	}
 	steps := []listStep{
 		{
-			name:  "session label",
-			query: beads.ListQuery{Label: session.LabelSession, IncludeClosed: true, Sort: beads.SortCreatedAsc},
-		},
-		{
-			name:  "session type",
-			query: beads.ListQuery{Type: session.BeadType, IncludeClosed: true, Sort: beads.SortCreatedAsc},
-		},
-		{
 			name:  "open work",
-			query: beads.ListQuery{AllowScan: true, Sort: beads.SortCreatedAsc},
+			query: beads.ListQuery{Status: "open", Sort: beads.SortCreatedAsc},
+		},
+		{
+			name:  "in-progress work",
+			query: beads.ListQuery{Status: "in_progress", Sort: beads.SortCreatedAsc},
 		},
 	}
 
 	seen := make(map[string]bool)
 	var all []beads.Bead
+	// Doctor's OWN inline copy of the type+label session union (Type=session ∪
+	// Label=gc:session, deduped by ID, narrowed to IsSessionBeadOrRepairable, globally
+	// re-sorted by CreatedAt) — so this diagnostic no longer calls the policed
+	// session.ListAllSessionBeads codec while still holding raw beads (its §5 doctor
+	// exemption covers HOLDING raw beads, not calling the codec). A gc:session bead that
+	// lost its type after a crash still surfaces via the label leg.
+	sessionUnionStart := len(all)
+	for _, q := range []beads.ListQuery{
+		{Type: session.BeadType, IncludeClosed: true, Sort: beads.SortCreatedAsc},
+		{Label: session.LabelSession, IncludeClosed: true, Sort: beads.SortCreatedAsc},
+	} {
+		items, err := store.List(q)
+		if err != nil {
+			return nil, fmt.Errorf("session beads: %w", err)
+		}
+		for _, item := range items {
+			if seen[item.ID] || !session.IsSessionBeadOrRepairable(item) {
+				continue
+			}
+			seen[item.ID] = true
+			all = append(all, item)
+		}
+	}
+	sessionUnion := all[sessionUnionStart:]
+	sort.SliceStable(sessionUnion, func(i, j int) bool {
+		return sessionUnion[i].CreatedAt.Before(sessionUnion[j].CreatedAt)
+	})
 	for _, step := range steps {
 		items, err := store.List(step.query)
 		if err != nil {

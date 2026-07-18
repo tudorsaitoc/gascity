@@ -108,7 +108,7 @@ func TestSessionHandleStateBusyDoesNotPrimeHistoryCache(t *testing.T) {
 	workDir := t.TempDir()
 	store := beads.NewMemStore()
 	sp := runtime.NewFake()
-	manager := sessionpkg.NewManager(store, sp)
+	manager := sessionpkg.NewManagerWithOptions(store, sp)
 	handle, err := NewSessionHandle(SessionHandleConfig{
 		Manager:     manager,
 		SearchPaths: []string{searchBase},
@@ -242,8 +242,8 @@ func TestSessionHandleCreateDeferred(t *testing.T) {
 	if err != nil {
 		t.Fatalf("store.Get(%q): %v", info.ID, err)
 	}
-	if bead.Metadata["state"] != string(sessionpkg.StateCreating) {
-		t.Fatalf("bead state = %q, want %q", bead.Metadata["state"], sessionpkg.StateCreating)
+	if bead.Metadata["state"] != string(sessionpkg.StateStartPending) {
+		t.Fatalf("bead state = %q, want %q", bead.Metadata["state"], sessionpkg.StateStartPending)
 	}
 	if bead.Metadata["pending_create_claim"] != "true" {
 		t.Fatalf("pending_create_claim = %q, want true", bead.Metadata["pending_create_claim"])
@@ -558,6 +558,38 @@ func TestCanonicalProfileIdentityOpenCode(t *testing.T) {
 	}
 	if identity.ProviderFamily != "opencode" {
 		t.Fatalf("ProviderFamily = %q, want opencode", identity.ProviderFamily)
+	}
+	if identity.TransportClass != "tmux-cli" {
+		t.Fatalf("TransportClass = %q, want tmux-cli", identity.TransportClass)
+	}
+	if identity.CertificationFingerprint == "" {
+		t.Fatal("CertificationFingerprint is empty")
+	}
+}
+
+func TestCanonicalProfileIdentityMimoCode(t *testing.T) {
+	identity, ok := CanonicalProfileIdentity(ProfileMimoCodeTmuxCLI)
+	if !ok {
+		t.Fatal("CanonicalProfileIdentity(ProfileMimoCodeTmuxCLI) = false, want true")
+	}
+	if identity.ProviderFamily != "mimocode" {
+		t.Fatalf("ProviderFamily = %q, want mimocode", identity.ProviderFamily)
+	}
+	if identity.TransportClass != "tmux-cli" {
+		t.Fatalf("TransportClass = %q, want tmux-cli", identity.TransportClass)
+	}
+	if identity.CertificationFingerprint == "" {
+		t.Fatal("CertificationFingerprint is empty")
+	}
+}
+
+func TestCanonicalProfileIdentityKimi(t *testing.T) {
+	identity, ok := CanonicalProfileIdentity(ProfileKimiTmuxCLI)
+	if !ok {
+		t.Fatal("CanonicalProfileIdentity(ProfileKimiTmuxCLI) = false, want true")
+	}
+	if identity.ProviderFamily != "kimi" {
+		t.Fatalf("ProviderFamily = %q, want kimi", identity.ProviderFamily)
 	}
 	if identity.TransportClass != "tmux-cli" {
 		t.Fatalf("TransportClass = %q, want tmux-cli", identity.TransportClass)
@@ -947,7 +979,7 @@ func TestSessionHandleHistoryLoadsNormalizedTranscript(t *testing.T) {
 	}
 }
 
-func TestSessionHandleHistoryPersistsCodexResumeKeyForLaterRestart(t *testing.T) {
+func TestSessionHandleHistoryDoesNotPersistCodexResumeKeyFromTranscript(t *testing.T) {
 	base := t.TempDir()
 	dayDir := filepath.Join(base, "2026", "04", "14")
 	if err := os.MkdirAll(dayDir, 0o755); err != nil {
@@ -988,19 +1020,19 @@ func TestSessionHandleHistoryPersistsCodexResumeKeyForLaterRestart(t *testing.T)
 	if err != nil {
 		t.Fatalf("History: %v", err)
 	}
-	if history.GCSessionID != resumeID {
-		t.Fatalf("History().GCSessionID = %q, want %q", history.GCSessionID, resumeID)
+	if history.GCSessionID == resumeID {
+		t.Fatalf("History().GCSessionID = %q, want Gas City session id, not transcript-derived Codex resume id", history.GCSessionID)
 	}
-	if history.LogicalConversationID != resumeID {
-		t.Fatalf("History().LogicalConversationID = %q, want %q", history.LogicalConversationID, resumeID)
+	if history.LogicalConversationID == resumeID {
+		t.Fatalf("History().LogicalConversationID = %q, want non-Codex-derived logical id", history.LogicalConversationID)
 	}
 
 	bead, err := store.Get(handle.sessionID)
 	if err != nil {
 		t.Fatalf("store.Get(%q): %v", handle.sessionID, err)
 	}
-	if bead.Metadata["session_key"] != resumeID {
-		t.Fatalf("session_key = %q, want %q", bead.Metadata["session_key"], resumeID)
+	if got := bead.Metadata["session_key"]; got != "" {
+		t.Fatalf("session_key = %q, want empty; Codex resume keys come from SessionStart hook stdin", got)
 	}
 
 	if err := handle.Stop(context.Background()); err != nil {
@@ -1015,12 +1047,12 @@ func TestSessionHandleHistoryPersistsCodexResumeKeyForLaterRestart(t *testing.T)
 		t.Fatalf("runtime calls = %#v, want second Start", sp.Calls)
 	}
 	wantResume := "codex resume " + resumeID
-	if !strings.Contains(secondStart.Config.Command, wantResume) {
-		t.Fatalf("second start command = %q, want %q", secondStart.Config.Command, wantResume)
+	if strings.Contains(secondStart.Config.Command, wantResume) {
+		t.Fatalf("second start command = %q, must not use transcript-derived Codex resume command %q", secondStart.Config.Command, wantResume)
 	}
 }
 
-func TestSessionHandleStatePersistsCodexResumeKeyWithoutPrimingHistoryCache(t *testing.T) {
+func TestSessionHandleStateDoesNotPersistCodexResumeKeyWithoutPrimingHistoryCache(t *testing.T) {
 	base := t.TempDir()
 	dayDir := filepath.Join(base, "2026", "04", "14")
 	if err := os.MkdirAll(dayDir, 0o755); err != nil {
@@ -1072,8 +1104,8 @@ func TestSessionHandleStatePersistsCodexResumeKeyWithoutPrimingHistoryCache(t *t
 	if err != nil {
 		t.Fatalf("store.Get(%q): %v", handle.sessionID, err)
 	}
-	if bead.Metadata["session_key"] != resumeID {
-		t.Fatalf("session_key = %q, want %q", bead.Metadata["session_key"], resumeID)
+	if got := bead.Metadata["session_key"]; got != "" {
+		t.Fatalf("session_key = %q, want empty; Codex resume keys come from SessionStart hook stdin", got)
 	}
 
 	if err := handle.Stop(context.Background()); err != nil {
@@ -1088,8 +1120,8 @@ func TestSessionHandleStatePersistsCodexResumeKeyWithoutPrimingHistoryCache(t *t
 		t.Fatalf("runtime calls = %#v, want second Start", sp.Calls)
 	}
 	wantResume := "codex resume " + resumeID
-	if !strings.Contains(secondStart.Config.Command, wantResume) {
-		t.Fatalf("second start command = %q, want %q", secondStart.Config.Command, wantResume)
+	if strings.Contains(secondStart.Config.Command, wantResume) {
+		t.Fatalf("second start command = %q, must not use transcript-derived Codex resume command %q", secondStart.Config.Command, wantResume)
 	}
 }
 
@@ -1254,6 +1286,32 @@ func TestRuntimeHandleExpandedWorkerSurface(t *testing.T) {
 	}
 }
 
+func TestRuntimeHandleCloseDetailedStopsRuntimeAndReturnsZeroResult(t *testing.T) {
+	sp := runtime.NewFake()
+	if err := sp.Start(context.Background(), "legacy-worker", runtime.Config{}); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	handle, err := NewRuntimeHandle(RuntimeHandleConfig{
+		Provider:     sp,
+		SessionName:  "legacy-worker",
+		ProviderName: "stub",
+	})
+	if err != nil {
+		t.Fatalf("NewRuntimeHandle: %v", err)
+	}
+
+	result, err := handle.CloseDetailed(context.Background())
+	if err != nil {
+		t.Fatalf("CloseDetailed: %v", err)
+	}
+	if len(result.WaitNudgeIDs) != 0 {
+		t.Fatalf("WaitNudgeIDs = %#v, want empty", result.WaitNudgeIDs)
+	}
+	if sp.IsRunning("legacy-worker") {
+		t.Fatal("legacy-worker should be stopped after CloseDetailed")
+	}
+}
+
 func TestRuntimeHandleStateStoppedSkipsPendingProbe(t *testing.T) {
 	sp := runtime.NewFake()
 	sp.SetPendingInteraction("legacy-worker", &runtime.PendingInteraction{
@@ -1331,6 +1389,71 @@ func TestRuntimeHandleLiveObservationUsesRuntimeMetadataAndLiveness(t *testing.T
 	}
 	if obs.LastActivity == nil || !obs.LastActivity.Equal(lastActivity) {
 		t.Fatalf("LiveObservation.LastActivity = %#v, want %v", obs.LastActivity, lastActivity)
+	}
+}
+
+type falseNegativeRuntimeProvider struct {
+	*runtime.Fake
+	falseNames map[string]bool
+}
+
+func (p *falseNegativeRuntimeProvider) IsRunning(name string) bool {
+	if p.falseNames[name] {
+		return false
+	}
+	return p.Fake.IsRunning(name)
+}
+
+func TestRuntimeHandleLiveObservationTreatsLiveProcessAsRunningWhenSessionProbeFalseNegatives(t *testing.T) {
+	base := runtime.NewFake()
+	if err := base.Start(context.Background(), "runtime-worker", runtime.Config{}); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	sp := &falseNegativeRuntimeProvider{
+		Fake:       base,
+		falseNames: map[string]bool{"runtime-worker": true},
+	}
+
+	handle, err := NewRuntimeHandle(RuntimeHandleConfig{
+		Provider:     sp,
+		SessionName:  "runtime-worker",
+		ProviderName: "claude",
+		ProcessNames: []string{"claude"},
+	})
+	if err != nil {
+		t.Fatalf("NewRuntimeHandle: %v", err)
+	}
+
+	obs, err := handle.LiveObservation(context.Background())
+	if err != nil {
+		t.Fatalf("LiveObservation: %v", err)
+	}
+	if !obs.Running || !obs.Alive {
+		t.Fatalf("LiveObservation() = %#v, want running+alive true despite IsRunning false-negative", obs)
+	}
+}
+
+func TestRuntimeHandleLiveObservationWithoutProcessNamesTreatsRunningSessionAsAlive(t *testing.T) {
+	sp := runtime.NewFake()
+	if err := sp.Start(context.Background(), "runtime-worker", runtime.Config{}); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	handle, err := NewRuntimeHandle(RuntimeHandleConfig{
+		Provider:     sp,
+		SessionName:  "runtime-worker",
+		ProviderName: "claude",
+	})
+	if err != nil {
+		t.Fatalf("NewRuntimeHandle: %v", err)
+	}
+
+	obs, err := handle.LiveObservation(context.Background())
+	if err != nil {
+		t.Fatalf("LiveObservation: %v", err)
+	}
+	if !obs.Running || !obs.Alive {
+		t.Fatalf("LiveObservation() = %#v, want running+alive true when no process names are configured", obs)
 	}
 }
 
@@ -1576,7 +1699,7 @@ func TestRuntimeHandleNudgeWaitIdleUnsupportedProviderReturnsUndelivered(t *test
 func TestSessionCatalogUsesWorkerBoundary(t *testing.T) {
 	store := beads.NewMemStore()
 	sp := runtime.NewFake()
-	mgr := sessionpkg.NewManagerWithCityPath(store, sp, t.TempDir())
+	mgr := sessionpkg.NewManagerWithOptions(store, sp, sessionpkg.WithCityPath(t.TempDir()))
 	handle, err := NewSessionHandle(SessionHandleConfig{
 		Manager: mgr,
 		Session: SessionSpec{
@@ -1842,23 +1965,14 @@ func TestSessionHandleStartUsesSessionIDOnFirstStartAndResumeAfterSuspend(t *tes
 func TestSessionHandleStartUsesCurrentResumeOverridesAfterSuspend(t *testing.T) {
 	store := beads.NewMemStore()
 	sp := runtime.NewFake()
-	manager := sessionpkg.NewManager(store, sp)
+	manager := sessionpkg.NewManagerWithOptions(store, sp)
 
-	info, err := manager.Create(
-		context.Background(),
-		"probe",
-		"Probe",
-		"legacy-agent",
-		t.TempDir(),
-		"legacy-agent",
-		nil,
-		sessionpkg.ProviderResume{
+	info, err := manager.CreateSession(
+		context.Background(), sessionpkg.CreateOptions{Template: "probe", Title: "Probe", Command: "legacy-agent", WorkDir: t.TempDir(), Provider: "legacy-agent", Env: nil, Resume: sessionpkg.ProviderResume{
 			ResumeFlag:    "--old-resume",
 			ResumeStyle:   "flag",
 			SessionIDFlag: "--session-id",
-		},
-		runtime.Config{},
-	)
+		}, Hints: runtime.Config{}, ExtraMeta: map[string]string{"session_origin": "manual"}})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -1924,7 +2038,7 @@ func newTestSessionHandleWithRecorder(t *testing.T, spec SessionSpec, recorder e
 
 	store := beads.NewMemStore()
 	sp := runtime.NewFake()
-	manager := sessionpkg.NewManager(store, sp)
+	manager := sessionpkg.NewManagerWithOptions(store, sp)
 	handle, err := NewSessionHandle(SessionHandleConfig{
 		Manager:  manager,
 		Recorder: recorder,

@@ -179,6 +179,7 @@ func TestProxyProcessHelper(t *testing.T) {
 			"GC_CONTROL_DISPATCHER_TRACE_DEFAULT": os.Getenv("GC_CONTROL_DISPATCHER_TRACE_DEFAULT"),
 			"GC_SERVICE_NAME":                     os.Getenv("GC_SERVICE_NAME"),
 			"GC_SERVICE_STATE_ROOT":               os.Getenv("GC_SERVICE_STATE_ROOT"),
+			"GC_SERVICE_SECRETS_DIR":              os.Getenv("GC_SERVICE_SECRETS_DIR"),
 			"GC_SERVICE_URL_PREFIX":               os.Getenv("GC_SERVICE_URL_PREFIX"),
 			"GC_SERVICE_PUBLIC_URL":               os.Getenv("GC_SERVICE_PUBLIC_URL"),
 			"GC_SERVICE_VISIBILITY":               os.Getenv("GC_SERVICE_VISIBILITY"),
@@ -278,6 +279,9 @@ func TestProxyProcessPublishesServiceEnv(t *testing.T) {
 	}
 	if env["GC_SERVICE_STATE_ROOT"] != filepath.Join(rt.cityPath, ".gc", "services", "bridge") {
 		t.Fatalf("GC_SERVICE_STATE_ROOT = %q, want %q", env["GC_SERVICE_STATE_ROOT"], filepath.Join(rt.cityPath, ".gc", "services", "bridge"))
+	}
+	if env["GC_SERVICE_SECRETS_DIR"] != filepath.Join(rt.cityPath, ".gc", "services", "bridge", "secrets") {
+		t.Fatalf("GC_SERVICE_SECRETS_DIR = %q, want %q", env["GC_SERVICE_SECRETS_DIR"], filepath.Join(rt.cityPath, ".gc", "services", "bridge", "secrets"))
 	}
 	if env["GC_SERVICE_PUBLIC_URL"] != "https://bridge--acme--deadbeef.apps.example.com" {
 		t.Fatalf("GC_SERVICE_PUBLIC_URL = %q, want authoritative route", env["GC_SERVICE_PUBLIC_URL"])
@@ -843,5 +847,154 @@ func TestProxyProcessSwapAndCloseCleanUpSocketFiles(t *testing.T) {
 	}
 	if _, err := os.Stat(secondSocket); !os.IsNotExist(err) {
 		t.Fatalf("socket still exists after close: %v", err)
+	}
+}
+
+// TestManagerReloadProxyProcess_ConstructionFailureSchedulesRetry verifies
+// the #1774 fix: when proxy_process construction fails during Reload,
+// the entry is stored with inst=nil but nextConstructionRetry is set
+// to a time in the future. Without this scheduling, Tick would skip
+// the entry forever and the service would stay dead until manual
+// Restart.
+func TestManagerReloadProxyProcess_ConstructionFailureSchedulesRetry(t *testing.T) {
+	rt := &testRuntime{
+		cityPath: t.TempDir(),
+		cityName: "test-city",
+		cfg: &config.City{
+			Services: []config.Service{{
+				Name: "doomed",
+				Kind: "proxy_process",
+				Process: config.ServiceProcessConfig{
+					Command:    []string{"/this/binary/does/not/exist"},
+					HealthPath: "/healthz",
+				},
+			}},
+		},
+		sp:    runtime.NewFake(),
+		store: beads.NewMemStore(),
+	}
+	mgr := NewManager(rt)
+	defer mgr.Close() //nolint:errcheck // best-effort cleanup
+
+	before := time.Now().UTC()
+	if err := mgr.Reload(); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+
+	mgr.mu.RLock()
+	e, ok := mgr.entries["doomed"]
+	mgr.mu.RUnlock()
+	if !ok {
+		t.Fatal("entry missing after Reload")
+	}
+	if e.inst != nil {
+		t.Fatalf("inst should be nil after construction failure; got %T", e.inst)
+	}
+	if e.status.LocalState != "config_error" {
+		t.Fatalf("LocalState = %q, want config_error", e.status.LocalState)
+	}
+	if e.nextConstructionRetry.IsZero() {
+		t.Fatal("nextConstructionRetry should be set; got zero (would prevent Tick from ever retrying)")
+	}
+	if !e.nextConstructionRetry.After(before) {
+		t.Fatalf("nextConstructionRetry = %v, want > %v", e.nextConstructionRetry, before)
+	}
+}
+
+// TestManagerTickProxyProcess_RetriesAfterDeadline verifies the #1774
+// fix: Tick re-attempts construction on a nil-inst proxy_process entry
+// once nextConstructionRetry has elapsed. The retry still fails (the
+// binary is still missing) so we assert the deadline was bumped — the
+// key invariant is "Tick is willing to retry" rather than success.
+func TestManagerTickProxyProcess_RetriesAfterDeadline(t *testing.T) {
+	rt := &testRuntime{
+		cityPath: t.TempDir(),
+		cityName: "test-city",
+		cfg: &config.City{
+			Services: []config.Service{{
+				Name: "doomed",
+				Kind: "proxy_process",
+				Process: config.ServiceProcessConfig{
+					Command:    []string{"/this/binary/does/not/exist"},
+					HealthPath: "/healthz",
+				},
+			}},
+		},
+		sp:    runtime.NewFake(),
+		store: beads.NewMemStore(),
+	}
+	mgr := NewManager(rt)
+	defer mgr.Close() //nolint:errcheck // best-effort cleanup
+	if err := mgr.Reload(); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+
+	mgr.mu.Lock()
+	e := mgr.entries["doomed"]
+	originalDeadline := e.nextConstructionRetry
+	// Simulate sufficient time having passed without sleeping the test.
+	e.nextConstructionRetry = time.Time{}
+	mgr.mu.Unlock()
+
+	mgr.Tick(context.Background(), time.Now().UTC().Add(time.Hour))
+
+	mgr.mu.RLock()
+	e = mgr.entries["doomed"]
+	mgr.mu.RUnlock()
+	if e == nil {
+		t.Fatal("entry vanished after Tick")
+	}
+	if e.inst != nil {
+		t.Fatalf("inst should still be nil (binary still missing); got %T", e.inst)
+	}
+	if e.nextConstructionRetry.IsZero() {
+		t.Fatal("nextConstructionRetry should be re-armed after a failed retry; got zero")
+	}
+	// Deadline should have moved forward — i.e. not still equal to original.
+	// We can't assert exact value because the test uses Tick's own clock.
+	if e.nextConstructionRetry.Equal(originalDeadline) {
+		t.Fatalf("nextConstructionRetry = %v unchanged; should have been bumped", e.nextConstructionRetry)
+	}
+}
+
+// TestManagerTickProxyProcess_RetryRespectsDeadline verifies that Tick
+// does NOT re-attempt construction before nextConstructionRetry has
+// elapsed. Bypassing the deadline would spam the supervisor with
+// per-Tick retry attempts when the precondition is permanently broken.
+func TestManagerTickProxyProcess_RetryRespectsDeadline(t *testing.T) {
+	rt := &testRuntime{
+		cityPath: t.TempDir(),
+		cityName: "test-city",
+		cfg: &config.City{
+			Services: []config.Service{{
+				Name: "doomed",
+				Kind: "proxy_process",
+				Process: config.ServiceProcessConfig{
+					Command:    []string{"/this/binary/does/not/exist"},
+					HealthPath: "/healthz",
+				},
+			}},
+		},
+		sp:    runtime.NewFake(),
+		store: beads.NewMemStore(),
+	}
+	mgr := NewManager(rt)
+	defer mgr.Close() //nolint:errcheck // best-effort cleanup
+	if err := mgr.Reload(); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+
+	mgr.mu.Lock()
+	originalDeadline := mgr.entries["doomed"].nextConstructionRetry
+	mgr.mu.Unlock()
+
+	// Tick at a time well before the deadline.
+	mgr.Tick(context.Background(), originalDeadline.Add(-1*time.Second))
+
+	mgr.mu.RLock()
+	deadlineAfter := mgr.entries["doomed"].nextConstructionRetry
+	mgr.mu.RUnlock()
+	if !deadlineAfter.Equal(originalDeadline) {
+		t.Fatalf("nextConstructionRetry changed before deadline elapsed: %v -> %v", originalDeadline, deadlineAfter)
 	}
 }

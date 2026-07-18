@@ -8,6 +8,7 @@ package runtime //nolint:revive // shadows stdlib runtime; isolated to internal
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -41,6 +42,36 @@ var ErrSessionDiedDuringStartup = errors.New("session died during startup")
 // internal "not found" conditions with this sentinel so callers can
 // dispatch with errors.Is.
 var ErrSessionNotFound = errors.New("session not found")
+
+// ErrExecUnsupported reports that a provider implements [ExecProvider] but the
+// underlying runtime does not implement the RPP `exec` wire op (it answered
+// exit 2). Carriers treat this as "fall back to the legacy driving op".
+var ErrExecUnsupported = errors.New("runtime does not implement the exec op")
+
+// ErrRuntimeUnavailable reports that a runtime-liveness query could not observe
+// the underlying runtime at all — the tmux server was unreachable, the process
+// table could not be scanned, etc. It is the runtime-side analog of a partial
+// bead-store read: an observation FAILURE, not the fact "no sessions exist". A
+// destructive reconciler arm (close-as-orphaned, heal-to-asleep, sweep) must
+// treat it as "I could not tell" and defer, exactly as it defers on a partial
+// store read (storeQueryPartial) — never as ground truth that every session is
+// gone. Providers wrap it (with errors.Is-visible provider-specific causes) so
+// callers can dispatch on it with errors.Is.
+//
+// This is distinct from [PartialListError]. ErrRuntimeUnavailable is the
+// single-observation-total-failure signal: zero usable data, used to preserve
+// StateCache last-known-good. PartialListError is the multi-backend-merge
+// signal: partial-but-usable results from [MergeBackendListResults], which does
+// not even emit PartialListError for a total failure. The two are intentionally
+// separate signals for separate call paths.
+var ErrRuntimeUnavailable = errors.New("runtime unavailable: liveness observation failed")
+
+// ErrRelaunchUnsupported reports that the underlying runtime cannot relaunch the
+// agent in a warm box (it is not a [RelaunchProvider], or is conjoined like
+// subprocess/acp/t3bridge). Composite/wrapping providers return it from their
+// own [RelaunchProvider.Relaunch] when the routed/wrapped backend does not
+// support relaunch; the reconciler treats it as "fall back to full Stop+Start".
+var ErrRelaunchUnsupported = errors.New("runtime does not support warm-box relaunch")
 
 // IsSessionGone reports whether err represents a "the session is not
 // there" condition — either ErrSessionNotFound or the legacy provider
@@ -119,8 +150,9 @@ type Provider interface {
 	// exist. Used for graceful shutdown before Stop.
 	Interrupt(name string) error
 
-	// IsRunning reports whether the named session exists and has a
-	// live process.
+	// IsRunning reports whether the named provider runtime exists. It does not
+	// prove that the configured agent process is alive; callers that need that
+	// distinction should use ObserveLiveness or ProcessAlive.
 	IsRunning(name string) bool
 
 	// IsAttached reports whether a user terminal is currently connected
@@ -139,7 +171,11 @@ type Provider interface {
 
 	// Nudge sends structured content to the named session to wake or
 	// redirect the agent. Returns nil if the session does not exist
-	// (best-effort). Use [TextContent] to wrap a plain string.
+	// and the provider can safely treat that as a best-effort no-op.
+	// Providers that can observe a live session without owning the
+	// delivery channel return [ErrSessionNotFound] so callers do not
+	// mistake a no-op for delivery. Use [TextContent] to wrap a plain
+	// string.
 	Nudge(name string, content []ContentBlock) error
 
 	// SetMeta stores a key-value pair associated with the named session.
@@ -229,6 +265,27 @@ type IdleWaitProvider interface {
 	WaitForIdle(ctx context.Context, name string, timeout time.Duration) error
 }
 
+// ExecProvider is an optional extension for runtimes that expose the RPP
+// connection primitive: run a command inside the box and return its standard
+// output and exit code. It is the op a [Carrier] drives the session-interaction
+// verbs (Nudge / Peek / SendKeys / Interrupt / ClearScrollback) through. The
+// exec Provider drives over it via the tmux carrier and falls back to the
+// dedicated wire ops when Exec returns [ErrExecUnsupported]. A caller using an
+// ExecProvider directly must likewise handle a provider that does not implement
+// ExecProvider, or an Exec that returns [ErrExecUnsupported] (the provider type
+// supports Exec but the underlying runtime does not implement the wire op).
+//
+// argv is the command and its arguments (no shell interpretation by the
+// caller). output is the command's standard output, verbatim. code is the
+// command's exit code: 0 on success, non-zero is the command's own result and
+// is NOT an error; providers whose transport cannot observe the numeric code
+// report 1 for any non-zero exit. A non-nil err signals the op could not run
+// at all (transport/spawn failure, including context cancellation/timeout) or
+// [ErrExecUnsupported] — distinct from a non-zero exit code.
+type ExecProvider interface {
+	Exec(ctx context.Context, name string, argv []string) (output []byte, code int, err error)
+}
+
 // DialogProvider is an optional extension for runtimes that can detect and
 // dismiss known startup-style dialogs (workspace trust, bypass permissions,
 // rate-limit prompts) on an already-running session.
@@ -273,6 +330,86 @@ type InterruptBoundaryWaitProvider interface {
 	WaitForInterruptBoundary(ctx context.Context, name string, since time.Time, timeout time.Duration) error
 }
 
+// RelaunchProvider is an optional extension for runtimes that can re-launch the
+// agent inside an already-provisioned (warm) box WITHOUT re-provisioning it — the
+// runtime/transport un-weld payoff. The reconciler calls Relaunch on a launch-only
+// config change (LaunchFingerprint moved, ProvisionFingerprint unchanged) instead
+// of a full Stop+Start. A missing box yields ErrSessionNotFound; the box, its env,
+// and any staged files are reused. Runtimes whose agent IS the box (subprocess /
+// acp / t3bridge) do NOT implement this — the reconciler falls back to Stop+Start
+// for them.
+//
+// tmux / ssh / k8s implement it directly (respawn-pane in the warm box); the exec
+// provider relaunches the agent over the exec op for a separable pack and falls
+// back to Stop+Start for a welded pack. See worker-runtime-transport-unweld-v0.md.
+type RelaunchProvider interface {
+	Relaunch(ctx context.Context, name string, cfg Config) error
+}
+
+// LiveRuntime identifies a single agent runtime process discovered via
+// process-table scan, independent of provider-visible artifacts.
+type LiveRuntime struct {
+	// SessionID is the GC_SESSION_ID value from the process environment.
+	SessionID string
+	// City is the GC_CITY_PATH value from the process environment (falling
+	// back to GC_CITY). Empty when neither is readable. The process-table scan
+	// is supervisor-wide (it walks all of /proc), but session beads and tmux
+	// runtime tracking are per-city. A consumer that owns only one city's
+	// store MUST filter scan results to City == its own city before reaping,
+	// or it will mistake another city's live session for an orphan and kill
+	// it.
+	City string
+	// Epoch is the GC_RUNTIME_EPOCH from the process environment, if readable.
+	// Zero if the variable is absent or unparseable.
+	Epoch int
+	// PID is the OS process ID for local providers, or a provider-specific
+	// process identifier for remote infrastructure.
+	PID int
+	// ProviderName is the session name as known to the provider. Empty means
+	// the runtime is not visible in the provider's artifact registry.
+	ProviderName string
+	// IsTracked is true when this runtime also appears in the provider's
+	// registry. False marks a live process that is invisible to the provider.
+	IsTracked bool
+}
+
+// ProcessTableScanner is an optional extension for runtimes that can discover
+// live agent root processes by GC_SESSION_ID independently of provider-visible
+// artifacts.
+//
+// Providers that cannot inspect process tables do not implement this
+// interface. Callers must use a type assertion and continue safely when the
+// provider lacks the capability.
+type ProcessTableScanner interface {
+	// FindRuntimesBySessionID returns live agent root processes carrying
+	// GC_SESSION_ID equal to id. If id is empty, it returns all live agent root
+	// processes with any GC_SESSION_ID set.
+	//
+	// Best-effort implementations may return both partial results and a non-nil
+	// error; callers should proceed with any returned results.
+	FindRuntimesBySessionID(id string) ([]LiveRuntime, error)
+
+	// TerminateRuntime stops the process or infrastructure unit identified by r.
+	// It returns nil when the runtime is already gone.
+	TerminateRuntime(r LiveRuntime) error
+}
+
+// ServerLifecycleProvider is an optional extension for providers that own
+// server-level lifecycle alongside individual session management.
+//
+// This interface must not be added to [Provider]: providers backed by
+// subprocesses, Kubernetes, fakes, or other non-server runtimes do not have a
+// shared server to configure or tear down.
+type ServerLifecycleProvider interface {
+	// ConfigureServer applies server-level configuration. Implementations must
+	// be idempotent, and callers should treat errors as best-effort warnings.
+	ConfigureServer() error
+
+	// TeardownServer terminates the shared server after all sessions have been
+	// drained. Implementations should return nil when the server is already gone.
+	TeardownServer() error
+}
+
 // CopyEntry describes a file or directory to stage in the session's
 // working directory before the agent command starts.
 type CopyEntry struct {
@@ -303,6 +440,21 @@ type CopyEntry struct {
 // runtime-generated Python cache and editor backup artifacts. Returns empty
 // string on any error (caller should treat as "unknown").
 func HashPathContent(path string) string {
+	return HashPathContentExcluding(path, nil)
+}
+
+// HashPathContentExcluding is HashPathContent with an extra per-file filter:
+// when path is a directory, any file whose slash-separated path relative to
+// path satisfies skip is left out of the hashed manifest. The file stays on
+// disk and is still staged — it just does not contribute to the fingerprint. A
+// nil skip hashes everything, byte-identical to HashPathContent. skip is only
+// consulted for regular files (never directories, never the single-file case).
+//
+// This lets a caller keep a probed directory entry content-fingerprinted while
+// excluding files whose changes must NOT cascade a config-drift restart — e.g.
+// operational/host-tooling scripts under .gc/scripts (issue #3840), mirroring
+// the path-only treatment .gc/settings.json already receives.
+func HashPathContentExcluding(path string, skip func(rel string) bool) string {
 	info, err := os.Stat(path)
 	if err != nil {
 		return ""
@@ -337,6 +489,9 @@ func HashPathContent(path string) string {
 			return nil
 		}
 		if d.IsDir() {
+			return nil
+		}
+		if skip != nil && skip(filepath.ToSlash(rel)) {
 			return nil
 		}
 		entries = append(entries, rel)
@@ -378,6 +533,14 @@ func hashPathContentSkipEntry(d fs.DirEntry) bool {
 	return strings.HasSuffix(base, "~")
 }
 
+// Lifecycle describes the expected lifetime of a runtime command.
+type Lifecycle string
+
+const (
+	// LifecycleOneShot marks commands that are expected to do bounded work and exit.
+	LifecycleOneShot Lifecycle = "one_shot"
+)
+
 // Config holds the parameters for starting a new session.
 type Config struct {
 	// WorkDir is the working directory for the session process.
@@ -387,12 +550,29 @@ type Config struct {
 	// If empty, a default shell is started.
 	Command string
 
+	// Lifecycle describes whether the command is long-lived or expected to
+	// exit after one turn. Empty means the default long-lived session lifecycle.
+	Lifecycle Lifecycle
+
+	// Upstream is the model-serving selection identity ("anthropic", "bedrock",
+	// "proxy:<name>") — WHO serves+resolves the model. It is hashed into the
+	// LAUNCH half of the fingerprint (Phase C), so switching upstream relaunches
+	// the agent in the warm box (B2.3) rather than reprovisioning; the resolved
+	// serving env (ANTHROPIC_BASE_URL/_API_KEY, injected into Env) is deliberately
+	// NOT hashed, so a credential rotation never moves a fingerprint. Empty = no
+	// upstream selected (behavior-identical; contributes nothing to the hash).
+	Upstream string
+
 	// Env is additional environment variables set in the session.
 	Env map[string]string
 
 	// MCPServers is the effective ACP session/new MCP server list for this
 	// session. Non-ACP providers ignore it.
 	MCPServers []MCPServerConfig
+
+	// StartupEnvelope carries provider-specific startup metadata used by
+	// the T3 bridge path. It is excluded from the core fingerprint.
+	StartupEnvelope json.RawMessage
 
 	// Startup reliability hints (all optional — zero values skip).
 
@@ -407,6 +587,15 @@ type Config struct {
 
 	// EmitsPermissionWarning is true if the agent shows a bypass-permissions dialog.
 	EmitsPermissionWarning bool
+
+	// AcceptStartupDialogs overrides automatic startup dialog handling.
+	// Nil keeps the runtime default derived from other startup hints.
+	AcceptStartupDialogs *bool
+
+	// MouseOn reports whether tmux mouse mode should be preserved for this session.
+	// When false, tmux startup disables mouse mode and monitor-activity to keep
+	// terminal mouse escape sequences out of headless agent stdin.
+	MouseOn bool
 
 	// Nudge is text typed into the session after the agent is ready.
 	// Used for CLI agents that don't accept command-line prompts.
@@ -431,14 +620,16 @@ type Config struct {
 	SessionLive []string
 
 	// ProviderName is the resolved provider name (e.g., "claude", "codex").
-	// Used for per-provider overlay filtering: files from
-	// overlay/per-provider/<ProviderName>/ are copied alongside any extras
-	// listed in InstallAgentHooks.
+	// Used for launch/runtime behavior that follows a built-in family.
 	ProviderName string
+
+	// ProviderOverlayName is the concrete provider name used for per-provider
+	// overlay filtering. When empty, ProviderName is used for compatibility.
+	ProviderOverlayName string
 
 	// InstallAgentHooks lists additional provider hook slots whose
 	// overlay/per-provider/<name>/ content should be staged alongside
-	// ProviderName's. Populated from the agent's install_agent_hooks
+	// ProviderOverlayName's. Populated from the agent's install_agent_hooks
 	// config, so an agent running Claude can still get a materialized
 	// .gemini/settings.json for parallel tooling.
 	InstallAgentHooks []string
@@ -478,6 +669,49 @@ type Config struct {
 	// separately so the tmux adapter's file-expansion path can
 	// reconstruct the command correctly for long prompts.
 	PromptFlag string
+}
+
+// OverlayProviderNames returns the effective provider overlay slots to stage for
+// cfg, preserving first-use order while skipping empty and duplicate names.
+func OverlayProviderNames(cfg Config) []string {
+	return OverlayProviderNamesFromParts(cfg.ProviderName, cfg.ProviderOverlayName, cfg.InstallAgentHooks)
+}
+
+// OverlayProviderNamesFromParts returns the effective provider overlay slots
+// for a launch provider, concrete overlay provider, and installed hooks.
+//
+// The concrete providerOverlayName is the primary slot, falling back to the
+// launch family providerName only when the concrete name is empty. Callers that
+// stage onto a real overlay source should instead use
+// EffectiveOverlayProviderNames, which downgrades a concrete name with no
+// per-provider/<concrete>/ directory to the family so a custom provider (e.g.
+// base="builtin:pi" "pi-vllm", which has no per-provider/pi-vllm/ overlay)
+// still stages the family overlay where its hooks live (gc-6bw8o), while a
+// provider that ships its own overlay (e.g. Kiro) keeps it.
+func OverlayProviderNamesFromParts(providerName, providerOverlayName string, installAgentHooks []string) []string {
+	primary := strings.TrimSpace(providerOverlayName)
+	if primary == "" {
+		primary = strings.TrimSpace(providerName)
+	}
+	providers := make([]string, 0, 1+len(installAgentHooks))
+	providers = appendOverlayProviderName(providers, primary)
+	for _, hook := range installAgentHooks {
+		providers = appendOverlayProviderName(providers, hook)
+	}
+	return providers
+}
+
+func appendOverlayProviderName(providers []string, name string) []string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return providers
+	}
+	for _, existing := range providers {
+		if existing == name {
+			return providers
+		}
+	}
+	return append(providers, name)
 }
 
 // SyncWorkDirEnv returns cfg with GC_DIR synchronized to WorkDir.

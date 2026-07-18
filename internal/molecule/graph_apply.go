@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gastownhall/gascity/internal/beadmeta"
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/formula"
 )
@@ -78,6 +79,31 @@ func instantiateViaGraphApply(ctx context.Context, applier beads.GraphApplyStore
 	}, nil
 }
 
+func isTransientGraphApplyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	text := strings.ToLower(err.Error())
+	if !isGraphApplyErrorText(text) {
+		return false
+	}
+	return strings.Contains(text, "i/o timeout") ||
+		strings.Contains(text, "timed out after") ||
+		strings.Contains(text, "deadline exceeded") ||
+		strings.Contains(text, "invalid connection") ||
+		strings.Contains(text, "bad connection") ||
+		strings.Contains(text, "connection reset") ||
+		strings.Contains(text, "broken pipe")
+}
+
+func isGraphApplyErrorText(text string) bool {
+	return strings.Contains(text, "bd create --graph") ||
+		strings.Contains(text, "native graph apply") ||
+		strings.Contains(text, "failed to check for dependency cycle") ||
+		strings.Contains(text, "graph create: adding edge") ||
+		strings.Contains(text, "adding edge ")
+}
+
 func instantiateFragmentViaGraphApply(ctx context.Context, store beads.Store, applier beads.GraphApplyStore, recipe *formula.FragmentRecipe, opts FragmentOptions) (*FragmentResult, error) {
 	graphApplyTracef("graph-apply fragment-enter root=%s applier=%T", opts.RootID, applier)
 	plan, err := buildFragmentApplyPlan(store, recipe, opts)
@@ -111,14 +137,19 @@ func buildRecipeApplyPlan(recipe *formula.Recipe, opts Options) (*beads.GraphApp
 
 	vars := applyVarDefaults(opts.Vars, recipe.Vars)
 	priorityOverride := clonePriority(opts.PriorityOverride)
-	graphWorkflow := len(recipe.Steps) > 0 && recipe.Steps[0].Metadata["gc.kind"] == "workflow"
+	graphWorkflow := preservesGraphActionTypes(recipe)
 	rootKey := recipe.Steps[0].ID
 	rootIncluded := false
+	externalDepsByStep, err := groupExternalDeps(opts.ExternalDeps)
+	if err != nil {
+		return nil, false, "", err
+	}
+	recipeParentByStep := recipeParentDeps(recipe.Deps)
 
 	plan := &beads.GraphApplyPlan{
 		CommitMessage: fmt.Sprintf("gc: instantiate %s", recipe.Name),
 		Nodes:         make([]beads.GraphApplyNode, 0, len(recipe.Steps)),
-		Edges:         make([]beads.GraphApplyEdge, 0, len(recipe.Deps)),
+		Edges:         make([]beads.GraphApplyEdge, 0, len(recipe.Deps)+len(opts.ExternalDeps)),
 	}
 
 	for i, step := range recipe.Steps {
@@ -140,7 +171,7 @@ func buildRecipeApplyPlan(recipe *formula.Recipe, opts Options) (*beads.GraphApp
 			if opts.Title != "" {
 				node.Title = formula.Substitute(opts.Title, vars)
 			}
-			if opts.ParentID != "" && step.Metadata["gc.kind"] != "workflow" {
+			if opts.ParentID != "" && step.Metadata[beadmeta.KindMetadataKey] != beadmeta.KindWorkflow {
 				node.ParentID = opts.ParentID
 			}
 			if opts.IdempotencyKey != "" {
@@ -149,28 +180,70 @@ func buildRecipeApplyPlan(recipe *formula.Recipe, opts Options) (*beads.GraphApp
 				}
 				node.Metadata["idempotency_key"] = opts.IdempotencyKey
 			}
+			if len(vars) > 0 {
+				if node.Metadata == nil {
+					node.Metadata = make(map[string]string, len(vars))
+				}
+				for k, v := range vars {
+					if v != "" {
+						node.Metadata[formulaVarMetadataPrefix+k] = v
+					}
+				}
+			}
+			if recipe.ContentHash != "" {
+				if node.Metadata == nil {
+					node.Metadata = make(map[string]string, 2)
+				}
+				node.Metadata[beadmeta.FormulaHashMetadataKey] = recipe.ContentHash
+			}
+			if recipe.FormulaSource != "" {
+				if node.Metadata == nil {
+					node.Metadata = make(map[string]string, 1)
+				}
+				node.Metadata[beadmeta.FormulaSourceMetadataKey] = recipe.FormulaSource
+			}
 		} else {
+			// graph.v2 workflows and their retry/Ralph attempt sub-recipes
+			// use step beads as independently routable actionable work, not
+			// scaffolding — skip the #1039 coercion so Ready() still surfaces
+			// them for worker claim.
+			if !graphWorkflow {
+				node.Type = nonRootStepBeadType(node.Type)
+			}
 			if node.Metadata == nil {
 				node.Metadata = make(map[string]string, 1)
 			}
-			if node.Metadata["gc.step_ref"] == "" {
-				node.Metadata["gc.step_ref"] = step.ID
+			if node.Metadata[beadmeta.StepRefMetadataKey] == "" {
+				node.Metadata[beadmeta.StepRefMetadataKey] = step.ID
 			}
-			if (graphWorkflow || step.Metadata["gc.kind"] != "") && node.Metadata["gc.root_bead_id"] == "" {
+			if (graphWorkflow || step.Metadata[beadmeta.KindMetadataKey] != "") && node.Metadata[beadmeta.RootBeadIDMetadataKey] == "" {
 				if node.MetadataRefs == nil {
 					node.MetadataRefs = make(map[string]string, 1)
 				}
-				node.MetadataRefs["gc.root_bead_id"] = rootKey
+				node.MetadataRefs[beadmeta.RootBeadIDMetadataKey] = rootKey
 			}
 			if logicalStepID, ok := logicalRecipeStepID(step); ok {
 				if node.MetadataRefs == nil {
 					node.MetadataRefs = make(map[string]string, 1)
 				}
-				node.MetadataRefs["gc.logical_bead_id"] = logicalStepID
+				node.MetadataRefs[beadmeta.LogicalBeadIDMetadataKey] = logicalStepID
 			}
 			if node.Assignee != "" {
 				node.AssignAfterCreate = true
 			}
+		}
+		for _, dep := range externalDepsByStep[step.ID] {
+			if dep.Type == "parent-child" && recipeParentByStep[step.ID] != "" {
+				continue
+			}
+			if dep.Type == "parent-child" {
+				node.ParentID = dep.DependsOnID
+			}
+			plan.Edges = append(plan.Edges, beads.GraphApplyEdge{
+				FromKey: step.ID,
+				ToID:    dep.DependsOnID,
+				Type:    dep.Type,
+			})
 		}
 		// Same residual-var guard as Instantiate — see #618.
 		if strings.Contains(node.Title, "{{") {
@@ -217,6 +290,9 @@ func buildRecipeApplyPlan(recipe *formula.Recipe, opts Options) (*beads.GraphApp
 			if node.Key == rootKey {
 				continue
 			}
+			if graphApplyPlanHasEdgeFromKeyToTarget(plan.Edges, node.Key, rootKey, "") {
+				continue
+			}
 			plan.Edges = append(plan.Edges, beads.GraphApplyEdge{
 				FromKey: node.Key,
 				ToKey:   rootKey,
@@ -235,8 +311,8 @@ func deferGraphNodeRouting(node *beads.GraphApplyNode) {
 		node.Assignee = ""
 		node.AssignAfterCreate = false
 	}
-	deferGraphNodeMetadataValue(node, "gc.routed_to", DeferredRoutedToMetadataKey)
-	deferGraphNodeMetadataValue(node, "gc.execution_routed_to", DeferredExecutionRoutedToMetadataKey)
+	deferGraphNodeMetadataValue(node, beadmeta.RoutedToMetadataKey, DeferredRoutedToMetadataKey)
+	deferGraphNodeMetadataValue(node, beadmeta.ExecutionRoutedToMetadataKey, DeferredExecutionRoutedToMetadataKey)
 }
 
 func deferGraphNodeMetadataValue(node *beads.GraphApplyNode, sourceKey, deferredKey string) {
@@ -253,6 +329,21 @@ func ensureGraphNodeMetadata(node *beads.GraphApplyNode) {
 	if node.Metadata == nil {
 		node.Metadata = make(map[string]string, 1)
 	}
+}
+
+func graphApplyPlanHasEdgeFromKeyToTarget(edges []beads.GraphApplyEdge, fromKey, toKey, toID string) bool {
+	for _, edge := range edges {
+		if edge.FromKey != fromKey {
+			continue
+		}
+		if toKey != "" && edge.ToKey == toKey {
+			return true
+		}
+		if toID != "" && edge.ToID == toID {
+			return true
+		}
+	}
+	return false
 }
 
 func buildFragmentApplyPlan(store beads.Store, recipe *formula.FragmentRecipe, opts FragmentOptions) (*beads.GraphApplyPlan, error) {
@@ -296,21 +387,25 @@ func buildFragmentApplyPlan(store beads.Store, recipe *formula.FragmentRecipe, o
 		if err != nil {
 			return nil, err
 		}
+		// Fragment entries stay "task" — unlike formula scaffolding steps,
+		// fanout-expanded fragment nodes are actionable work that pool
+		// workers claim from `bd ready`. Do not apply nonRootStepBeadType
+		// here (#1039).
 		if node.Metadata == nil {
 			node.Metadata = make(map[string]string, 2)
 		}
-		if node.Metadata["gc.step_ref"] == "" {
-			node.Metadata["gc.step_ref"] = step.ID
+		if node.Metadata[beadmeta.StepRefMetadataKey] == "" {
+			node.Metadata[beadmeta.StepRefMetadataKey] = step.ID
 		}
-		node.Metadata["gc.root_bead_id"] = opts.RootID
+		node.Metadata[beadmeta.RootBeadIDMetadataKey] = opts.RootID
 		if logicalStepID, ok := logicalRecipeStepID(step); ok {
 			if existingLogicalBeadID := existingLogicalBeadIDs[logicalStepID]; existingLogicalBeadID != "" {
-				node.Metadata["gc.logical_bead_id"] = existingLogicalBeadID
+				node.Metadata[beadmeta.LogicalBeadIDMetadataKey] = existingLogicalBeadID
 			} else {
 				if node.MetadataRefs == nil {
 					node.MetadataRefs = make(map[string]string, 1)
 				}
-				node.MetadataRefs["gc.logical_bead_id"] = logicalStepID
+				node.MetadataRefs[beadmeta.LogicalBeadIDMetadataKey] = logicalStepID
 			}
 		}
 		if node.Assignee != "" {
@@ -359,6 +454,9 @@ func buildFragmentApplyPlan(store beads.Store, recipe *formula.FragmentRecipe, o
 	// dependency graph without introducing artificial blockers.
 	if opts.RootID != "" {
 		for _, node := range plan.Nodes {
+			if graphApplyPlanHasEdgeFromKeyToTarget(plan.Edges, node.Key, "", opts.RootID) {
+				continue
+			}
 			plan.Edges = append(plan.Edges, beads.GraphApplyEdge{
 				FromKey: node.Key,
 				ToID:    opts.RootID,

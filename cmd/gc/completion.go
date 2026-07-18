@@ -7,10 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/fsys"
 	"github.com/gastownhall/gascity/internal/orders"
 	"github.com/gastownhall/gascity/internal/session"
+	"github.com/gastownhall/gascity/internal/supervisor"
+	"github.com/gastownhall/gascity/internal/suspensionstate"
 	"github.com/spf13/cobra"
 )
 
@@ -74,6 +75,39 @@ func completeOrderNames(_ *cobra.Command, args []string, toComplete string) ([]s
 	return candidates, cobra.ShellCompDirectiveNoFileComp
 }
 
+// completeCityNames completes registered city names for commands whose first
+// positional is a city path-or-name. It uses ShellCompDirectiveDefault (not
+// NoFileComp) because these commands also accept a directory path, so the
+// shell should still offer filesystem paths alongside the registered names.
+func completeCityNames(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return cityNameCandidates(toComplete), cobra.ShellCompDirectiveDefault
+}
+
+// cityNameCandidates returns registered city names (with their paths as
+// descriptions) as cobra completion entries, filtered by the prefix being
+// typed. Reads only the supervisor registry, so it works from any cwd.
+func cityNameCandidates(toComplete string) []string {
+	var candidates []string
+	quietDefaultLogger(func() {
+		entries, err := supervisor.NewRegistry(supervisor.RegistryPath()).List()
+		if err != nil {
+			return
+		}
+		candidates = make([]string, 0, len(entries))
+		for _, e := range entries {
+			name := e.EffectiveName()
+			if name == "" || !strings.HasPrefix(name, toComplete) {
+				continue
+			}
+			candidates = append(candidates, name+"\t"+e.Path)
+		}
+	})
+	return candidates
+}
+
 // quietDefaultLogger runs fn with the default log.Logger's output redirected
 // to io.Discard, then restores it. Needed because some internal paths (e.g.,
 // orders discovery) write migration warnings via log.Printf, which would
@@ -96,11 +130,12 @@ func rigNameCandidates(toComplete string) []string {
 		if err != nil {
 			return
 		}
-		cfg, err := loadCityConfigFS(fsys.OSFS{}, filepath.Join(cityPath, "city.toml"), io.Discard)
+		cfg, err := loadCityConfigWithoutBuiltinPackRefreshFS(fsys.OSFS{}, filepath.Join(cityPath, "city.toml"), io.Discard)
 		if err != nil {
 			return
 		}
 		resolveRigPaths(cityPath, cfg.Rigs)
+		suspState, _ := loadSuspensionState(fsys.OSFS{}, cityPath)
 		candidates = make([]string, 0, len(cfg.Rigs))
 		for i := range cfg.Rigs {
 			name := cfg.Rigs[i].Name
@@ -108,7 +143,7 @@ func rigNameCandidates(toComplete string) []string {
 				continue
 			}
 			desc := cfg.Rigs[i].Path
-			if cfg.Rigs[i].Suspended {
+			if suspensionstate.EffectiveRigSuspended(suspState, name, cfg.Rigs[i].EffectiveSuspendedOnStart()) {
 				desc += " (suspended)"
 			}
 			candidates = append(candidates, name+"\t"+desc)
@@ -123,7 +158,7 @@ func resolveCityForCompletion() (string, error) {
 
 func resolveCityForCompletionContext(honorRigFlag bool) (string, error) {
 	if city := strings.TrimSpace(cityFlag); city != "" {
-		return validateCityPath(city)
+		return resolveCityFlagValue(city)
 	}
 	if honorRigFlag {
 		if rig := strings.TrimSpace(rigFlag); rig != "" {
@@ -180,7 +215,7 @@ func loadOrdersForCompletion() []orders.Order {
 		if err != nil {
 			return
 		}
-		cfg, err := loadCityConfig(cityPath, io.Discard)
+		cfg, err := loadCityConfigWithoutBuiltinPackRefresh(cityPath, io.Discard)
 		if err != nil {
 			return
 		}
@@ -207,28 +242,35 @@ func loadSessionsForCompletion() []session.Info {
 		if err != nil {
 			return
 		}
-		cfg, err := loadCityConfig(cityPath, io.Discard)
+		cfg, err := loadCityConfigWithoutBuiltinPackRefresh(cityPath, io.Discard)
 		if err != nil {
 			return
 		}
+		// loadSessionsForCompletion reads only session-class state (session beads
+		// plus the session catalog), so route through the session
+		// coordination-class store for relocation-safety.
+		sessStore := cliSessionStore(store, cfg, cityPath)
 		providerCtx := sessionProviderContextForCity(cfg, cityPath, os.Getenv("GC_SESSION"))
-		allSessionBeads, err := store.List(beads.ListQuery{
-			Label: session.LabelSession,
-			Sort:  beads.SortCreatedDesc,
-		})
+		// One union scan via the snapshot loader (front-door migration keeps
+		// ListAllSessionBeads out of the CLI) feeds both the provider and the
+		// typed listing.
+		sessionBeads, err := loadSessionBeadSnapshot(sessStore)
 		if err != nil {
 			return
 		}
-		sessionBeads := newSessionBeadSnapshot(allSessionBeads)
 		sp, err := newSessionProviderFromContextWithError(providerCtx, sessionBeads)
 		if err != nil {
 			return
 		}
-		catalog, err := workerSessionCatalogWithConfig("", store, sp, providerCtx.cfg)
+		catalog, err := workerSessionCatalogWithConfig("", sessStore, sp, providerCtx.cfg)
 		if err != nil {
 			return
 		}
-		sessions = catalog.ListFullFromBeads(allSessionBeads, "", "").Sessions
+		sessions = catalog.ListFromInfos(sessionBeads.OpenInfos(), "", "")
+		// loadSessionBeadSnapshot loads unsorted; restore the created-desc order the
+		// retired sorted completion feed produced so `gc <cmd> <TAB>` candidates
+		// surface newest-first (shared comparator with the session lister).
+		sortSessionsCreatedDesc(sessions)
 	})
 	return sessions
 }

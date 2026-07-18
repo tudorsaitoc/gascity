@@ -2,8 +2,9 @@ package api
 
 import (
 	"context"
+	"net/http"
 
-	"github.com/danielgtaylor/huma/v2"
+	"github.com/gastownhall/gascity/internal/api/apierr"
 	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/runtime"
 	workdirutil "github.com/gastownhall/gascity/internal/workdir"
@@ -19,6 +20,10 @@ func (s *Server) humaHandleRigList(ctx context.Context, input *RigListInput) (*L
 	cfg := s.state.Config()
 	sp := s.state.SessionProvider()
 	cityName := s.state.CityName()
+	store := s.state.CityBeadStore()
+	if err := cacheLiveOr503(store); err != nil {
+		return nil, err
+	}
 	wantGit := input.Git
 
 	rigs := make([]rigResponse, 0, len(cfg.Rigs))
@@ -30,8 +35,9 @@ func (s *Server) humaHandleRigList(ctx context.Context, input *RigListInput) (*L
 		rigs = append(rigs, resp)
 	}
 	return &ListOutput[rigResponse]{
-		Index: s.latestIndex(),
-		Body:  ListBody[rigResponse]{Items: rigs, Total: len(rigs)},
+		Index:     s.latestIndex(),
+		CacheAgeS: cacheAgeSeconds(store),
+		Body:      ListBody[rigResponse]{Items: rigs, Total: len(rigs)},
 	}, nil
 }
 
@@ -54,29 +60,39 @@ func (s *Server) humaHandleRigGet(_ context.Context, input *RigGetInput) (*Index
 			}, nil
 		}
 	}
-	return nil, huma.Error404NotFound("rig " + name + " not found")
+	return nil, apierr.RigNotFound.Msg("rig " + name + " not found")
 }
 
 // humaHandleRigCreate is the Huma-typed handler for POST /v0/rigs.
 // Name and Path required via struct tags on RigCreateInput.
 func (s *Server) humaHandleRigCreate(_ context.Context, input *RigCreateInput) (*RigCreatedOutput, error) {
-	sm, ok := s.state.(StateMutator)
-	if !ok {
-		return nil, errMutationsNotSupported
-	}
+	// Idempotency: create at most once per Idempotency-Key. The cached value is
+	// the rig name; the response body is rebuilt from it on replay.
+	name, err := withIdempotency(s, "/v0/rigs", input.IdempotencyKey, input.Body,
+		func() (string, error) {
+			sm, ok := s.state.(StateMutator)
+			if !ok {
+				return "", errMutationsNotSupported
+			}
 
-	rig := config.Rig{
-		Name:   input.Body.Name,
-		Path:   input.Body.Path,
-		Prefix: input.Body.Prefix,
-	}
+			rig := config.Rig{
+				Name:          input.Body.Name,
+				Path:          input.Body.Path,
+				Prefix:        input.Body.Prefix,
+				DefaultBranch: input.Body.DefaultBranch,
+			}
 
-	if err := sm.CreateRig(rig); err != nil {
-		return nil, mutationError(err)
+			if err := sm.CreateRig(rig); err != nil {
+				return "", mutationError(err)
+			}
+			return input.Body.Name, nil
+		})
+	if err != nil {
+		return nil, err
 	}
 	resp := &RigCreatedOutput{}
 	resp.Body.Status = "created"
-	resp.Body.Rig = input.Body.Name
+	resp.Body.Rig = name
 	return resp, nil
 }
 
@@ -88,9 +104,10 @@ func (s *Server) humaHandleRigUpdate(_ context.Context, input *RigUpdateInput) (
 	}
 
 	patch := RigUpdate{
-		Path:      input.Body.Path,
-		Prefix:    input.Body.Prefix,
-		Suspended: input.Body.Suspended,
+		Path:          input.Body.Path,
+		Prefix:        input.Body.Prefix,
+		DefaultBranch: input.Body.DefaultBranch,
+		Suspended:     input.Body.Suspended,
 	}
 
 	if err := sm.UpdateRig(input.Name, patch); err != nil {
@@ -146,7 +163,7 @@ func (s *Server) humaHandleRigAction(_ context.Context, input *RigActionInput) (
 		return s.humaHandleRigRestart(name)
 
 	default:
-		return nil, huma.Error404NotFound("unknown rig action: " + action)
+		return nil, apierr.InvalidRequest.WithStatus(http.StatusNotFound, "unknown rig action: "+action)
 	}
 }
 
@@ -166,7 +183,7 @@ func (s *Server) humaHandleRigRestart(name string) (*RigActionResponse, error) {
 		}
 	}
 	if !rigFound {
-		return nil, huma.Error404NotFound("rig " + name + " not found")
+		return nil, apierr.RigNotFound.Msg("rig " + name + " not found")
 	}
 
 	// Best-effort kill: the agent set may change between config read and each

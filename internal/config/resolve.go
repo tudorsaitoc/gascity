@@ -23,9 +23,9 @@ type LookPathFunc func(string) (string, error)
 //
 // Resolution chain:
 //  1. agent.StartCommand set? Escape hatch → ResolvedProvider{Command: startCommand}
-//  2. Determine provider name: agent.Provider > workspace.Provider > auto-detect
+//  2. Determine provider name: agent.Provider > workspace.Provider
 //     (workspace.StartCommand is escape hatch if no provider name found)
-//  3. Look up ProviderSpec: cityProviders[name] > BuiltinProviders()[name]
+//  3. Look up ProviderSpec from the explicit city provider catalog
 //     (verify binary exists in PATH via lookPath)
 //  4. Merge agent-level overrides: non-zero agent fields replace base spec fields
 //     (env merges additively — agent env adds to/overrides base env)
@@ -39,7 +39,28 @@ func ResolveProvider(agent *Agent, ws *Workspace, cityProviders map[string]Provi
 		if mode == "" {
 			mode = "none"
 		}
-		return &ResolvedProvider{Command: agent.StartCommand, PromptMode: mode, PromptFlag: agent.PromptFlag}, nil
+		resolved := &ResolvedProvider{
+			Command:    agent.StartCommand,
+			Lifecycle:  agent.Lifecycle,
+			PromptMode: mode,
+			PromptFlag: agent.PromptFlag,
+		}
+		if agent.ReadyDelayMs != nil {
+			resolved.ReadyDelayMs = *agent.ReadyDelayMs
+		}
+		if agent.ReadyPromptPrefix != "" {
+			resolved.ReadyPromptPrefix = agent.ReadyPromptPrefix
+		}
+		if len(agent.ProcessNames) > 0 {
+			resolved.ProcessNames = cloneStrings(agent.ProcessNames)
+		}
+		if agent.EmitsPermissionWarning != nil {
+			resolved.EmitsPermissionWarning = *agent.EmitsPermissionWarning
+		}
+		if agent.ResumeCommand != "" {
+			resolved.ResumeCommand = agent.ResumeCommand
+		}
+		return resolved, nil
 	}
 
 	// Step 2: determine provider name.
@@ -52,12 +73,10 @@ func ResolveProvider(agent *Agent, ws *Workspace, cityProviders map[string]Provi
 		if ws != nil && ws.StartCommand != "" {
 			return &ResolvedProvider{Command: ws.StartCommand, PromptMode: "none"}, nil
 		}
-		// Auto-detect: scan PATH for known binaries.
-		detected, err := detectProviderName(lookPath)
-		if err != nil {
-			return nil, err
-		}
-		name = detected
+		return nil, fmt.Errorf("%w: provider is required; set agent.provider or workspace.provider to a key in [providers]", ErrProviderNotFound)
+	}
+	if _, ok := cityProviders[name]; !ok {
+		return nil, fmt.Errorf("%w: provider %q is not in the explicit provider catalog", ErrProviderNotFound, name)
 	}
 
 	// Step 3: look up the ProviderSpec.
@@ -103,10 +122,29 @@ func ResolveProvider(agent *Agent, ws *Workspace, cityProviders map[string]Provi
 	return resolved, nil
 }
 
+// AgentProcessNames resolves the process-name hints used to observe an agent's
+// runtime liveness, following the same provider resolution path as launch.
+func AgentProcessNames(cfg *City, agent Agent, lookPath LookPathFunc) []string {
+	if len(agent.ProcessNames) > 0 {
+		return append([]string(nil), agent.ProcessNames...)
+	}
+	if cfg == nil || lookPath == nil {
+		return nil
+	}
+	resolved, err := ResolveProvider(&agent, &cfg.Workspace, cfg.Providers, lookPath)
+	if err != nil || len(resolved.ProcessNames) == 0 {
+		return nil
+	}
+	return append([]string(nil), resolved.ProcessNames...)
+}
+
 // ResolveInstallHooks returns the hook providers to install for an agent.
 // Agent-level overrides workspace-level (replace, not additive).
 // Returns nil if neither specifies hooks.
 func ResolveInstallHooks(agent *Agent, ws *Workspace) []string {
+	if IsDeterministicControlDispatcher(agent) {
+		return nil
+	}
 	if len(agent.InstallAgentHooks) > 0 {
 		return agent.InstallAgentHooks
 	}
@@ -148,6 +186,11 @@ func lookupProvider(name string, cityProviders map[string]ProviderSpec, lookPath
 					return nil, err
 				}
 				merged := resolvedChainToSpec(resolved, spec)
+				if merged.Command != "" {
+					if _, err := lookPath(merged.pathCheckBinary()); err != nil {
+						return nil, fmt.Errorf("%w: provider %q command %q", ErrProviderNotInPATH, name, merged.pathCheckBinary())
+					}
+				}
 				return &merged, nil
 			}
 			// Phase A legacy: layer city overrides on top of the built-in
@@ -174,7 +217,7 @@ func lookupProvider(name string, cityProviders map[string]ProviderSpec, lookPath
 	builtins := BuiltinProviders()
 	if spec, ok := builtins[name]; ok {
 		if _, err := lookPath(spec.pathCheckBinary()); err != nil {
-			return nil, fmt.Errorf("%w: %q", ErrProviderNotInPATH, name)
+			return nil, fmt.Errorf("%w: provider %q command %q", ErrProviderNotInPATH, name, spec.pathCheckBinary())
 		}
 		return &spec, nil
 	}
@@ -231,6 +274,9 @@ func MergeProviderOverBuiltin(base, city ProviderSpec) ProviderSpec {
 	if city.EmitsPermissionWarning != nil {
 		result.EmitsPermissionWarning = city.EmitsPermissionWarning
 	}
+	if city.AcceptStartupDialogs != nil {
+		result.AcceptStartupDialogs = cloneBoolPtr(city.AcceptStartupDialogs)
+	}
 	if city.PathCheck != "" {
 		result.PathCheck = city.PathCheck
 	}
@@ -254,6 +300,20 @@ func MergeProviderOverBuiltin(base, city ProviderSpec) ProviderSpec {
 	}
 	if city.SessionIDFlag != "" {
 		result.SessionIDFlag = city.SessionIDFlag
+	}
+	if city.ForkFlag != "" {
+		result.ForkFlag = city.ForkFlag
+	}
+	// Upstream serving-env binding inherits per-field: a child harness keeps the
+	// base's env-var names unless it overrides a specific one.
+	if city.UpstreamEnv.BaseURL != "" {
+		result.UpstreamEnv.BaseURL = city.UpstreamEnv.BaseURL
+	}
+	if city.UpstreamEnv.APIKey != "" {
+		result.UpstreamEnv.APIKey = city.UpstreamEnv.APIKey
+	}
+	if city.UpstreamEnv.AuthToken != "" {
+		result.UpstreamEnv.AuthToken = city.UpstreamEnv.AuthToken
 	}
 
 	if city.TitleModel != "" {
@@ -365,7 +425,7 @@ func mergeOptionsSchemaByKey(base, city []ProviderOption) ([]ProviderOption, map
 			continue
 		}
 		if idx, ok := index[opt.Key]; ok && opt.Key != "" {
-			out[idx] = opt
+			out[idx] = mergeProviderOptionByKey(out[idx], opt)
 			continue
 		}
 		if opt.Key != "" {
@@ -374,6 +434,43 @@ func mergeOptionsSchemaByKey(base, city []ProviderOption) ([]ProviderOption, map
 		out = append(out, opt)
 	}
 	return out, pruned
+}
+
+func mergeProviderOptionByKey(base, overlay ProviderOption) ProviderOption {
+	out := overlay
+	if out.Label == "" {
+		out.Label = base.Label
+	}
+	if out.Type == "" {
+		out.Type = base.Type
+	}
+	if out.Default == "" {
+		out.Default = base.Default
+	}
+	out.Choices = mergeOptionChoicesByValue(base.Choices, overlay.Choices)
+	return out
+}
+
+func mergeOptionChoicesByValue(base, overlay []OptionChoice) []OptionChoice {
+	out := make([]OptionChoice, 0, len(base)+len(overlay))
+	index := make(map[string]int, len(base)+len(overlay))
+	for _, choice := range base {
+		if choice.Value != "" {
+			index[choice.Value] = len(out)
+		}
+		out = append(out, choice)
+	}
+	for _, choice := range overlay {
+		if idx, ok := index[choice.Value]; ok && choice.Value != "" {
+			out[idx] = choice
+			continue
+		}
+		if choice.Value != "" {
+			index[choice.Value] = len(out)
+		}
+		out = append(out, choice)
+	}
+	return out
 }
 
 func optionKeysRemovedByReplacement(base, replacement []ProviderOption) map[string]bool {
@@ -528,6 +625,7 @@ func specToResolved(name string, spec *ProviderSpec) *ResolvedProvider {
 		ReadyDelayMs:           spec.ReadyDelayMs,
 		ReadyPromptPrefix:      spec.ReadyPromptPrefix,
 		EmitsPermissionWarning: derefBool(spec.EmitsPermissionWarning),
+		AcceptStartupDialogs:   cloneBoolPtr(spec.AcceptStartupDialogs),
 		SupportsACP:            derefBool(spec.SupportsACP),
 		SupportsHooks:          derefBool(spec.SupportsHooks),
 		InstructionsFile:       spec.InstructionsFile,
@@ -535,8 +633,10 @@ func specToResolved(name string, spec *ProviderSpec) *ResolvedProvider {
 		ResumeStyle:            spec.ResumeStyle,
 		ResumeCommand:          spec.ResumeCommand,
 		SessionIDFlag:          spec.SessionIDFlag,
+		ForkFlag:               spec.ForkFlag,
 		TitleModel:             spec.TitleModel,
 		ACPCommand:             spec.ACPCommand,
+		UpstreamEnv:            spec.UpstreamEnv,
 	}
 	// Deep-copy OptionsSchema to avoid aliasing the spec's slice.
 	if len(spec.OptionsSchema) > 0 {
@@ -667,6 +767,9 @@ func mergeAgentOverrides(rp *ResolvedProvider, agent *Agent) {
 	if agent.PromptFlag != "" {
 		rp.PromptFlag = agent.PromptFlag
 	}
+	if agent.Lifecycle != "" {
+		rp.Lifecycle = agent.Lifecycle
+	}
 	if agent.ReadyDelayMs != nil {
 		rp.ReadyDelayMs = *agent.ReadyDelayMs
 	}
@@ -736,6 +839,9 @@ func resolvedChainToSpec(r ResolvedProvider, leaf ProviderSpec) ProviderSpec {
 		v := r.EmitsPermissionWarning
 		out.EmitsPermissionWarning = &v
 	}
+	if leaf.AcceptStartupDialogs == nil && providerBoolFieldSet(r, "accept_startup_dialogs") {
+		out.AcceptStartupDialogs = cloneBoolPtr(r.AcceptStartupDialogs)
+	}
 	if leaf.SupportsACP == nil && providerBoolFieldSet(r, "supports_acp") {
 		v := r.SupportsACP
 		out.SupportsACP = &v
@@ -758,6 +864,9 @@ func resolvedChainToSpec(r ResolvedProvider, leaf ProviderSpec) ProviderSpec {
 	}
 	if r.SessionIDFlag != "" {
 		out.SessionIDFlag = r.SessionIDFlag
+	}
+	if r.ForkFlag != "" {
+		out.ForkFlag = r.ForkFlag
 	}
 	if r.TitleModel != "" {
 		out.TitleModel = r.TitleModel

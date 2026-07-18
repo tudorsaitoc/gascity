@@ -41,7 +41,6 @@ type formulaVarDefResponse struct {
 type formulaSummaryResponse struct {
 	Name        string                     `json:"name"`
 	Description string                     `json:"description"`
-	Version     string                     `json:"version"`
 	VarDefs     []formulaVarDefResponse    `json:"var_defs"`
 	RunCount    int                        `json:"run_count"`
 	RecentRuns  []formulaRecentRunResponse `json:"recent_runs"`
@@ -90,7 +89,6 @@ type FormulaStepResponse struct {
 type formulaDetailResponse struct {
 	Name        string                       `json:"name"`
 	Description string                       `json:"description"`
-	Version     string                       `json:"version"`
 	VarDefs     []formulaVarDefResponse      `json:"var_defs"`
 	Steps       []FormulaStepResponse        `json:"steps"`
 	Deps        []formulaPreviewEdgeResponse `json:"deps"`
@@ -144,7 +142,7 @@ type FormulaDetailInput struct {
 	Name      string `path:"name" doc:"Formula name."`
 	ScopeKind string `query:"scope_kind" required:"false" doc:"Scope kind (city or rig)."`
 	ScopeRef  string `query:"scope_ref" required:"false" doc:"Scope reference."`
-	Target    string `query:"target" required:"true" doc:"Target agent for preview compilation."`
+	Target    string `query:"target" required:"true" doc:"Preview target: a bead or convoy ID, or a configured agent identity (for example a workflow root's gc.routed_to value)."`
 }
 
 // Resolve rejects legacy `var.<name>=<value>` query parameters with a
@@ -174,7 +172,7 @@ func (i *FormulaDetailInput) Resolve(ctx huma.Context, _ *huma.PathBuffer) []err
 type FormulaPreviewBody struct {
 	ScopeKind string            `json:"scope_kind,omitempty" doc:"Scope kind (city or rig)."`
 	ScopeRef  string            `json:"scope_ref,omitempty" doc:"Scope reference."`
-	Target    string            `json:"target" minLength:"1" doc:"Target agent for preview compilation."`
+	Target    string            `json:"target" minLength:"1" doc:"Preview target: a bead or convoy ID, or a configured agent identity (for example a workflow root's gc.routed_to value)."`
 	Vars      map[string]string `json:"vars,omitempty" doc:"Variable name-to-value overrides applied to the compiled preview."`
 }
 

@@ -85,6 +85,8 @@ br_stream_objects() {
 br_object_to_gc() {
   local obj="$1"
   local parent_id="" key value rest key_hex value_hex
+  local ephemeral=false
+  local no_history=false
   local -a kept_labels=()
   local -a needs=()
   local metadata='{}'
@@ -111,6 +113,12 @@ br_object_to_gc() {
         value=$(hex_decode "$value_hex")
         metadata=$(jq -cn --argjson m "$metadata" --arg k "$key" --arg v "$value" '$m + {($k): $v}')
         ;;
+      gc:ephemeral)
+        ephemeral=true
+        ;;
+      gc:no-history)
+        no_history=true
+        ;;
       *)
         kept_labels+=("$label")
         ;;
@@ -126,6 +134,8 @@ br_object_to_gc() {
     --argjson labels "$labels_json" \
     --argjson needs "$needs_json" \
     --argjson metadata "$metadata" \
+    --argjson ephemeral "$ephemeral" \
+    --argjson no_history "$no_history" \
     '{
       id: .id,
       title: .title,
@@ -140,7 +150,9 @@ br_object_to_gc() {
       needs: $needs,
       description: (.description // ""),
       labels: $labels,
-      metadata: $metadata
+      metadata: $metadata,
+      ephemeral: $ephemeral,
+      no_history: $no_history
     }'
 }
 
@@ -201,6 +213,14 @@ case "$op" in
       [ -n "$meta_key" ] && all_labels+=("$(meta_label "$meta_key" "$meta_value")")
     done < <(echo "$input" | jq -r '.metadata // {} | to_entries[] | [.key, (.value|tostring)] | @tsv')
 
+    if [ "$(echo "$input" | jq -r '.ephemeral // false')" = "true" ]; then
+      all_labels+=("gc:ephemeral")
+    fi
+
+    if [ "$(echo "$input" | jq -r '.no_history // false')" = "true" ]; then
+      all_labels+=("gc:no-history")
+    fi
+
     # Build create command.
     cmd_args=(br create --json --type="$bead_type")
     [ -n "$description" ] && cmd_args+=(--description "$description")
@@ -259,7 +279,10 @@ case "$op" in
     if [ "$status" = "closed" ]; then
       exit 0
     fi
-    br close --json "$id" > /dev/null
+    # --force: same generic exec Store.Close delegate as gc-beads-k8s (br backend).
+    # Closes agent-owned beads under the controller/reaper actor, so it must bypass
+    # the cross-actor close guard, mirroring the SDK BdStore's always-force close.
+    br close --force --json "$id" > /dev/null
     ;;
 
   list)
@@ -267,6 +290,23 @@ case "$op" in
     ;;
 
   ready)
+    include_ephemeral=false
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --include-ephemeral)
+          include_ephemeral=true
+          ;;
+        *)
+          echo "ready: unsupported argument: $1" >&2
+          exit 1
+          ;;
+      esac
+      shift
+    done
+    if [ "$include_ephemeral" = "true" ]; then
+      echo "ready: --include-ephemeral is not supported by gc-beads-br because br cannot return ready ephemeral rows" >&2
+      exit 1
+    fi
     br ready --json | br_list_to_gc
     ;;
 

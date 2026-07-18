@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -14,9 +16,11 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
+	"github.com/gastownhall/gascity/internal/api/apierr"
 	"github.com/gastownhall/gascity/internal/cityinit"
 	"github.com/gastownhall/gascity/internal/citylayout"
 	"github.com/gastownhall/gascity/internal/events"
+	"github.com/gastownhall/gascity/internal/packman"
 )
 
 // --- Supervisor Huma input/output types ---
@@ -32,12 +36,14 @@ type SupervisorCitiesOutput struct {
 // SupervisorHealthOutput is the response for GET /health (supervisor scope).
 type SupervisorHealthOutput struct {
 	Body struct {
-		Status        string             `json:"status" doc:"Health status (\"ok\")."`
-		Version       string             `json:"version" doc:"Supervisor version."`
-		UptimeSec     int                `json:"uptime_sec" doc:"Supervisor uptime in seconds."`
-		CitiesTotal   int                `json:"cities_total" doc:"Total managed cities."`
-		CitiesRunning int                `json:"cities_running" doc:"Cities currently running."`
-		Startup       *SupervisorStartup `json:"startup,omitempty" doc:"First-city startup info for single-city deployments."`
+		Status          string             `json:"status" doc:"Health status (\"ok\")."`
+		Version         string             `json:"version" doc:"Supervisor version."`
+		BuildID         string             `json:"build_id,omitempty" doc:"Build identity (typically a short git commit hash, with \"-dirty\" suffix when built from an unclean tree). Empty when unavailable."`
+		UptimeSec       int                `json:"uptime_sec" doc:"Supervisor uptime in seconds."`
+		CitiesTotal     int                `json:"cities_total" doc:"Total managed cities."`
+		CitiesRunning   int                `json:"cities_running" doc:"Cities currently running."`
+		PacksLockSHA256 string             `json:"packs_lock_sha256,omitempty" doc:"SHA-256 hex digest of the first managed city's packs.lock contents, for single-city deployments (mirrors the startup field's first-city semantics). Drift checkers compare this against the committed lockfile copy. Omitted when no city is registered, the city has no packs.lock, or the lockfile is unreadable (read error logged server-side) — treat absence as unknown, not as proof there is no lockfile."`
+		Startup         *SupervisorStartup `json:"startup,omitempty" doc:"First-city startup info for single-city deployments."`
 	}
 }
 
@@ -246,11 +252,13 @@ func (sm *SupervisorMux) humaHandleHealth(_ context.Context, _ *struct{}) (*Supe
 	cities := sm.resolver.ListCities()
 	var running int
 	var startup *SupervisorStartup
+	var packsLockSHA string
 	for _, c := range cities {
 		if c.Running {
 			running++
 		}
 		if startup == nil {
+			packsLockSHA = packsLockSHA256(c.Path)
 			if c.Running {
 				startup = &SupervisorStartup{
 					Ready:           true,
@@ -269,21 +277,42 @@ func (sm *SupervisorMux) humaHandleHealth(_ context.Context, _ *struct{}) (*Supe
 	out := &SupervisorHealthOutput{}
 	out.Body.Status = "ok"
 	out.Body.Version = sm.version
+	out.Body.BuildID = sm.buildID
 	out.Body.UptimeSec = int(time.Since(sm.startedAt).Seconds())
 	out.Body.CitiesTotal = len(cities)
 	out.Body.CitiesRunning = running
+	out.Body.PacksLockSHA256 = packsLockSHA
 	out.Body.Startup = startup
 	return out, nil
+}
+
+// packsLockSHA256 returns the hex-encoded SHA-256 digest of the
+// packs.lock file under cityPath, or "" when the file is missing.
+// Unexpected read errors are logged and reported as absent: /health
+// must stay available even when a city directory is unreadable.
+func packsLockSHA256(cityPath string) string {
+	if cityPath == "" {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(cityPath, packman.LockfileName))
+	if err != nil {
+		if !os.IsNotExist(err) {
+			log.Printf("health: reading %s for %s: %v", packman.LockfileName, cityPath, err)
+		}
+		return ""
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 func (sm *SupervisorMux) humaHandleReadiness(ctx context.Context, input *SupervisorReadinessInput) (*SupervisorReadinessOutput, error) {
 	items, err := parseRequestedReadinessItems(input.Items, "items", defaultReadinessItems, supportedReadiness)
 	if err != nil {
-		return nil, huma.Error400BadRequest("invalid: " + err.Error())
+		return nil, apierr.InvalidRequest.Msg("invalid: " + err.Error())
 	}
 	resp, err := buildReadinessResponse(ctx, items, input.Fresh)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("internal: " + err.Error())
+		return nil, apierr.Internal.Msg("internal: " + err.Error())
 	}
 	out := &SupervisorReadinessOutput{}
 	out.Body = resp
@@ -293,11 +322,11 @@ func (sm *SupervisorMux) humaHandleReadiness(ctx context.Context, input *Supervi
 func (sm *SupervisorMux) humaHandleProviderReadiness(ctx context.Context, input *SupervisorProviderReadinessInput) (*SupervisorProviderReadinessOutput, error) {
 	providers, err := parseRequestedReadinessItems(input.Providers, "providers", defaultProviderReadinessItems, supportedProviderReadiness)
 	if err != nil {
-		return nil, huma.Error400BadRequest("invalid: " + err.Error())
+		return nil, apierr.InvalidRequest.Msg("invalid: " + err.Error())
 	}
 	resp, err := buildReadinessResponse(ctx, providers, input.Fresh)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("internal: " + err.Error())
+		return nil, apierr.Internal.Msg("internal: " + err.Error())
 	}
 	providerResp := providerReadinessResponse{
 		Providers: make(map[string]providerReadiness, len(providers)),
@@ -333,7 +362,7 @@ func (sm *SupervisorMux) humaHandleCityCreate(ctx context.Context, input *Superv
 	if !filepath.IsAbs(dir) {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return nil, huma.Error500InternalServerError(fmt.Sprintf("internal: resolving home dir: %v", err))
+			return nil, apierr.Internal.Msg(fmt.Sprintf("internal: resolving home dir: %v", err))
 		}
 		dir = filepath.Join(home, dir)
 	}
@@ -344,28 +373,28 @@ func (sm *SupervisorMux) humaHandleCityCreate(ctx context.Context, input *Superv
 	// in test configurations that build a SupervisorMux without an
 	// initializer.
 	if cityDirAlreadyInitialized(dir) {
-		return nil, huma.Error409Conflict("conflict: city already initialized at " + dir)
+		return nil, apierr.ConflictWrongState.Msg("conflict: city already initialized at " + dir)
 	}
 
 	if sm.initializer == nil {
-		return nil, huma.Error501NotImplemented("city creation is not available in this supervisor (no initializer wired)")
+		return nil, apierr.NotImplemented.Msg("city creation is not available in this supervisor (no initializer wired)")
 	}
 
 	reqID, err := newRequestID()
 	if err != nil {
-		return nil, huma.Error500InternalServerError(fmt.Sprintf("generating request ID: %v", err))
+		return nil, apierr.Internal.Msg(fmt.Sprintf("generating request ID: %v", err))
 	}
 	eventCursor, cursorErr := sm.currentSupervisorEventCursor()
 	if cursorErr != nil {
-		return nil, huma.Error500InternalServerError(cursorErr.Error())
+		return nil, apierr.Internal.Msg(cursorErr.Error())
 	}
 	pendingStored := false
 	if store, ok := sm.resolver.(PendingRequestStore); ok {
 		if err := store.StorePendingRequestID(dir, reqID); err != nil {
 			if errors.Is(err, ErrPendingRequestExists) {
-				return nil, huma.Error409Conflict("conflict: city initialization already in progress at " + dir)
+				return nil, apierr.OperationInProgress.Msg("conflict: city initialization already in progress at " + dir)
 			}
-			return nil, huma.Error500InternalServerError(fmt.Sprintf("storing pending request ID: %v", err))
+			return nil, apierr.Internal.Msg(fmt.Sprintf("storing pending request ID: %v", err))
 		}
 		pendingStored = true
 	}
@@ -381,12 +410,12 @@ func (sm *SupervisorMux) humaHandleCityCreate(ctx context.Context, input *Superv
 	switch {
 	case errors.Is(scaffoldErr, cityinit.ErrAlreadyInitialized):
 		sm.clearPendingCityRequestID(dir, pendingStored)
-		return nil, huma.Error409Conflict("conflict: city already initialized at " + dir)
+		return nil, apierr.ConflictWrongState.Msg("conflict: city already initialized at " + dir)
 	case errors.Is(scaffoldErr, cityinit.ErrInvalidDirectory),
 		errors.Is(scaffoldErr, cityinit.ErrInvalidProvider),
 		errors.Is(scaffoldErr, cityinit.ErrInvalidBootstrapProfile):
 		sm.clearPendingCityRequestID(dir, pendingStored)
-		return nil, huma.Error422UnprocessableEntity(scaffoldErr.Error())
+		return nil, apierr.ValidationFailed.Msg(scaffoldErr.Error())
 	case errors.Is(scaffoldErr, cityinit.ErrPostRegisterFailure):
 		failureReqID := reqID
 		if consumedReqID, ok := sm.consumePendingCityRequestID(dir, pendingStored); ok {
@@ -396,7 +425,7 @@ func (sm *SupervisorMux) humaHandleCityCreate(ctx context.Context, input *Superv
 		postRegisterFailed = true
 	case scaffoldErr != nil:
 		sm.clearPendingCityRequestID(dir, pendingStored)
-		return nil, huma.Error500InternalServerError(scaffoldErr.Error())
+		return nil, apierr.Internal.Msg(scaffoldErr.Error())
 	}
 
 	if !pendingStored && !postRegisterFailed {
@@ -503,20 +532,20 @@ func emitCityCreateFailed(resolver CityResolver, requestID string, result *cityi
 //   - any other error -> 500 Internal Server Error
 func (sm *SupervisorMux) humaHandleCityUnregister(ctx context.Context, input *SupervisorCityUnregisterInput) (*SupervisorCityUnregisterOutput, error) {
 	if sm.initializer == nil {
-		return nil, huma.Error501NotImplemented("city unregister is not available in this supervisor (no initializer wired)")
+		return nil, apierr.NotImplemented.Msg("city unregister is not available in this supervisor (no initializer wired)")
 	}
 	name := strings.TrimSpace(input.CityName)
 	if name == "" {
-		return nil, huma.Error400BadRequest("city_name is required")
+		return nil, apierr.InvalidRequest.Msg("city_name is required")
 	}
 
 	reqID, err := newRequestID()
 	if err != nil {
-		return nil, huma.Error500InternalServerError(fmt.Sprintf("generating request ID: %v", err))
+		return nil, apierr.Internal.Msg(fmt.Sprintf("generating request ID: %v", err))
 	}
 	eventCursor, cursorErr := sm.currentSupervisorEventCursor()
 	if cursorErr != nil {
-		return nil, huma.Error500InternalServerError(cursorErr.Error())
+		return nil, apierr.Internal.Msg(cursorErr.Error())
 	}
 
 	// Store the pending request_id BEFORE Unregister triggers a
@@ -529,14 +558,14 @@ func (sm *SupervisorMux) humaHandleCityUnregister(ctx context.Context, input *Su
 		var pathErr error
 		cityPath, pathErr = sm.cityPathForPendingRequest(ctx, name)
 		if pathErr != nil {
-			return nil, huma.Error500InternalServerError(fmt.Sprintf("resolving city path: %v", pathErr))
+			return nil, apierr.Internal.Msg(fmt.Sprintf("resolving city path: %v", pathErr))
 		}
 		if cityPath != "" {
 			if err := store.StorePendingRequestID(cityPath, reqID); err != nil {
 				if errors.Is(err, ErrPendingRequestExists) {
-					return nil, huma.Error409Conflict("conflict: city operation already in progress at " + cityPath)
+					return nil, apierr.OperationInProgress.Msg("conflict: city operation already in progress at " + cityPath)
 				}
-				return nil, huma.Error500InternalServerError(fmt.Sprintf("storing pending request ID: %v", err))
+				return nil, apierr.Internal.Msg(fmt.Sprintf("storing pending request ID: %v", err))
 			}
 		}
 	}
@@ -549,14 +578,14 @@ func (sm *SupervisorMux) humaHandleCityUnregister(ctx context.Context, input *Su
 				log.Printf("api: consume pending city unregister request ID for %s: %v", cityPath, err)
 			}
 		}
-		return nil, huma.Error404NotFound("not_found: " + unregErr.Error())
+		return nil, apierr.CityNotFound.Msg("not_found: " + unregErr.Error())
 	case unregErr != nil:
 		if store, ok := sm.resolver.(PendingRequestStore); ok && cityPath != "" {
 			if _, _, err := store.ConsumePendingRequestID(cityPath); err != nil {
 				log.Printf("api: consume pending city unregister request ID for %s: %v", cityPath, err)
 			}
 		}
-		return nil, huma.Error500InternalServerError(unregErr.Error())
+		return nil, apierr.Internal.Msg(unregErr.Error())
 	}
 
 	out := &SupervisorCityUnregisterOutput{Status: http.StatusAccepted}
@@ -605,7 +634,7 @@ func (sm *SupervisorMux) humaHandleEventList(_ context.Context, input *Superviso
 	mux := sm.buildMultiplexer()
 	eventCursor, cursorErr := supervisorEventCursorFromMux(mux)
 	if cursorErr != nil {
-		return nil, huma.Error500InternalServerError(cursorErr.Error())
+		return nil, apierr.Internal.Msg(cursorErr.Error())
 	}
 	filter := events.Filter{Type: input.Type, Actor: input.Actor}
 	if d, ok, err := parseEventSince(input.Since); err != nil {
@@ -622,7 +651,7 @@ func (sm *SupervisorMux) humaHandleEventList(_ context.Context, input *Superviso
 		evts, err = mux.ListAll(filter)
 	}
 	if err != nil {
-		return nil, huma.Error500InternalServerError("internal: " + err.Error())
+		return nil, apierr.Internal.Msg("internal: " + err.Error())
 	}
 	wires := make([]WireTaggedEvent, 0, len(evts))
 	for _, e := range evts {
@@ -713,14 +742,14 @@ func supervisorEventCursorFromMux(mux *events.Multiplexer) (string, error) {
 func (sm *SupervisorMux) precheckGlobalEventStream(ctx context.Context, _ *SupervisorEventStreamInput) error {
 	mux := sm.buildMultiplexer()
 	if mux.Len() == 0 {
-		return huma.Error503ServiceUnavailable("no_providers: no event providers available")
+		return apierr.ServiceUnavailable.Msg("no_providers: no event providers available")
 	}
 	probe, err := mux.Watch(ctx, nil)
 	if err != nil {
 		if errors.Is(err, events.ErrNoWatchers) {
-			return huma.Error503ServiceUnavailable("no_watchers: event providers are registered but none are watchable")
+			return apierr.ServiceUnavailable.Msg("no_watchers: event providers are registered but none are watchable")
 		}
-		return huma.Error503ServiceUnavailable("watch_failed: " + err.Error())
+		return apierr.ServiceUnavailable.Msg("watch_failed: " + err.Error())
 	}
 	_ = probe.Close()
 	return nil

@@ -1,25 +1,32 @@
 package dispatch
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/gastownhall/gascity/internal/beadmeta"
 	"github.com/gastownhall/gascity/internal/beads"
+	"github.com/gastownhall/gascity/internal/config"
+	"github.com/gastownhall/gascity/internal/pathutil"
 )
 
 func processRetryEval(store beads.Store, bead beads.Bead, opts ProcessOptions) (ControlResult, error) {
-	attempt, err := strconv.Atoi(bead.Metadata["gc.attempt"])
+	attempt, err := strconv.Atoi(bead.Metadata[beadmeta.AttemptMetadataKey])
 	if err != nil || attempt < 1 {
-		return ControlResult{}, fmt.Errorf("%s: invalid gc.attempt %q", bead.ID, bead.Metadata["gc.attempt"])
+		return ControlResult{}, fmt.Errorf("%s: invalid gc.attempt %q", bead.ID, bead.Metadata[beadmeta.AttemptMetadataKey])
 	}
-	maxAttempts, err := strconv.Atoi(bead.Metadata["gc.max_attempts"])
+	maxAttempts, err := strconv.Atoi(bead.Metadata[beadmeta.MaxAttemptsMetadataKey])
 	if err != nil || maxAttempts < 1 {
-		return ControlResult{}, fmt.Errorf("%s: invalid gc.max_attempts %q", bead.ID, bead.Metadata["gc.max_attempts"])
+		return ControlResult{}, fmt.Errorf("%s: invalid gc.max_attempts %q", bead.ID, bead.Metadata[beadmeta.MaxAttemptsMetadataKey])
 	}
-	onExhausted := bead.Metadata["gc.on_exhausted"]
+	onExhausted := bead.Metadata[beadmeta.OnExhaustedMetadataKey]
 	if onExhausted == "" {
-		onExhausted = "hard_fail"
+		onExhausted = beadmeta.DispositionHardFail
 	}
 
 	logicalID := resolveLogicalBeadID(store, bead)
@@ -30,7 +37,7 @@ func processRetryEval(store beads.Store, bead beads.Bead, opts ProcessOptions) (
 	if err != nil {
 		return ControlResult{}, fmt.Errorf("%s: loading logical bead %s: %w", bead.ID, logicalID, err)
 	}
-	if closedBy, _ := strconv.Atoi(logical.Metadata["gc.closed_by_attempt"]); closedBy >= attempt {
+	if closedBy, _ := strconv.Atoi(logical.Metadata[beadmeta.ClosedByAttemptMetadataKey]); closedBy >= attempt {
 		if err := finalizeRetryEval(store, logicalID, bead.ID); err != nil {
 			return ControlResult{}, fmt.Errorf("%s: finalizing stale retry eval: %w", bead.ID, err)
 		}
@@ -45,15 +52,18 @@ func processRetryEval(store beads.Store, bead beads.Bead, opts ProcessOptions) (
 		return ControlResult{}, ErrControlPending
 	}
 
-	result := classifyRetryAttempt(subject)
+	result, err := classifyRetryAttemptWithPostconditions(store, subject, opts)
+	if err != nil {
+		return ControlResult{}, fmt.Errorf("%s: evaluating retry postconditions for %s: %w", bead.ID, subject.ID, err)
+	}
 	if err := persistRetryEvalResult(store, bead.ID, result); err != nil {
 		return ControlResult{}, fmt.Errorf("%s: persisting retry eval result: %w", bead.ID, err)
 	}
 
 	switch result.Outcome {
 	case "pass":
-		if outputJSON := subject.Metadata["gc.output_json"]; outputJSON != "" {
-			if err := store.SetMetadata(logicalID, "gc.output_json", outputJSON); err != nil {
+		if outputJSON := subject.Metadata[beadmeta.OutputJSONMetadataKey]; outputJSON != "" {
+			if err := store.SetMetadata(logicalID, beadmeta.OutputJSONMetadataKey, outputJSON); err != nil {
 				return ControlResult{}, fmt.Errorf("%s: propagating gc.output_json to logical bead: %w", logicalID, err)
 			}
 		}
@@ -61,70 +71,70 @@ func processRetryEval(store beads.Store, bead beads.Bead, opts ProcessOptions) (
 			return ControlResult{}, fmt.Errorf("%s: propagating subject metadata to logical bead: %w", logicalID, err)
 		}
 		if err := store.SetMetadataBatch(logicalID, map[string]string{
-			"gc.closed_by_attempt": strconv.Itoa(attempt),
-			"gc.final_disposition": "pass",
+			beadmeta.ClosedByAttemptMetadataKey:  strconv.Itoa(attempt),
+			beadmeta.FinalDispositionMetadataKey: beadmeta.DispositionPass,
 		}); err != nil {
 			return ControlResult{}, fmt.Errorf("%s: marking logical pass: %w", logicalID, err)
 		}
-		if err := setOutcomeAndClose(store, bead.ID, "pass"); err != nil {
+		if err := setOutcomeAndClose(store, bead.ID, beadmeta.OutcomePass); err != nil {
 			return ControlResult{}, fmt.Errorf("%s: closing passed eval: %w", bead.ID, err)
 		}
-		if err := setOutcomeAndClose(store, logicalID, "pass"); err != nil {
+		if err := setOutcomeAndClose(store, logicalID, beadmeta.OutcomePass); err != nil {
 			return ControlResult{}, fmt.Errorf("%s: closing logical bead: %w", logicalID, err)
 		}
 		return ControlResult{Processed: true, Action: "pass"}, nil
 
 	case "hard":
 		if err := store.SetMetadataBatch(logicalID, map[string]string{
-			"gc.closed_by_attempt": strconv.Itoa(attempt),
-			"gc.failed_attempt":    strconv.Itoa(attempt),
-			"gc.failure_class":     "hard",
-			"gc.failure_reason":    result.Reason,
-			"gc.final_disposition": "hard_fail",
+			beadmeta.ClosedByAttemptMetadataKey:  strconv.Itoa(attempt),
+			beadmeta.FailedAttemptMetadataKey:    strconv.Itoa(attempt),
+			beadmeta.FailureClassMetadataKey:     beadmeta.FailureClassHard,
+			beadmeta.FailureReasonMetadataKey:    result.Reason,
+			beadmeta.FinalDispositionMetadataKey: beadmeta.DispositionHardFail,
 		}); err != nil {
 			return ControlResult{}, fmt.Errorf("%s: marking logical hard failure: %w", logicalID, err)
 		}
-		if err := setOutcomeAndClose(store, bead.ID, "fail"); err != nil {
+		if err := setOutcomeAndClose(store, bead.ID, beadmeta.OutcomeFail); err != nil {
 			return ControlResult{}, fmt.Errorf("%s: closing hard-failed eval: %w", bead.ID, err)
 		}
-		if err := setOutcomeAndClose(store, logicalID, "fail"); err != nil {
+		if err := setOutcomeAndClose(store, logicalID, beadmeta.OutcomeFail); err != nil {
 			return ControlResult{}, fmt.Errorf("%s: closing hard-failed logical bead: %w", logicalID, err)
 		}
 		return ControlResult{Processed: true, Action: "hard-fail"}, nil
 
 	case "transient":
 		if attempt >= maxAttempts {
-			if onExhausted == "soft_fail" {
+			if onExhausted == beadmeta.DispositionSoftFail {
 				if err := store.SetMetadataBatch(logicalID, map[string]string{
-					"gc.closed_by_attempt": strconv.Itoa(attempt),
-					"gc.failed_attempt":    strconv.Itoa(attempt),
-					"gc.failure_class":     "transient",
-					"gc.failure_reason":    result.Reason,
-					"gc.final_disposition": "soft_fail",
+					beadmeta.ClosedByAttemptMetadataKey:  strconv.Itoa(attempt),
+					beadmeta.FailedAttemptMetadataKey:    strconv.Itoa(attempt),
+					beadmeta.FailureClassMetadataKey:     beadmeta.FailureClassTransient,
+					beadmeta.FailureReasonMetadataKey:    result.Reason,
+					beadmeta.FinalDispositionMetadataKey: beadmeta.DispositionSoftFail,
 				}); err != nil {
 					return ControlResult{}, fmt.Errorf("%s: marking logical soft-fail: %w", logicalID, err)
 				}
-				if err := setOutcomeAndClose(store, bead.ID, "fail"); err != nil {
+				if err := setOutcomeAndClose(store, bead.ID, beadmeta.OutcomeFail); err != nil {
 					return ControlResult{}, fmt.Errorf("%s: closing exhausted eval: %w", bead.ID, err)
 				}
-				if err := setOutcomeAndClose(store, logicalID, "pass"); err != nil {
+				if err := setOutcomeAndClose(store, logicalID, beadmeta.OutcomePass); err != nil {
 					return ControlResult{}, fmt.Errorf("%s: closing soft-failed logical bead: %w", logicalID, err)
 				}
 				return ControlResult{Processed: true, Action: "soft-fail"}, nil
 			}
 			if err := store.SetMetadataBatch(logicalID, map[string]string{
-				"gc.closed_by_attempt": strconv.Itoa(attempt),
-				"gc.failed_attempt":    strconv.Itoa(attempt),
-				"gc.failure_class":     "transient",
-				"gc.failure_reason":    result.Reason,
-				"gc.final_disposition": "hard_fail",
+				beadmeta.ClosedByAttemptMetadataKey:  strconv.Itoa(attempt),
+				beadmeta.FailedAttemptMetadataKey:    strconv.Itoa(attempt),
+				beadmeta.FailureClassMetadataKey:     beadmeta.FailureClassTransient,
+				beadmeta.FailureReasonMetadataKey:    result.Reason,
+				beadmeta.FinalDispositionMetadataKey: beadmeta.DispositionHardFail,
 			}); err != nil {
 				return ControlResult{}, fmt.Errorf("%s: marking exhausted logical failure: %w", logicalID, err)
 			}
-			if err := setOutcomeAndClose(store, bead.ID, "fail"); err != nil {
+			if err := setOutcomeAndClose(store, bead.ID, beadmeta.OutcomeFail); err != nil {
 				return ControlResult{}, fmt.Errorf("%s: closing exhausted eval: %w", bead.ID, err)
 			}
-			if err := setOutcomeAndClose(store, logicalID, "fail"); err != nil {
+			if err := setOutcomeAndClose(store, logicalID, beadmeta.OutcomeFail); err != nil {
 				return ControlResult{}, fmt.Errorf("%s: closing exhausted logical bead: %w", logicalID, err)
 			}
 			return ControlResult{Processed: true, Action: "fail"}, nil
@@ -134,55 +144,72 @@ func processRetryEval(store beads.Store, bead beads.Bead, opts ProcessOptions) (
 	}
 
 	nextAttempt := attempt + 1
-	switch bead.Metadata["gc.retry_state"] {
+	switch bead.Metadata[beadmeta.RetryStateMetadataKey] {
 	case "":
 		if err := store.SetMetadataBatch(bead.ID, map[string]string{
-			"gc.retry_state":  "spawning",
-			"gc.next_attempt": strconv.Itoa(nextAttempt),
+			beadmeta.RetryStateMetadataKey:  beadmeta.SpawnStateSpawning,
+			beadmeta.NextAttemptMetadataKey: strconv.Itoa(nextAttempt),
 		}); err != nil {
+			if controllerSpawnBoundaryPending(store, bead.ID, err, opts) {
+				return ControlResult{}, ErrControlPending
+			}
 			return ControlResult{}, fmt.Errorf("%s: recording retry spawn start: %w", bead.ID, err)
 		}
-	case "spawning":
+	case beadmeta.SpawnStateSpawning:
 		// Resume partial append below.
-	case "spawned":
+	case beadmeta.SpawnStateSpawned:
 		// Resume finalization below without cloning again.
 	default:
-		return ControlResult{}, fmt.Errorf("%s: unsupported gc.retry_state %q", bead.ID, bead.Metadata["gc.retry_state"])
+		return ControlResult{}, fmt.Errorf("%s: unsupported gc.retry_state %q", bead.ID, bead.Metadata[beadmeta.RetryStateMetadataKey])
 	}
 
-	if beadUsesMetadataPoolRoute(subject, opts.CityPath) {
+	// A routeConfig error is intentionally tolerated here: retry preserves the
+	// prior attempt's already-stamped routes rather than scope-routing, so a nil
+	// cfg degrades to metadata-only instead of mis-routing. Spawn/fanout
+	// (control.go, fanout.go) fail closed on this error because they scope-route
+	// through applyAttemptControlStepRoute.
+	routeCfg, _ := opts.routeConfig()
+	if beadUsesMetadataPoolRouteWithConfig(subject, routeCfg) {
 		if opts.RecycleSession == nil {
 			return ControlResult{}, fmt.Errorf("%s: pooled retry subject %s requires RecycleSession callback", bead.ID, subject.ID)
 		}
-		if bead.Metadata["gc.retry_session_recycled"] != "true" {
+		if bead.Metadata[beadmeta.RetrySessionRecycledMetadataKey] != "true" {
 			if subject.Assignee == "" {
 				return ControlResult{}, fmt.Errorf("%s: pooled retry subject %s missing assignee", bead.ID, subject.ID)
 			}
 			if err := opts.RecycleSession(subject); err != nil {
 				return ControlResult{}, fmt.Errorf("%s: recycling pooled session %s: %w", bead.ID, subject.Assignee, err)
 			}
-			if err := store.SetMetadata(bead.ID, "gc.retry_session_recycled", "true"); err != nil {
+			if err := store.SetMetadata(bead.ID, beadmeta.RetrySessionRecycledMetadataKey, "true"); err != nil {
 				return ControlResult{}, fmt.Errorf("%s: recording pooled session recycle: %w", bead.ID, err)
 			}
 		}
 	}
 
-	if bead.Metadata["gc.retry_state"] != "spawned" {
-		if err := appendRetryAttempt(store, logicalID, subject, bead, nextAttempt, opts.CityPath); err != nil {
+	if bead.Metadata[beadmeta.RetryStateMetadataKey] != beadmeta.SpawnStateSpawned {
+		if err := appendRetryAttempt(store, logicalID, subject, bead, nextAttempt, routeCfg); err != nil {
+			if controllerSpawnBoundaryPending(store, bead.ID, err, opts) {
+				return ControlResult{}, ErrControlPending
+			}
 			return ControlResult{}, fmt.Errorf("%s: appending retry attempt: %w", bead.ID, err)
 		}
-		if err := store.SetMetadataBatch(bead.ID, map[string]string{
-			"gc.retry_state":  "spawned",
-			"gc.next_attempt": strconv.Itoa(nextAttempt),
-		}); err != nil {
+		spawnedMetadata := map[string]string{
+			beadmeta.RetryStateMetadataKey:  beadmeta.SpawnStateSpawned,
+			beadmeta.NextAttemptMetadataKey: strconv.Itoa(nextAttempt),
+		}
+		clearControllerSpawnErrorMetadata(spawnedMetadata)
+		if err := store.SetMetadataBatch(bead.ID, spawnedMetadata); err != nil {
+			if controllerSpawnBoundaryPending(store, bead.ID, err, opts) {
+				return ControlResult{}, ErrControlPending
+			}
 			return ControlResult{}, fmt.Errorf("%s: recording retry spawn complete: %w", bead.ID, err)
 		}
 	}
 
 	if err := store.SetMetadataBatch(logicalID, map[string]string{
-		"gc.retry_count":        strconv.Itoa(attempt),
-		"gc.last_failure_class": "transient",
-		"gc.failure_reason":     result.Reason,
+		beadmeta.RetryCountMetadataKey:       strconv.Itoa(attempt),
+		beadmeta.LastFailureClassMetadataKey: beadmeta.FailureClassTransient,
+		beadmeta.FailureReasonMetadataKey:    result.Reason,
 	}); err != nil {
 		return ControlResult{}, fmt.Errorf("%s: recording retry metadata on logical bead: %w", logicalID, err)
 	}
@@ -193,20 +220,20 @@ func processRetryEval(store beads.Store, bead beads.Bead, opts ProcessOptions) (
 }
 
 func resolveRetryRunSubject(store beads.Store, eval beads.Bead, logicalID string, attempt int) (beads.Bead, error) {
-	if rootID := strings.TrimSpace(eval.Metadata["gc.root_bead_id"]); rootID != "" && logicalID != "" && attempt > 0 {
+	if rootID := strings.TrimSpace(eval.Metadata[beadmeta.RootBeadIDMetadataKey]); rootID != "" && logicalID != "" && attempt > 0 {
 		all, err := listByWorkflowRoot(store, rootID)
 		if err != nil {
 			return beads.Bead{}, err
 		}
 		attemptStr := strconv.Itoa(attempt)
 		for _, candidate := range all {
-			if candidate.Metadata["gc.kind"] != "retry-run" {
+			if candidate.Metadata[beadmeta.KindMetadataKey] != beadmeta.KindRetryRun {
 				continue
 			}
-			if candidate.Metadata["gc.logical_bead_id"] != logicalID {
+			if candidate.Metadata[beadmeta.LogicalBeadIDMetadataKey] != logicalID {
 				continue
 			}
-			if candidate.Metadata["gc.attempt"] != attemptStr {
+			if candidate.Metadata[beadmeta.AttemptMetadataKey] != attemptStr {
 				continue
 			}
 			return candidate, nil
@@ -226,21 +253,27 @@ type retryEvalResult struct {
 }
 
 func classifyRetryAttempt(subject beads.Bead) retryEvalResult {
-	outcome := strings.TrimSpace(subject.Metadata["gc.outcome"])
+	outcome := strings.TrimSpace(subject.Metadata[beadmeta.OutcomeMetadataKey])
 	switch outcome {
-	case "pass":
-		if strings.TrimSpace(subject.Metadata["gc.failure_class"]) != "" || strings.TrimSpace(subject.Metadata["gc.failure_reason"]) != "" {
+	case beadmeta.OutcomePass:
+		if strings.TrimSpace(subject.Metadata[beadmeta.FailureClassMetadataKey]) != "" || strings.TrimSpace(subject.Metadata[beadmeta.FailureReasonMetadataKey]) != "" {
 			return retryEvalResult{Outcome: "transient", Reason: "pass_with_failure_metadata"}
 		}
-		if strings.TrimSpace(subject.Metadata["gc.output_json_required"]) == "true" && strings.TrimSpace(subject.Metadata["gc.output_json"]) == "" {
-			return retryEvalResult{Outcome: "transient", Reason: "missing_required_output_json"}
+		if strings.TrimSpace(subject.Metadata[beadmeta.OutputJSONRequiredMetadataKey]) == "true" {
+			rawOutput := strings.TrimSpace(subject.Metadata[beadmeta.OutputJSONMetadataKey])
+			if rawOutput == "" {
+				return retryEvalResult{Outcome: "transient", Reason: "missing_required_output_json"}
+			}
+			if !json.Valid([]byte(rawOutput)) {
+				return retryEvalResult{Outcome: "transient", Reason: "invalid_required_output_json"}
+			}
 		}
 		return retryEvalResult{Outcome: "pass"}
-	case "fail":
-		switch strings.TrimSpace(subject.Metadata["gc.failure_class"]) {
-		case "transient":
+	case beadmeta.OutcomeFail:
+		switch strings.TrimSpace(subject.Metadata[beadmeta.FailureClassMetadataKey]) {
+		case beadmeta.FailureClassTransient:
 			return retryEvalResult{Outcome: "transient", Reason: retryFailureReason(subject)}
-		case "hard", "":
+		case beadmeta.FailureClassHard, "":
 			return retryEvalResult{Outcome: "hard", Reason: retryFailureReason(subject)}
 		default:
 			return retryEvalResult{Outcome: "transient", Reason: "unknown_failure_class"}
@@ -252,8 +285,177 @@ func classifyRetryAttempt(subject beads.Bead) retryEvalResult {
 	}
 }
 
+func classifyRetryAttemptWithPostconditions(store beads.Store, subject beads.Bead, opts ProcessOptions) (retryEvalResult, error) {
+	result := classifyRetryAttempt(subject)
+	if result.Outcome != "pass" {
+		return result, nil
+	}
+	reason, err := validateRequiredArtifacts(store, subject, opts.RequiredArtifactStat)
+	if err != nil {
+		return retryEvalResult{}, err
+	}
+	if reason != "" {
+		return retryEvalResult{Outcome: "transient", Reason: reason}, nil
+	}
+	return result, nil
+}
+
+func validateRequiredArtifacts(store beads.Store, subject beads.Bead, stat func(string) (os.FileInfo, error)) (string, error) {
+	if stat == nil {
+		stat = os.Stat
+	}
+	for _, rawPath := range requiredArtifactTemplates(subject.Metadata) {
+		path, worktree, reason, err := resolveRequiredArtifactPath(store, subject, rawPath)
+		if err != nil {
+			return "", err
+		}
+		if reason != "" {
+			return reason, nil
+		}
+		info, err := stat(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return "missing_required_artifact", nil
+			}
+			return "unreadable_required_artifact", nil
+		}
+		contained, err := requiredArtifactTargetInWorktree(worktree, path)
+		if err != nil {
+			return "", err
+		}
+		if !contained {
+			return "required_artifact_outside_worktree", nil
+		}
+		if info.IsDir() || info.Size() == 0 {
+			return "empty_required_artifact", nil
+		}
+	}
+	return "", nil
+}
+
+// requiredArtifactTemplates keeps the singular key as one opaque path; only
+// the plural key is parsed as a comma/newline-delimited list.
+func requiredArtifactTemplates(metadata map[string]string) []string {
+	var result []string
+	if raw := strings.TrimSpace(metadata[beadmeta.RequiredArtifactMetadataKey]); raw != "" {
+		result = append(result, raw)
+	}
+	raw := strings.TrimSpace(metadata[beadmeta.RequiredArtifactsMetadataKey])
+	if raw == "" {
+		return result
+	}
+	for _, part := range strings.FieldsFunc(raw, func(r rune) bool {
+		return r == '\n' || r == ','
+	}) {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
+}
+
+func resolveRequiredArtifactPath(store beads.Store, subject beads.Bead, rawPath string) (string, string, string, error) {
+	rootID := strings.TrimSpace(subject.Metadata[beadmeta.RootBeadIDMetadataKey])
+	attempt := strings.TrimSpace(subject.Metadata[beadmeta.AttemptMetadataKey])
+	worktree := strings.TrimSpace(subject.Metadata["work_dir"])
+
+	if worktree == "" {
+		resolvedWorktree, reason, err := resolveRequiredArtifactWorktree(store, rootID)
+		if err != nil {
+			return "", "", "", err
+		}
+		if reason != "" {
+			return "", "", reason, nil
+		}
+		worktree = resolvedWorktree
+	}
+	if worktree == "" {
+		return "", "", "missing_required_artifact_context", nil
+	}
+
+	path := rawPath
+	path = strings.ReplaceAll(path, "{worktree}", worktree)
+	path = strings.ReplaceAll(path, "{root}", rootID)
+	path = strings.ReplaceAll(path, "{root_id}", rootID)
+	path = strings.ReplaceAll(path, "{attempt}", attempt)
+	if strings.Contains(path, "{") || strings.Contains(path, "}") {
+		return "", "", "unresolved_required_artifact_template", nil
+	}
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(worktree, path)
+	}
+	path = filepath.Clean(path)
+	contained, err := requiredArtifactPathInWorktree(worktree, path)
+	if err != nil {
+		return "", "", "", err
+	}
+	if !contained {
+		return "", "", "required_artifact_outside_worktree", nil
+	}
+	return path, worktree, "", nil
+}
+
+func requiredArtifactPathInWorktree(worktree, path string) (bool, error) {
+	absWorktree, err := filepath.Abs(filepath.Clean(worktree))
+	if err != nil {
+		return false, fmt.Errorf("resolving required artifact worktree path %q: %w", worktree, err)
+	}
+	absPath, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return false, fmt.Errorf("resolving required artifact path %q: %w", path, err)
+	}
+	return pathutil.PathWithin(absWorktree, absPath), nil
+}
+
+func requiredArtifactTargetInWorktree(worktree, path string) (bool, error) {
+	resolvedWorktree, err := filepath.EvalSymlinks(filepath.Clean(worktree))
+	if err != nil {
+		return false, fmt.Errorf("resolving required artifact worktree symlinks %q: %w", worktree, err)
+	}
+	resolvedPath, err := filepath.EvalSymlinks(filepath.Clean(path))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+		return false, fmt.Errorf("resolving required artifact path symlinks %q: %w", path, err)
+	}
+	return requiredArtifactPathInWorktree(resolvedWorktree, resolvedPath)
+}
+
+func resolveRequiredArtifactWorktree(store beads.Store, rootID string) (string, string, error) {
+	if rootID == "" {
+		return "", "missing_required_artifact_context", nil
+	}
+	root, err := store.Get(rootID)
+	if errors.Is(err, beads.ErrNotFound) {
+		return "", "missing_required_artifact_context", nil
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("loading required artifact workflow root %s: %w", rootID, markTransientControllerBoundaryError(err))
+	}
+	sourceID := strings.TrimSpace(root.Metadata[beadmeta.SourceBeadIDMetadataKey])
+	if sourceID == "" {
+		sourceID = strings.TrimSpace(root.Metadata[beadmeta.InputConvoyIDMetadataKey])
+	}
+	if sourceID == "" {
+		return "", "missing_required_artifact_context", nil
+	}
+	source, err := store.Get(sourceID)
+	if errors.Is(err, beads.ErrNotFound) {
+		return "", "missing_required_artifact_context", nil
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("loading required artifact source bead %s: %w", sourceID, markTransientControllerBoundaryError(err))
+	}
+	worktree := strings.TrimSpace(source.Metadata["work_dir"])
+	if worktree == "" {
+		return "", "missing_required_artifact_context", nil
+	}
+	return worktree, "", nil
+}
+
 func retryFailureReason(subject beads.Bead) string {
-	reason := strings.TrimSpace(subject.Metadata["gc.failure_reason"])
+	reason := strings.TrimSpace(subject.Metadata[beadmeta.FailureReasonMetadataKey])
 	if reason == "" {
 		return "unspecified"
 	}
@@ -262,18 +464,22 @@ func retryFailureReason(subject beads.Bead) string {
 
 func persistRetryEvalResult(store beads.Store, beadID string, result retryEvalResult) error {
 	batch := map[string]string{
-		"gc.failure_reason": result.Reason,
+		beadmeta.FailureReasonMetadataKey: result.Reason,
 	}
+	// result.Outcome is the internal retryEvalResult domain {pass, transient,
+	// hard} produced by classifyRetryAttempt, not the gc.outcome /
+	// gc.failure_class vocabularies it maps onto below. Match it raw so the two
+	// vocabularies cannot silently drift into a miscompare.
 	switch result.Outcome {
 	case "pass":
-		batch["gc.outcome"] = "pass"
-		batch["gc.failure_class"] = ""
+		batch[beadmeta.OutcomeMetadataKey] = beadmeta.OutcomePass
+		batch[beadmeta.FailureClassMetadataKey] = ""
 	case "transient":
-		batch["gc.outcome"] = "fail"
-		batch["gc.failure_class"] = "transient"
+		batch[beadmeta.OutcomeMetadataKey] = beadmeta.OutcomeFail
+		batch[beadmeta.FailureClassMetadataKey] = beadmeta.FailureClassTransient
 	default:
-		batch["gc.outcome"] = "fail"
-		batch["gc.failure_class"] = "hard"
+		batch[beadmeta.OutcomeMetadataKey] = beadmeta.OutcomeFail
+		batch[beadmeta.FailureClassMetadataKey] = beadmeta.FailureClassHard
 	}
 	return store.SetMetadataBatch(beadID, batch)
 }
@@ -281,7 +487,7 @@ func persistRetryEvalResult(store beads.Store, beadID string, result retryEvalRe
 func propagateRetrySubjectMetadata(store beads.Store, logicalID string, subject beads.Bead) error {
 	batch := map[string]string{}
 	for key, value := range subject.Metadata {
-		if key == "" || strings.HasPrefix(key, "gc.") {
+		if key == "" || strings.HasPrefix(key, beadmeta.Namespace) {
 			continue
 		}
 		batch[key] = value
@@ -292,12 +498,12 @@ func propagateRetrySubjectMetadata(store beads.Store, logicalID string, subject 
 	return store.SetMetadataBatch(logicalID, batch)
 }
 
-func appendRetryAttempt(store beads.Store, logicalID string, prevRun, prevEval beads.Bead, nextAttempt int, cityPath string) error {
-	oldAttempt, err := strconv.Atoi(prevRun.Metadata["gc.attempt"])
+func appendRetryAttempt(store beads.Store, logicalID string, prevRun, prevEval beads.Bead, nextAttempt int, routeCfg *config.City) error {
+	oldAttempt, err := strconv.Atoi(prevRun.Metadata[beadmeta.AttemptMetadataKey])
 	if err != nil || oldAttempt < 1 {
-		return fmt.Errorf("%s: invalid gc.attempt %q", prevRun.ID, prevRun.Metadata["gc.attempt"])
+		return fmt.Errorf("%s: invalid gc.attempt %q", prevRun.ID, prevRun.Metadata[beadmeta.AttemptMetadataKey])
 	}
-	rootID := prevRun.Metadata["gc.root_bead_id"]
+	rootID := prevRun.Metadata[beadmeta.RootBeadIDMetadataKey]
 	if rootID == "" {
 		return fmt.Errorf("%s: missing gc.root_bead_id", prevRun.ID)
 	}
@@ -323,7 +529,7 @@ func appendRetryAttempt(store beads.Store, logicalID string, prevRun, prevEval b
 	}
 
 	if nextRun.ID == "" {
-		nextRun, err = store.Create(retryAttemptBead(prevRun, logicalID, runRef, nextAttempt, cityPath))
+		nextRun, err = store.Create(retryAttemptBead(prevRun, logicalID, runRef, nextAttempt, routeCfg))
 		if err != nil {
 			return fmt.Errorf("creating retry run bead: %w", err)
 		}
@@ -344,18 +550,22 @@ func appendRetryAttempt(store beads.Store, logicalID string, prevRun, prevEval b
 	return nil
 }
 
-func retryAttemptBead(prev beads.Bead, logicalID, stepRef string, attempt int, cityPath string) beads.Bead {
+func retryAttemptBead(prev beads.Bead, logicalID, stepRef string, attempt int, routeCfg *config.City) beads.Bead {
 	meta := cloneMetadata(prev.Metadata)
 	clearRetryEphemera(meta)
-	meta["gc.attempt"] = strconv.Itoa(attempt)
-	meta["gc.retry_from"] = prev.ID
-	meta["gc.step_ref"] = stepRef
-	meta["gc.logical_bead_id"] = logicalID
+	assignee := retryPreservedAssigneeWithConfig(prev, routeCfg)
+	if assignee == "" {
+		clearSessionAffinityMetadata(meta)
+	}
+	meta[beadmeta.AttemptMetadataKey] = strconv.Itoa(attempt)
+	meta[beadmeta.RetryFromMetadataKey] = prev.ID
+	meta[beadmeta.StepRefMetadataKey] = stepRef
+	meta[beadmeta.LogicalBeadIDMetadataKey] = logicalID
 	return beads.Bead{
 		Title:       prev.Title,
 		Description: prev.Description,
 		Type:        prev.Type,
-		Assignee:    retryPreservedAssignee(prev, cityPath),
+		Assignee:    assignee,
 		From:        prev.From,
 		ParentID:    prev.ParentID,
 		Ref:         stepRef,
@@ -367,10 +577,11 @@ func retryAttemptBead(prev beads.Bead, logicalID, stepRef string, attempt int, c
 func retryEvalBead(prev beads.Bead, logicalID, stepRef string, attempt int) beads.Bead {
 	meta := cloneMetadata(prev.Metadata)
 	clearRetryEphemera(meta)
-	meta["gc.attempt"] = strconv.Itoa(attempt)
-	meta["gc.retry_from"] = prev.ID
-	meta["gc.step_ref"] = stepRef
-	meta["gc.logical_bead_id"] = logicalID
+	clearSessionAffinityMetadata(meta)
+	meta[beadmeta.AttemptMetadataKey] = strconv.Itoa(attempt)
+	meta[beadmeta.RetryFromMetadataKey] = prev.ID
+	meta[beadmeta.StepRefMetadataKey] = stepRef
+	meta[beadmeta.LogicalBeadIDMetadataKey] = logicalID
 	return beads.Bead{
 		Title:       prev.Title,
 		Description: prev.Description,
@@ -396,7 +607,7 @@ func finalizeRetryEval(store beads.Store, logicalID, evalID string) error {
 	if eval.Status == "closed" {
 		return nil
 	}
-	return setOutcomeAndClose(store, evalID, "fail")
+	return setOutcomeAndClose(store, evalID, beadmeta.OutcomeFail)
 }
 
 func ensureDep(store beads.Store, issueID, dependsOnID, depType string) error {
@@ -413,7 +624,7 @@ func ensureDep(store beads.Store, issueID, dependsOnID, depType string) error {
 }
 
 func stepRefForRetryBead(bead beads.Bead) string {
-	if ref := strings.TrimSpace(bead.Metadata["gc.step_ref"]); ref != "" {
+	if ref := strings.TrimSpace(bead.Metadata[beadmeta.StepRefMetadataKey]); ref != "" {
 		return ref
 	}
 	return strings.TrimSpace(bead.Ref)

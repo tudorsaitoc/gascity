@@ -4,17 +4,20 @@ import (
 	"context"
 	"time"
 
-	"github.com/danielgtaylor/huma/v2"
+	"github.com/gastownhall/gascity/internal/api/apierr"
+	"github.com/gastownhall/gascity/internal/fsys"
+	"github.com/gastownhall/gascity/internal/suspensionstate"
 )
 
 // humaHandleCityGet is the Huma-typed handler for GET /v0/city.
 func (s *Server) humaHandleCityGet(_ context.Context, _ *CityGetInput) (*struct{ Body cityGetResponse }, error) {
 	cfg := s.state.Config()
+	citySt, _ := suspensionstate.Load(fsys.OSFS{}, s.state.CityPath())
 	resp := cityGetResponse{
 		Name:            s.state.CityName(),
 		Path:            s.state.CityPath(),
 		Version:         s.state.Version(),
-		Suspended:       cfg.Workspace.Suspended,
+		Suspended:       suspensionstate.EffectiveCitySuspended(citySt, cfg.Workspace.EffectiveSuspendedOnStart()),
 		Provider:        cfg.Workspace.Provider,
 		SessionTemplate: cfg.Workspace.SessionTemplate,
 		UptimeSec:       int(time.Since(s.state.StartedAt()).Seconds()),
@@ -32,7 +35,7 @@ func (s *Server) humaHandleCityPatch(_ context.Context, input *CityPatchInput) (
 	}
 
 	if input.Body.Suspended == nil {
-		return nil, huma.Error400BadRequest("no fields to update")
+		return nil, apierr.InvalidRequest.Msg("no fields to update")
 	}
 
 	var err error
@@ -59,12 +62,12 @@ func (s *Server) humaHandleProviderReadiness(ctx context.Context, input *Provide
 		supportedProviderReadiness,
 	)
 	if err != nil {
-		return nil, huma.Error400BadRequest(err.Error())
+		return nil, apierr.InvalidRequest.Msg(err.Error())
 	}
 
 	resp, err := buildReadinessResponse(ctx, providers, input.Fresh)
 	if err != nil {
-		return nil, huma.Error500InternalServerError(err.Error())
+		return nil, apierr.Internal.Msg(err.Error())
 	}
 
 	providerResp := providerReadinessResponse{
@@ -91,12 +94,12 @@ func (s *Server) humaHandleReadiness(ctx context.Context, input *ReadinessInput)
 		supportedReadiness,
 	)
 	if err != nil {
-		return nil, huma.Error400BadRequest(err.Error())
+		return nil, apierr.InvalidRequest.Msg(err.Error())
 	}
 
 	resp, err := buildReadinessResponse(ctx, items, input.Fresh)
 	if err != nil {
-		return nil, huma.Error500InternalServerError(err.Error())
+		return nil, apierr.Internal.Msg(err.Error())
 	}
 
 	return &ReadinessOutput{Body: resp}, nil

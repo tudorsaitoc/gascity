@@ -3,7 +3,10 @@
 package workerinference_test
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -41,6 +44,9 @@ type liveWorkerHandleHarness struct {
 	authSource string
 	workDir    string
 	gcHome     string
+	cityDir    string            // non-empty when the profile is city-backed (hook session-key persistence)
+	store      beads.Store       // the manager's bead store (shared city store for city-backed profiles)
+	sessionEnv map[string]string // env the provider session (and its gc children) receives
 	adapter    workerpkg.SessionLogAdapter
 }
 
@@ -73,8 +79,38 @@ func newLiveWorkerHandleHarness(t *testing.T) (*liveWorkerHandleHarness, error) 
 	if err != nil {
 		return nil, err
 	}
+	applyLiveProviderRuntimeEnv(gcHome, env, liveSetup.Profile)
 	if err := seedLiveProviderStateFor(liveSetup.Profile, gcHome, root); err != nil {
 		return nil, err
+	}
+
+	// Hook-managed profiles persist the provider resume key from the
+	// provider's hook plugin: plugin → `gc prime --hook` → city store
+	// metadata. Those profiles need a real city behind the harness so the
+	// gc child and the in-process session manager share one store. The
+	// city must exist before the instructions file and provider hooks are
+	// staged into the work dir below.
+	store := beads.Store(beads.NewMemStore())
+	cityDir := ""
+	if profileUsesHookSessionKeyPersistence(liveSetup.Profile) {
+		// Register the runtime teardown before staging: gc init registers
+		// the city and starts a supervisor, so a failure in any later
+		// staging step must still reap that runtime. The teardown is
+		// best-effort and idempotent, so the success-path cleanup below
+		// repeating it is harmless.
+		t.Cleanup(func() {
+			teardownLiveHandleCityRuntime(env, root)
+		})
+		cityStore, err := stageLiveHandleCity(env, root, liveSetup.Provider)
+		if err != nil {
+			return nil, err
+		}
+		store = cityStore
+		cityDir = root
+		// GC_CITY is belt and braces with the cwd walk-up (the session work
+		// dir is the city root); GC_BIN points the provider hook plugin at
+		// the staged gc binary instead of whatever is first on PATH.
+		env.With("GC_CITY", cityDir).With("GC_BIN", gcPath)
 	}
 
 	resolved, err := resolveLiveHandleProvider()
@@ -84,7 +120,7 @@ func newLiveWorkerHandleHarness(t *testing.T) (*liveWorkerHandleHarness, error) 
 	if err := writeWorkerHandleInstructions(root, resolved.InstructionsFile); err != nil {
 		return nil, err
 	}
-	if err := installLiveHandleProviderHooks(root, liveSetup.Profile); err != nil {
+	if err := installLiveHandleProviderHooks(root, gcHome, liveSetup.Profile); err != nil {
 		return nil, err
 	}
 
@@ -93,7 +129,8 @@ func newLiveWorkerHandleHarness(t *testing.T) (*liveWorkerHandleHarness, error) 
 	tmuxCfg.SocketName = socketName
 
 	provider := runtimetmux.NewProviderWithConfig(tmuxCfg)
-	manager := sessionpkg.NewManager(beads.NewMemStore(), provider)
+	manager := sessionpkg.NewManagerWithOptions(store, provider)
+	sessionEnv := mergeStringMaps(envMapFromAcceptanceEnv(env), resolved.Env)
 	handle, err := workerpkg.NewSessionHandle(workerpkg.SessionHandleConfig{
 		Manager: manager,
 		Adapter: workerpkg.SessionLogAdapter{
@@ -108,7 +145,7 @@ func newLiveWorkerHandleHarness(t *testing.T) (*liveWorkerHandleHarness, error) 
 			WorkDir:   root,
 			Provider:  liveSetup.Provider,
 			Transport: "tmux",
-			Env:       mergeStringMaps(envMapFromAcceptanceEnv(env), resolved.Env),
+			Env:       sessionEnv,
 			Resume: sessionpkg.ProviderResume{
 				ResumeFlag:    resolved.ResumeFlag,
 				ResumeStyle:   resolved.ResumeStyle,
@@ -129,12 +166,21 @@ func newLiveWorkerHandleHarness(t *testing.T) (*liveWorkerHandleHarness, error) 
 		authSource: authSource,
 		workDir:    root,
 		gcHome:     gcHome,
+		cityDir:    cityDir,
+		store:      store,
+		sessionEnv: sessionEnv,
 		adapter: workerpkg.SessionLogAdapter{
 			SearchPaths: profileSearchPaths(gcHome, liveSetup.Profile),
 		},
 	}
 	t.Cleanup(func() {
 		_ = harness.handle.Stop(context.Background())
+		if harness.cityDir != "" {
+			// Reap any runtime started against the city (e.g. nudge-poller
+			// sidecars spawned by gc prime --hook) before removing it.
+			teardownLiveHandleCityRuntime(env, harness.cityDir)
+		}
+		closeLiveHandleStore(harness.store)
 		if os.Getenv("GC_ACCEPTANCE_KEEP") != "1" {
 			_ = os.RemoveAll(root)
 		}
@@ -142,13 +188,67 @@ func newLiveWorkerHandleHarness(t *testing.T) (*liveWorkerHandleHarness, error) 
 	return harness, nil
 }
 
-func installLiveHandleProviderHooks(workDir string, profile workerpkg.Profile) error {
+func installLiveHandleProviderHooks(workDir, gcHome string, profile workerpkg.Profile) error {
 	switch profile {
 	case workerpkg.ProfileOpenCodeTmuxCLI:
 		return hooks.Install(fsys.OSFS{}, workDir, workDir, []string{"opencode"})
+	case workerpkg.ProfileMimoCodeTmuxCLI:
+		return hooks.Install(fsys.OSFS{}, workDir, workDir, []string{"mimocode"})
+	case workerpkg.ProfileKimiTmuxCLI:
+		if err := hooks.Install(fsys.OSFS{}, workDir, workDir, []string{"kimi"}); err != nil {
+			return err
+		}
+		return appendKimiHooksToShareConfig(workDir, gcHome)
+	case workerpkg.ProfilePiTmuxCLI:
+		return hooks.Install(fsys.OSFS{}, workDir, workDir, []string{"pi"})
+	case workerpkg.ProfileAntigravityTmuxCLI:
+		return hooks.Install(fsys.OSFS{}, workDir, workDir, []string{"antigravity"})
 	default:
 		return nil
 	}
+}
+
+// appendKimiHooksToShareConfig merges the overlay-managed kimi hook entries
+// into the staged share-dir config so the harness session actually runs them.
+//
+// Kimi CLI loads exactly one config file (kimi_cli config.load_config):
+// --config-file when given, else get_share_dir()/config.toml where
+// KIMI_SHARE_DIR overrides ~/.kimi. Hooks come only from that config's
+// [[hooks]] entries and run with cwd = the session work dir, which is why
+// the overlay command (`python3 .kimi/hooks/gascity-session-start.py`) is
+// workdir-relative and hooks.Install above still materializes the script
+// into the work dir. Production appends `--config-file .kimi/config.toml`
+// to the kimi launch command (appendKimiHookConfigArg in
+// cmd/gc/template_resolve.go) and relies on kimi's managed OAuth for auth;
+// the harness instead stages auth as providers/models in the share-dir
+// config (stageKimiAuth), which a hooks-only --config-file would replace
+// wholesale. Appending the overlay [[hooks]] block to the staged share
+// config gives the harness session a single config carrying both auth and
+// the SessionStart hook. TOML array-of-tables appended after the staged
+// [providers.*]/[models.*] tables stays valid.
+func appendKimiHooksToShareConfig(workDir, gcHome string) error {
+	hooksConfig, err := os.ReadFile(filepath.Join(workDir, ".kimi", "config.toml"))
+	if err != nil {
+		return fmt.Errorf("staging kimi hooks: reading overlay hook config: %w", err)
+	}
+	sharePath := filepath.Join(gcHome, ".kimi", "config.toml")
+	shareConfig, err := os.ReadFile(sharePath)
+	if err != nil {
+		return fmt.Errorf("staging kimi hooks: reading staged share config (kimi auth staging must run first): %w", err)
+	}
+	if strings.Contains(string(shareConfig), "gascity-session-start.py") {
+		return nil
+	}
+	if strings.Contains(string(shareConfig), "[[hooks]]") || strings.Contains(string(shareConfig), "\nhooks") {
+		// The host-home config fallback can carry its own hooks; appending
+		// the overlay block would produce a duplicate-key TOML conflict.
+		return fmt.Errorf("staging kimi hooks: staged share config already defines hooks (host-home fallback?); provide key-based auth via OLLAMA_API_KEY, KIMI_API_KEY, or GC_WORKER_INFERENCE_KIMI_CONFIG_TOML")
+	}
+	merged := append(append(shareConfig, '\n'), hooksConfig...)
+	if err := os.WriteFile(sharePath, merged, 0o600); err != nil {
+		return fmt.Errorf("staging kimi hooks: writing merged share config: %w", err)
+	}
+	return nil
 }
 
 func liveWorkerDebugf(format string, args ...any) {
@@ -342,6 +442,30 @@ func (h *liveWorkerHandleHarness) waitForBusyTurnStart(sessionName, outputNeedle
 	evidence["busy_session_name"] = sessionName
 	evidence["busy_output_needle"] = outputNeedle
 
+	if h.profile == workerpkg.ProfilePiTmuxCLI {
+		var (
+			transcriptPath string
+			lastErr        error
+		)
+		found := pollForCondition(30*time.Second, 500*time.Millisecond, func() bool {
+			transcriptPath, lastErr = findPiAssistantOutputTranscript(h.gcHome, outputNeedle)
+			return transcriptPath != ""
+		})
+		if pane, err := captureTmuxPane(h.workDir, sessionName, 120); err == nil && strings.TrimSpace(pane) != "" {
+			evidence["pane_tail"] = pane
+		}
+		if found {
+			evidence["busy_detection"] = "pi-transcript-assistant-output"
+			evidence["busy_transcript_path"] = transcriptPath
+			return evidence, nil
+		}
+		evidence["busy_detection"] = "pi-transcript-assistant-output-missing"
+		if lastErr != nil {
+			return evidence, lastErr
+		}
+		return evidence, fmt.Errorf("pi transcript did not show assistant output for %q", outputNeedle)
+	}
+
 	var (
 		lastPane string
 		lastErr  error
@@ -369,6 +493,89 @@ func (h *liveWorkerHandleHarness) waitForBusyTurnStart(sessionName, outputNeedle
 		return evidence, lastErr
 	}
 	return evidence, fmt.Errorf("busy turn did not show in-flight activity for %q", outputNeedle)
+}
+
+func findPiAssistantOutputTranscript(gcHome, outputNeedle string) (string, error) {
+	needle := strings.TrimSpace(outputNeedle)
+	if needle == "" {
+		return "", nil
+	}
+	roots := []string{
+		filepath.Join(gcHome, ".pi", "agent", "sessions"),
+		filepath.Join(gcHome, ".local", "share", "gascity", "pi-transcripts"),
+	}
+	var lastErr error
+	for _, root := range roots {
+		info, err := os.Stat(root)
+		if err != nil || !info.IsDir() {
+			if err != nil && !os.IsNotExist(err) {
+				lastErr = err
+			}
+			continue
+		}
+		var found string
+		walkErr := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				lastErr = walkErr
+				return nil
+			}
+			if entry.IsDir() || !strings.HasSuffix(strings.ToLower(entry.Name()), ".jsonl") {
+				return nil
+			}
+			ok, err := piTranscriptContainsAssistantOutput(path, needle)
+			if err != nil {
+				lastErr = err
+				return nil
+			}
+			if ok {
+				found = path
+				return filepath.SkipAll
+			}
+			return nil
+		})
+		if walkErr != nil && !errors.Is(walkErr, filepath.SkipAll) {
+			lastErr = walkErr
+		}
+		if found != "" {
+			return found, nil
+		}
+	}
+	return "", lastErr
+}
+
+func piTranscriptContainsAssistantOutput(path, needle string) (bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close() //nolint:errcheck // read-only file
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 256*1024), 50*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var entry struct {
+			Type    string `json:"type"`
+			Message struct {
+				Role    string          `json:"role"`
+				Content json.RawMessage `json:"content"`
+			} `json:"message"`
+		}
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			continue
+		}
+		if entry.Type == "message" &&
+			strings.EqualFold(strings.TrimSpace(entry.Message.Role), "assistant") &&
+			strings.Contains(string(entry.Message.Content), needle) {
+			return true, nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func livePaneShowsBusyIndicator(lines []string) bool {

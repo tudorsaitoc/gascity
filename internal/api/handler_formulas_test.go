@@ -14,12 +14,13 @@ import (
 	"time"
 
 	"github.com/gastownhall/gascity/internal/beads"
+	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/formulatest"
 )
 
 func TestFormulaListReturnsCatalogSummaries(t *testing.T) {
 	state := newFakeState(t)
-	state.cfg.Daemon.FormulaV2 = true
+	state.cityBeadStore = beads.NewMemStore()
 	formulaDir := t.TempDir()
 	state.cfg.FormulaLayers.City = []string{formulaDir}
 
@@ -66,9 +67,6 @@ title = "Review PR"
 	}
 	if item.Description != "Review and fix a PR with a retry loop." {
 		t.Fatalf("description = %q", item.Description)
-	}
-	if item.Version != "2" {
-		t.Fatalf("version = %q, want 2", item.Version)
 	}
 	if len(item.VarDefs) != 1 || item.VarDefs[0].Name != "pr_url" || !item.VarDefs[0].Required {
 		t.Fatalf("var_defs = %+v, want required pr_url", item.VarDefs)
@@ -178,7 +176,7 @@ title = "Review PR"
 			"gc.kind":             "workflow",
 			"gc.formula_contract": "graph.v2",
 			"gc.workflow_id":      "wf-healthy",
-			"gc.run_target":       "mayor",
+			"gc.routed_to":        "mayor",
 			"gc.scope_kind":       "city",
 			"gc.scope_ref":        "test-city",
 		},
@@ -246,7 +244,7 @@ title = "Review PR"
 			"gc.kind":             "workflow",
 			"gc.formula_contract": "graph.v2",
 			"gc.workflow_id":      "wf-rig-only",
-			"gc.run_target":       "myrig/claude",
+			"gc.routed_to":        "myrig/claude",
 			"gc.scope_kind":       "rig",
 			"gc.scope_ref":        "myrig",
 		},
@@ -321,7 +319,7 @@ func TestFormulaFeedReturnsWorkflowRunsOnly(t *testing.T) {
 			"gc.kind":             "workflow",
 			"gc.formula_contract": "graph.v2",
 			"gc.workflow_id":      "wf-rig-monitor",
-			"gc.run_target":       "myrig/claude",
+			"gc.routed_to":        "myrig/claude",
 			"gc.scope_kind":       "rig",
 			"gc.scope_ref":        "myrig",
 		},
@@ -388,7 +386,7 @@ title = "Review PR"
 				"gc.kind":             "workflow",
 				"gc.formula_contract": "graph.v2",
 				"gc.workflow_id":      fmt.Sprintf("wf-%02d", i),
-				"gc.run_target":       "mayor",
+				"gc.routed_to":        "mayor",
 				"gc.scope_kind":       "city",
 				"gc.scope_ref":        "test-city",
 			},
@@ -444,7 +442,7 @@ title = "Review PR"
 			"gc.kind":             "workflow",
 			"gc.formula_contract": "graph.v2",
 			"gc.workflow_id":      "wf-open-root",
-			"gc.run_target":       "mayor",
+			"gc.routed_to":        "mayor",
 			"gc.scope_kind":       "city",
 			"gc.scope_ref":        "test-city",
 		},
@@ -497,7 +495,7 @@ func TestFormulaFeedUsesRootOnlyProjectionWithoutChildLookup(t *testing.T) {
 			"gc.kind":             "workflow",
 			"gc.formula_contract": "graph.v2",
 			"gc.workflow_id":      "wf-fast-path",
-			"gc.run_target":       "mayor",
+			"gc.routed_to":        "mayor",
 			"gc.scope_kind":       "city",
 			"gc.scope_ref":        "test-city",
 		},
@@ -563,7 +561,6 @@ func TestFormulaPreviewAcceptsTypedVarsBody(t *testing.T) {
 	// formula_v2 back out of cfg.Daemon and overrides the global set above.
 	// Without this, the server sees v2 as disabled and rejects the v2
 	// formula compile with a 400 "formula_v2 is disabled" error.
-	state.cfg.Daemon.FormulaV2 = true
 	formulaDir := t.TempDir()
 	state.cfg.FormulaLayers.City = []string{formulaDir}
 
@@ -571,7 +568,6 @@ func TestFormulaPreviewAcceptsTypedVarsBody(t *testing.T) {
 description = "Preview {{issue}}"
 formula = "mol-preview"
 version = 2
-contract = "graph.v2"
 
 [vars]
 [vars.issue]
@@ -586,7 +582,6 @@ title = "Prep {{issue}}"
 id = "review"
 title = "Review {{issue}}"
 needs = ["prep"]
-metadata = { "gc.kind" = "run", "gc.scope_ref" = "body" }
 `)
 
 	body := bytes.NewBufferString(`{"scope_kind":"city","scope_ref":"test-city","target":"worker","vars":{"issue":"BD-123"}}`)
@@ -623,8 +618,403 @@ metadata = { "gc.kind" = "run", "gc.scope_ref" = "body" }
 	if len(detail.Preview.Nodes) != 2 {
 		t.Fatalf("preview.nodes = %+v, want 2 nodes", detail.Preview.Nodes)
 	}
-	if detail.Preview.Nodes[1].Kind != "run" || detail.Preview.Nodes[1].ScopeRef != "body" {
-		t.Fatalf("preview node = %+v, want run node with scope_ref", detail.Preview.Nodes[1])
+}
+
+func TestFormulaPreviewGraphV2InjectsTargetConvoy(t *testing.T) {
+	formulatest.EnableV2ForTest(t)
+
+	state := newFakeState(t)
+	state.cityBeadStore = beads.NewMemStore()
+	formulaDir := t.TempDir()
+	state.cfg.FormulaLayers.City = []string{formulaDir}
+
+	writeTestFormula(t, formulaDir, "graph-preview", `
+description = "Preview {{convoy_id}}"
+formula = "graph-preview"
+version = 2
+contract = "graph.v2"
+
+[[steps]]
+id = "inspect"
+title = "Inspect {{convoy_id}}"
+`)
+	convoy, err := state.cityBeadStore.Create(beads.Bead{Title: "input", Type: "convoy"})
+	if err != nil {
+		t.Fatalf("Create(convoy): %v", err)
+	}
+
+	body := bytes.NewBufferString(fmt.Sprintf(`{"scope_kind":"city","scope_ref":"test-city","target":%q}`, convoy.ID))
+	h := newTestCityHandler(t, state)
+	req := httptest.NewRequest(http.MethodPost, cityURL(state, "/formulas/graph-preview/preview"), body)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-GC-Request", "true")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	var detail formulaDetailResponse
+	if err := json.NewDecoder(rec.Body).Decode(&detail); err != nil {
+		t.Fatalf("Decode(detail): %v", err)
+	}
+	if detail.Description != "Preview "+convoy.ID {
+		t.Fatalf("description = %q, want injected convoy", detail.Description)
+	}
+	if len(detail.Steps) != 1 || detail.Steps[0].Title != "Inspect "+convoy.ID {
+		t.Fatalf("steps = %+v, want substituted graph.v2 preview step", detail.Steps)
+	}
+}
+
+func TestFormulaPreviewGraphV2UsesPreviewInputConvoyForBeadTarget(t *testing.T) {
+	formulatest.EnableV2ForTest(t)
+
+	state := newFakeState(t)
+	state.cityBeadStore = beads.NewMemStore()
+	formulaDir := t.TempDir()
+	state.cfg.FormulaLayers.City = []string{formulaDir}
+
+	writeTestFormula(t, formulaDir, "graph-preview", `
+description = "Preview {{convoy_id}}"
+formula = "graph-preview"
+version = 2
+contract = "graph.v2"
+
+[[steps]]
+id = "inspect"
+title = "Inspect {{convoy_id}}"
+`)
+	target, err := state.cityBeadStore.Create(beads.Bead{Title: "input", Type: "task"})
+	if err != nil {
+		t.Fatalf("Create(target): %v", err)
+	}
+
+	body := bytes.NewBufferString(fmt.Sprintf(`{"scope_kind":"city","scope_ref":"test-city","target":%q}`, target.ID))
+	h := newTestCityHandler(t, state)
+	req := httptest.NewRequest(http.MethodPost, cityURL(state, "/formulas/graph-preview/preview"), body)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-GC-Request", "true")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	var detail formulaDetailResponse
+	if err := json.NewDecoder(rec.Body).Decode(&detail); err != nil {
+		t.Fatalf("Decode(detail): %v", err)
+	}
+	want := "preview-input-convoy:" + target.ID
+	if detail.Description != "Preview "+want {
+		t.Fatalf("description = %q, want preview input convoy", detail.Description)
+	}
+	if len(detail.Steps) != 1 || detail.Steps[0].Title != "Inspect "+want {
+		t.Fatalf("steps = %+v, want preview input graph.v2 step", detail.Steps)
+	}
+	matches, err := state.cityBeadStore.List(beads.ListQuery{Type: "convoy"})
+	if err != nil {
+		t.Fatalf("List input convoys: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("preview persisted input convoys = %+v, want none", matches)
+	}
+}
+
+func TestFormulaPreviewRequiresGraphCompilerInjectsTargetConvoy(t *testing.T) {
+	formulatest.EnableV2ForTest(t)
+
+	state := newFakeState(t)
+	state.cityBeadStore = beads.NewMemStore()
+	formulaDir := t.TempDir()
+	state.cfg.FormulaLayers.City = []string{formulaDir}
+
+	writeTestFormula(t, formulaDir, "graph-preview", `
+description = "Preview {{convoy_id}}"
+formula = "graph-preview"
+version = 2
+
+[requires]
+formula_compiler = ">=2.0.0"
+
+[[steps]]
+id = "inspect"
+title = "Inspect {{convoy_id}}"
+`)
+	convoy, err := state.cityBeadStore.Create(beads.Bead{Title: "input", Type: "convoy"})
+	if err != nil {
+		t.Fatalf("Create(convoy): %v", err)
+	}
+
+	h := newTestCityHandler(t, state)
+	req := httptest.NewRequest(http.MethodGet, cityURL(state, "/formulas/graph-preview?scope_kind=city&scope_ref=test-city&target="+convoy.ID), nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET detail status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	var detail formulaDetailResponse
+	if err := json.NewDecoder(rec.Body).Decode(&detail); err != nil {
+		t.Fatalf("Decode(GET detail): %v", err)
+	}
+	if detail.Description != "Preview "+convoy.ID {
+		t.Fatalf("GET description = %q, want injected convoy", detail.Description)
+	}
+	if len(detail.Steps) != 1 || detail.Steps[0].Title != "Inspect "+convoy.ID {
+		t.Fatalf("GET steps = %+v, want substituted graph.v2 detail step", detail.Steps)
+	}
+
+	body := bytes.NewBufferString(fmt.Sprintf(`{"scope_kind":"city","scope_ref":"test-city","target":%q}`, convoy.ID))
+	req = httptest.NewRequest(http.MethodPost, cityURL(state, "/formulas/graph-preview/preview"), body)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-GC-Request", "true")
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST preview status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	detail = formulaDetailResponse{}
+	if err := json.NewDecoder(rec.Body).Decode(&detail); err != nil {
+		t.Fatalf("Decode(POST detail): %v", err)
+	}
+	if detail.Description != "Preview "+convoy.ID {
+		t.Fatalf("POST description = %q, want injected convoy", detail.Description)
+	}
+	if len(detail.Steps) != 1 || detail.Steps[0].Title != "Inspect "+convoy.ID {
+		t.Fatalf("POST steps = %+v, want substituted graph.v2 preview step", detail.Steps)
+	}
+}
+
+func TestFormulaDetailGraphV2TargetlessAcceptsAgentTarget(t *testing.T) {
+	formulatest.EnableV2ForTest(t)
+
+	state := newFakeState(t)
+	state.cityBeadStore = beads.NewMemStore()
+	formulaDir := t.TempDir()
+	state.cfg.FormulaLayers.City = []string{formulaDir}
+
+	writeTestFormula(t, formulaDir, "graph-detail", `
+description = "Targetless detail"
+formula = "graph-detail"
+version = 2
+contract = "graph.v2"
+
+[[steps]]
+id = "inspect"
+title = "Inspect"
+`)
+
+	h := newTestCityHandler(t, state)
+	req := httptest.NewRequest(http.MethodGet, cityURL(state, "/formulas/graph-detail?scope_kind=city&scope_ref=test-city&target=worker"), nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET detail status = %d, want 200 for agent target on targetless graph.v2 formula: %s", rec.Code, rec.Body.String())
+	}
+	var detail formulaDetailResponse
+	if err := json.NewDecoder(rec.Body).Decode(&detail); err != nil {
+		t.Fatalf("Decode(detail): %v", err)
+	}
+	if detail.Description != "Targetless detail" {
+		t.Fatalf("description = %q, want targetless detail", detail.Description)
+	}
+	if len(detail.Steps) != 1 || detail.Steps[0].Title != "Inspect" {
+		t.Fatalf("steps = %+v, want unsubstituted graph.v2 detail step", detail.Steps)
+	}
+}
+
+// graphAgentTargetFormulaTOML is a graph.v2 formula that references the
+// input convoy, so the preview compilation requires a target.
+const graphAgentTargetFormulaTOML = `
+description = "Preview {{convoy_id}}"
+formula = "graph-agent-target"
+version = 2
+contract = "graph.v2"
+
+[[steps]]
+id = "inspect"
+title = "Inspect {{convoy_id}}"
+`
+
+// Workflow roots persist the routed agent identity as gc.routed_to
+// (ga-eld2x / #2763); run-detail clients echo that identity back as the
+// preview target. A configured agent identity has no bead-store entry, so
+// the detail endpoint must resolve it against config instead of failing the
+// graph.v2 bead lookup (dashboard audit finding M3 follow-up).
+func TestFormulaDetailGraphV2AcceptsConfiguredAgentTarget(t *testing.T) {
+	formulatest.EnableV2ForTest(t)
+
+	state := newFakeState(t)
+	state.cityBeadStore = beads.NewMemStore()
+	formulaDir := t.TempDir()
+	state.cfg.FormulaLayers.City = []string{formulaDir}
+
+	writeTestFormula(t, formulaDir, "graph-agent-target", graphAgentTargetFormulaTOML)
+
+	h := newTestCityHandler(t, state)
+	req := httptest.NewRequest(http.MethodGet, cityURL(state, "/formulas/graph-agent-target?scope_kind=city&scope_ref=test-city&target=myrig/worker"), nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET detail status = %d, want 200 for configured agent target: %s", rec.Code, rec.Body.String())
+	}
+	var detail formulaDetailResponse
+	if err := json.NewDecoder(rec.Body).Decode(&detail); err != nil {
+		t.Fatalf("Decode(detail): %v", err)
+	}
+	want := "preview-input-convoy:myrig/worker"
+	if detail.Description != "Preview "+want {
+		t.Fatalf("description = %q, want routing-identity preview input convoy", detail.Description)
+	}
+	if len(detail.Steps) != 1 || detail.Steps[0].Title != "Inspect "+want {
+		t.Fatalf("steps = %+v, want routing-identity graph.v2 detail step", detail.Steps)
+	}
+	matches, err := state.cityBeadStore.List(beads.ListQuery{Type: "convoy"})
+	if err != nil {
+		t.Fatalf("List input convoys: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("preview persisted input convoys = %+v, want none", matches)
+	}
+}
+
+func TestFormulaPreviewGraphV2AcceptsConfiguredAgentTarget(t *testing.T) {
+	formulatest.EnableV2ForTest(t)
+
+	state := newFakeState(t)
+	state.cityBeadStore = beads.NewMemStore()
+	formulaDir := t.TempDir()
+	state.cfg.FormulaLayers.City = []string{formulaDir}
+
+	writeTestFormula(t, formulaDir, "graph-agent-target", graphAgentTargetFormulaTOML)
+
+	body := bytes.NewBufferString(`{"scope_kind":"city","scope_ref":"test-city","target":"myrig/worker"}`)
+	h := newTestCityHandler(t, state)
+	req := httptest.NewRequest(http.MethodPost, cityURL(state, "/formulas/graph-agent-target/preview"), body)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-GC-Request", "true")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST preview status = %d, want 200 for configured agent target: %s", rec.Code, rec.Body.String())
+	}
+	var detail formulaDetailResponse
+	if err := json.NewDecoder(rec.Body).Decode(&detail); err != nil {
+		t.Fatalf("Decode(detail): %v", err)
+	}
+	want := "preview-input-convoy:myrig/worker"
+	if detail.Description != "Preview "+want {
+		t.Fatalf("description = %q, want routing-identity preview input convoy", detail.Description)
+	}
+	if len(detail.Steps) != 1 || detail.Steps[0].Title != "Inspect "+want {
+		t.Fatalf("steps = %+v, want routing-identity graph.v2 preview step", detail.Steps)
+	}
+}
+
+// The live failure that motivated routing-identity acceptance used a V2
+// binding-qualified identity (dir/binding.name) under rig scope, while the
+// fixture agent above exercises only the V1 dir/name fallback branch of
+// AgentMatchesIdentity. Pin the binding-qualified shape at endpoint level so
+// a change to the V2 matching branch cannot silently drop it.
+func TestFormulaDetailGraphV2AcceptsBindingQualifiedAgentTarget(t *testing.T) {
+	formulatest.EnableV2ForTest(t)
+
+	state := newFakeState(t)
+	state.cityBeadStore = beads.NewMemStore()
+	state.cfg.Agents = append(state.cfg.Agents, config.Agent{
+		Name:              "operator",
+		Dir:               "myrig",
+		BindingName:       "mypack",
+		Provider:          "test-agent",
+		MaxActiveSessions: intPtr(1),
+	})
+	formulaDir := t.TempDir()
+	state.cfg.FormulaLayers.City = []string{formulaDir}
+
+	writeTestFormula(t, formulaDir, "graph-agent-target", graphAgentTargetFormulaTOML)
+
+	h := newTestCityHandler(t, state)
+	req := httptest.NewRequest(http.MethodGet, cityURL(state, "/formulas/graph-agent-target?scope_kind=rig&scope_ref=myrig&target=myrig/mypack.operator"), nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET detail status = %d, want 200 for binding-qualified agent target: %s", rec.Code, rec.Body.String())
+	}
+	var detail formulaDetailResponse
+	if err := json.NewDecoder(rec.Body).Decode(&detail); err != nil {
+		t.Fatalf("Decode(detail): %v", err)
+	}
+	want := "preview-input-convoy:myrig/mypack.operator"
+	if detail.Description != "Preview "+want {
+		t.Fatalf("description = %q, want binding-qualified routing-identity preview input convoy", detail.Description)
+	}
+	if len(detail.Steps) != 1 || detail.Steps[0].Title != "Inspect "+want {
+		t.Fatalf("steps = %+v, want binding-qualified routing-identity graph.v2 detail step", detail.Steps)
+	}
+	matches, err := state.stores["myrig"].List(beads.ListQuery{Type: "convoy"})
+	if err != nil {
+		t.Fatalf("List input convoys: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("preview persisted input convoys = %+v, want none", matches)
+	}
+}
+
+// The routing-identity lookup must not run before the endpoint's existing
+// config-availability guard: with a nil city config the detail and preview
+// endpoints keep returning the typed 503 instead of panicking on a nil
+// config dereference.
+func TestFormulaDetailNilConfigReturns503(t *testing.T) {
+	state := newFakeState(t)
+	state.cityBeadStore = beads.NewMemStore()
+	state.cfg = nil
+
+	h := newTestCityHandler(t, state)
+	req := httptest.NewRequest(http.MethodGet, cityURL(state, "/formulas/graph-agent-target?scope_kind=city&scope_ref=test-city&target=myrig/worker"), nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("GET detail status = %d, want 503 when config is unavailable: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "config is unavailable") {
+		t.Fatalf("body = %s, want config-unavailable error", rec.Body.String())
+	}
+}
+
+// A target that is neither a bead nor a configured agent identity must keep
+// failing with the existing not-found error: routing-identity acceptance is
+// config-resolved, not a blanket fallback that would mask mistyped bead IDs.
+// The error must also say that config-identity resolution was attempted, so
+// a stale or mistyped agent identity is not misread as a bead-store problem.
+func TestFormulaDetailGraphV2UnknownTargetStillRejected(t *testing.T) {
+	formulatest.EnableV2ForTest(t)
+
+	state := newFakeState(t)
+	state.cityBeadStore = beads.NewMemStore()
+	formulaDir := t.TempDir()
+	state.cfg.FormulaLayers.City = []string{formulaDir}
+
+	writeTestFormula(t, formulaDir, "graph-agent-target", graphAgentTargetFormulaTOML)
+
+	h := newTestCityHandler(t, state)
+	req := httptest.NewRequest(http.MethodGet, cityURL(state, "/formulas/graph-agent-target?scope_kind=city&scope_ref=test-city&target=ga-nope"), nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("GET detail status = %d, want 400 for unknown target: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "not found") {
+		t.Fatalf("body = %s, want graph.v2 target not-found error", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "matches neither a bead/convoy nor a configured agent identity") {
+		t.Fatalf("body = %s, want agent-identity resolution context in not-found error", rec.Body.String())
 	}
 }
 
@@ -632,7 +1022,6 @@ func TestFormulaPreviewRejectsMissingRequiredVars(t *testing.T) {
 	formulatest.EnableV2ForTest(t)
 
 	state := newFakeState(t)
-	state.cfg.Daemon.FormulaV2 = true
 	formulaDir := t.TempDir()
 	state.cfg.FormulaLayers.City = []string{formulaDir}
 
@@ -677,7 +1066,6 @@ func TestFormulaPreviewRejectsMissingRequiredVarsWithoutVarsBody(t *testing.T) {
 	formulatest.EnableV2ForTest(t)
 
 	state := newFakeState(t)
-	state.cfg.Daemon.FormulaV2 = true
 	formulaDir := t.TempDir()
 	state.cfg.FormulaLayers.City = []string{formulaDir}
 
@@ -715,6 +1103,69 @@ title = "Prep {{issue}}"
 	}
 	if !strings.Contains(problem.Detail, `variable "issue" is required`) {
 		t.Fatalf("detail = %q, want missing issue validation error", problem.Detail)
+	}
+}
+
+func TestFormulaDetailGraphV2DrainSkipsItemRuntimeValidation(t *testing.T) {
+	formulatest.EnableV2ForTest(t)
+
+	state := newFakeState(t)
+	state.cityBeadStore = beads.NewMemStore()
+	formulaDir := t.TempDir()
+	state.cfg.FormulaLayers.City = []string{formulaDir}
+	target, err := state.cityBeadStore.Create(beads.Bead{Title: "target", Type: "task"})
+	if err != nil {
+		t.Fatalf("Create(target): %v", err)
+	}
+
+	writeTestFormula(t, formulaDir, "parent-drain", `
+formula = "parent-drain"
+version = 2
+contract = "graph.v2"
+
+[[steps]]
+id = "drain"
+title = "Drain {{convoy_id}}"
+
+[steps.drain]
+context = "separate"
+formula = "item-work"
+`)
+	writeTestFormula(t, formulaDir, "item-work", `
+formula = "item-work"
+version = 2
+contract = "graph.v2"
+
+[vars]
+[vars.extra]
+description = "Required only when validating a runnable preview"
+required = true
+
+[[steps]]
+id = "work"
+title = "Work {{convoy_id}} with {{extra}}"
+`)
+
+	h := newTestCityHandler(t, state)
+	req := httptest.NewRequest(http.MethodGet, cityURL(state, "/formulas/parent-drain?scope_kind=city&scope_ref=test-city&target="+target.ID), nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET detail status = %d, want 200 without item runtime validation: %s", rec.Code, rec.Body.String())
+	}
+
+	body := bytes.NewBufferString(fmt.Sprintf(`{"scope_kind":"city","scope_ref":"test-city","target":%q}`, target.ID))
+	req = httptest.NewRequest(http.MethodPost, cityURL(state, "/formulas/parent-drain/preview"), body)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-GC-Request", "true")
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST preview status = %d, want 400 with item runtime validation: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "extra") {
+		t.Fatalf("POST preview body = %s, want missing extra", rec.Body.String())
 	}
 }
 

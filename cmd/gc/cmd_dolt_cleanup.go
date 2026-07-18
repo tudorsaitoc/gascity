@@ -30,6 +30,7 @@ const CleanupSchemaVersion = "gc.dolt.cleanup.v1"
 // stable from day one — empty arrays and zero structs render as `[]` /
 // `{...}` so callers can rely on the schema across versions.
 type CleanupReport struct {
+	OK            bool                   `json:"ok"`
 	Schema        string                 `json:"schema"`
 	Port          CleanupPortReport      `json:"port"`
 	RigsProtected []CleanupRigProtection `json:"rigs_protected"`
@@ -105,10 +106,13 @@ type CleanupReapedReport struct {
 }
 
 // CleanupReapTarget is a single orphan dolt sql-server process the reaper
-// identified for termination.
+// identified for termination. Reason is set for deleted-scope targets
+// (deleted cwd, vanished --config) and empty for the classic
+// test-config-path allowlist match where the path itself is the explanation.
 type CleanupReapTarget struct {
 	PID        int    `json:"pid"`
 	ConfigPath string `json:"config_path"`
+	Reason     string `json:"reason,omitempty"`
 }
 
 // CleanupSummary aggregates totals across the three steps.
@@ -131,12 +135,18 @@ const (
 	cleanupErrorKindInvalidMaxOrphanDBs = "invalid-max-orphan-dbs"
 	cleanupErrorKindMaxOrphanRefusal    = "max-orphan-refusal"
 	cleanupErrorKindRigProtection       = "rig-protection"
+	// cleanupErrorKindLiveSessionProbeFailed marks that the SHOW
+	// PROCESSLIST probe could not complete (timeout, auth, network,
+	// malformed result). FAIL-CLOSED: --force refuses to drop ANY DB
+	// when this kind is recorded.
+	cleanupErrorKindLiveSessionProbeFailed = "live-session-probe-failed"
 )
 
 // MarshalJSON ensures slices serialize as `[]` rather than `null` for empty
 // values. The JSON contract documents these as always-present arrays.
 func (r CleanupReport) MarshalJSON() ([]byte, error) {
 	type alias CleanupReport
+	r.OK = true
 	if r.RigsProtected == nil {
 		r.RigsProtected = []CleanupRigProtection{}
 	}
@@ -300,6 +310,9 @@ func runDoltCleanup(opts cleanupOptions, stdout, stderr io.Writer) int {
 	if opts.DoltClientOpenErr != nil {
 		return 1
 	}
+	if opts.Force && hasFatalForceBlocker(&report) {
+		return 1
+	}
 	return 0
 }
 
@@ -371,7 +384,7 @@ func runReapStage(report *CleanupReport, opts cleanupOptions) {
 	}
 	report.Reaped.Targets = nil
 	for _, t := range plan.Reap {
-		report.Reaped.Targets = append(report.Reaped.Targets, CleanupReapTarget{PID: t.PID, ConfigPath: t.ConfigPath})
+		report.Reaped.Targets = append(report.Reaped.Targets, CleanupReapTarget{PID: t.PID, ConfigPath: t.ConfigPath, Reason: t.Reason})
 	}
 
 	if !opts.Force {
@@ -494,7 +507,10 @@ func revalidateReapTarget(report *CleanupReport, discover func() ([]DoltProcInfo
 }
 
 func sameReapProcessIdentity(target ReapTarget, proc DoltProcInfo) bool {
-	return target.StartTimeTicks != 0 && proc.StartTimeTicks == target.StartTimeTicks
+	if target.StartTimeTicks != 0 {
+		return proc.StartTimeTicks == target.StartTimeTicks
+	}
+	return target.StartIdentity != "" && proc.StartIdentity == target.StartIdentity
 }
 
 func recordReapRevalidationError(report *CleanupReport, signalName string, err error) {
@@ -665,6 +681,10 @@ func emitOrphansSection(report CleanupReport, stdout io.Writer) {
 		if path == "" {
 			path = "(no --config flag)"
 		}
+		if t.Reason != "" {
+			fmt.Fprintf(stdout, "  PID %d  %s — %s\n", t.PID, path, t.Reason) //nolint:errcheck
+			continue
+		}
 		fmt.Fprintf(stdout, "  PID %d  %s\n", t.PID, path) //nolint:errcheck
 	}
 }
@@ -817,10 +837,16 @@ Pass --max-orphan-dbs with --force to refuse all destructive cleanup
 stages if the live apply-time stale database count exceeds the
 scan-time threshold. The default 0 disables this guard; negative values
 are rejected before any city lookup or cleanup stage runs.
-Active rig dolt servers, registered rig databases, active test temp roots,
-and processes outside the test-config-path allowlist (/tmp/Test*,
-os.TempDir()/Test*, known Gas City test prefixes, ~/.gotmp/Test*) are always
-protected — see the PROTECTED section of the
+Protection is conservative and checked first: active rig dolt servers (matched
+by listening port), registered rig databases, and active test temp roots are
+always protected, and any process whose state cannot be determined degrades to
+protected. A dolt sql-server is reaped only when its scope is provably gone —
+its working directory is an unlinked inode (the kernel "(deleted)" cwd marker),
+or its --config path is on the test-config-path allowlist (/tmp/Test*,
+os.TempDir()/Test*, known Gas City test prefixes, ~/.gotmp/Test*). A server
+whose --config has merely vanished while its working directory is still live is
+protected, not reaped, until an operator confirms; a lone missing-config
+observation is not proof of scope deletion. See the PROTECTED section of the
 report. Destructive drops are limited to known stale test database name
 shapes and conservative SQL identifier characters; skipped stale matches
 are reported in dropped.skipped. Rig dolt_database names used for purge
@@ -922,6 +948,12 @@ func rigProtections(rigs []resolverRig, fs fsys.FS) ([]CleanupRigProtection, []r
 	var errs []rigProtectionError
 	for _, r := range orderRigsHQFirst(rigs) {
 		resolution := resolveRigDoltDatabase(r, fs)
+		if resolution.skip {
+			// Non-dolt-backed rig (e.g. mysql): not a dolt-cleanup target, so
+			// omit it from rig protections. It is then neither counted as a
+			// force_blocker nor selected for forced drop/purge (az-374).
+			continue
+		}
 		out = append(out, CleanupRigProtection{Rig: r.Name, DB: resolution.name})
 		if resolution.err != nil {
 			errs = append(errs, rigProtectionError{rig: r.Name, err: resolution.err})
@@ -955,6 +987,21 @@ func hasRigProtectionError(report *CleanupReport) bool {
 	return false
 }
 
+// hasFatalForceBlocker reports whether a force-blocker has been
+// recorded that requires runDoltCleanup to exit non-zero in --force
+// mode. Currently only cleanupErrorKindLiveSessionProbeFailed counts;
+// rig-protection refusals are signaled via the Errors slice
+// (hasRigProtectionError), and max-orphan-refusal historically returns
+// exit 0 with the report (existing behavior preserved).
+func hasFatalForceBlocker(report *CleanupReport) bool {
+	for _, b := range report.ForceBlockers {
+		if b.Kind == cleanupErrorKindLiveSessionProbeFailed {
+			return true
+		}
+	}
+	return false
+}
+
 // rigDoltDatabaseName returns the rig's dolt database name as recorded in its
 // metadata.json, falling back to rig.Name only as a report label when metadata
 // is missing or silent.
@@ -965,6 +1012,11 @@ func rigDoltDatabaseName(r resolverRig, fs fsys.FS) string {
 type rigDoltDatabaseResolution struct {
 	name string
 	err  error
+	// skip is set when the rig declares a non-dolt backend (e.g. mysql) and
+	// therefore has no dolt database for dolt-cleanup to verify, drop, or
+	// purge. Such rigs are excluded from rig protections rather than being
+	// treated as a force_blocker for a missing dolt_database (az-374).
+	skip bool
 }
 
 func resolveRigDoltDatabase(r resolverRig, fs fsys.FS) rigDoltDatabaseResolution {
@@ -993,6 +1045,14 @@ func resolveRigDoltDatabase(r resolverRig, fs fsys.FS) rigDoltDatabaseResolution
 		return rigDoltDatabaseResolution{
 			name: r.Name,
 			err:  fmt.Errorf("parse rig metadata %s: %w", metadataPath, err),
+		}
+	}
+	// A rig that declares a non-dolt backend (e.g. mysql) has no dolt database
+	// for dolt-cleanup to act on. Skip it instead of reporting the absent
+	// dolt_database as a rig-protection force_blocker (az-374).
+	if backend, ok := meta["backend"].(string); ok {
+		if b := strings.TrimSpace(strings.ToLower(backend)); b != "" && b != "dolt" {
+			return rigDoltDatabaseResolution{name: r.Name, skip: true}
 		}
 	}
 	if db, ok := meta["dolt_database"]; ok {

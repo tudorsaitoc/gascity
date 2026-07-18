@@ -11,10 +11,34 @@ import (
 
 var responseCacheTTL = 2 * time.Second
 
+// timeBucketResponseCacheTTL bounds how long a built body is reused by the
+// endpoints that key their response-cache entry on a TIME bucket rather than
+// the event sequence: /status (gascity#3186), /formulas/feed, and bounded
+// all=true /beads reads (#3208). The shared index-keyed cache misses on every
+// poll of a busy city — the sequence advances each tick — so O(store-size)
+// bodies were rebuilt per request. These are coarse views where a few seconds
+// of staleness is acceptable (responses report X-GC-Cache-Age-S where a
+// CachingStore backs them); strict-freshness callers (blocking ?index=&wait=
+// requests) bypass the time cache at each handler.
+var timeBucketResponseCacheTTL = 2 * time.Second
+
+// responseCacheTimeBucket returns a monotonically increasing generation that
+// only changes once per timeBucketResponseCacheTTL window. Passing it where
+// the shared cache expects an event index makes an entry survive across the
+// event-sequence churn of a busy city while still expiring on a wall-clock
+// TTL.
+func responseCacheTimeBucket(now time.Time) uint64 {
+	ttl := timeBucketResponseCacheTTL
+	if ttl <= 0 {
+		return uint64(now.UnixNano())
+	}
+	return uint64(now.UnixNano() / int64(ttl))
+}
+
 // responseCacheMaxEntries caps the in-memory cache. Query-parameter
 // combinations (Rig, Pool, blocking index, etc.) produce a wide but
 // bounded key space; a hostile or buggy client could still exhaust
-// memory without a ceiling. Eviction is oldest-by-expiry, so the most
+// memory without a ceiling. Eviction is oldest-stored-first, so the most
 // recently warmed entries stay hot.
 const responseCacheMaxEntries = 256
 
@@ -24,9 +48,16 @@ const responseCacheMaxEntries = 256
 // cost is negligible, and we eliminate hand-written JSON (de)serialization
 // from the cache-hit path (Phase 3 Fix 3l).
 type responseCacheEntry struct {
-	index   uint64
-	expires time.Time
-	value   any
+	index    uint64
+	storedAt time.Time
+	value    any
+}
+
+// expires is the index-keyed lookup deadline. Age-bounded lookups
+// (cachedResponseWithinAge) apply their own caller-supplied window
+// against storedAt instead.
+func (e responseCacheEntry) expires() time.Time {
+	return e.storedAt.Add(responseCacheTTL)
 }
 
 // cacheKeyFor derives a deterministic cache key for a Huma input struct.
@@ -92,7 +123,7 @@ func collectCacheKeyParts(v reflect.Value, parts *[]string) {
 			continue
 		}
 		fv := v.Field(i)
-		if fv.Kind() == reflect.Ptr {
+		if fv.Kind() == reflect.Pointer {
 			if fv.IsNil() {
 				continue
 			}
@@ -122,7 +153,7 @@ func (s *Server) cachedResponse(key string, index uint64) (any, bool) {
 		return nil, false
 	}
 	entry, ok := s.responseCacheEntries[key]
-	if !ok || entry.index != index || time.Now().After(entry.expires) {
+	if !ok || entry.index != index || time.Now().After(entry.expires()) {
 		return nil, false
 	}
 	return entry.value, true
@@ -146,18 +177,18 @@ func (s *Server) storeResponse(key string, index uint64, v any) {
 		s.evictResponseCache(now)
 	}
 	s.responseCacheEntries[key] = responseCacheEntry{
-		index:   index,
-		expires: now.Add(responseCacheTTL),
-		value:   v,
+		index:    index,
+		storedAt: now,
+		value:    v,
 	}
 }
 
 // evictResponseCache drops expired entries, and — if the cache is still
-// over cap — the single oldest-by-expiry remaining entry. Called under
+// over cap — the single oldest-stored remaining entry. Called under
 // the cache mutex.
 func (s *Server) evictResponseCache(now time.Time) {
 	for k, entry := range s.responseCacheEntries {
-		if now.After(entry.expires) {
+		if now.After(entry.expires()) {
 			delete(s.responseCacheEntries, k)
 		}
 	}
@@ -165,11 +196,11 @@ func (s *Server) evictResponseCache(now time.Time) {
 		return
 	}
 	var oldestKey string
-	var oldestExp time.Time
+	var oldestStored time.Time
 	for k, entry := range s.responseCacheEntries {
-		if oldestKey == "" || entry.expires.Before(oldestExp) {
+		if oldestKey == "" || entry.storedAt.Before(oldestStored) {
 			oldestKey = k
-			oldestExp = entry.expires
+			oldestStored = entry.storedAt
 		}
 	}
 	if oldestKey != "" {
@@ -177,8 +208,49 @@ func (s *Server) evictResponseCache(now time.Time) {
 	}
 }
 
+// cachedResponseWithinAge returns the cached value for key when the entry
+// was stored within maxAge, regardless of the event index it was built at.
+// For endpoints whose rebuild fans out to external stores (status), the
+// exact-index lookup never hits on busy cities — every event advances the
+// index — so callers opt into a bounded-staleness window instead.
+func (s *Server) cachedResponseWithinAge(key string, maxAge time.Duration) (any, bool) {
+	if key == "" {
+		return nil, false
+	}
+	s.responseCacheMu.Lock()
+	defer s.responseCacheMu.Unlock()
+	if s.responseCacheEntries == nil {
+		return nil, false
+	}
+	entry, ok := s.responseCacheEntries[key]
+	if !ok || time.Since(entry.storedAt) > maxAge {
+		return nil, false
+	}
+	return entry.value, true
+}
+
 // cachedResponseAs is a generic helper: retrieve the cached value and
 // deep-copy it via a JSON roundtrip before returning.
+func cachedResponseAs[T any](s *Server, key string, index uint64) (T, bool) {
+	v, ok := s.cachedResponse(key, index)
+	if !ok {
+		var zero T
+		return zero, false
+	}
+	return cloneCachedValue[T](v)
+}
+
+// cachedResponseWithinAgeAs is cachedResponseAs for age-bounded lookups.
+func cachedResponseWithinAgeAs[T any](s *Server, key string, maxAge time.Duration) (T, bool) {
+	v, ok := s.cachedResponseWithinAge(key, maxAge)
+	if !ok {
+		var zero T
+		return zero, false
+	}
+	return cloneCachedValue[T](v)
+}
+
+// cloneCachedValue deep-copies a cached value via a JSON roundtrip.
 //
 // The JSON roundtrip isolates concurrent readers: if a handler mutates
 // the returned struct's slices/maps (e.g. appends a partial-error note
@@ -186,12 +258,8 @@ func (s *Server) evictResponseCache(now time.Time) {
 // clean value. The cost is one Marshal + Unmarshal per cache hit, but
 // Huma would re-serialize the value on output anyway so the net is ~1
 // extra Unmarshal call on the read path.
-func cachedResponseAs[T any](s *Server, key string, index uint64) (T, bool) {
+func cloneCachedValue[T any](v any) (T, bool) {
 	var zero T
-	v, ok := s.cachedResponse(key, index)
-	if !ok {
-		return zero, false
-	}
 	data, err := json.Marshal(v)
 	if err != nil {
 		return zero, false

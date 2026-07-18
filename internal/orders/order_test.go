@@ -1,6 +1,7 @@
 package orders
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -70,6 +71,23 @@ func TestParseInvalid(t *testing.T) {
 	_, err := Parse([]byte(`not valid toml {{{`))
 	if err == nil {
 		t.Fatal("Parse should fail on invalid TOML")
+	}
+}
+
+func TestParseIdempotent(t *testing.T) {
+	on, err := Parse([]byte("[order]\nexec = \"true\"\ntrigger = \"cooldown\"\ninterval = \"1m\"\nidempotent = true\n"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if !on.Idempotent {
+		t.Error("Idempotent = false, want true")
+	}
+	off, err := Parse([]byte("[order]\nexec = \"true\"\ntrigger = \"cooldown\"\ninterval = \"1m\"\n"))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if off.Idempotent {
+		t.Error("Idempotent = true, want false (default)")
 	}
 }
 
@@ -156,6 +174,39 @@ func TestValidateExecWithPool(t *testing.T) {
 	err := Validate(a)
 	if err == nil {
 		t.Error("Validate should fail: exec with pool")
+	}
+}
+
+func TestValidateFormulaWithEnv(t *testing.T) {
+	a := Order{Name: "bad", Formula: "mol-x", Trigger: "manual", Env: map[string]string{"CUSTOM_ORDER_FLAG": "enabled"}}
+	err := Validate(a)
+	if err == nil {
+		t.Fatal("Validate should fail: formula order with env")
+	}
+	if !strings.Contains(err.Error(), "env") {
+		t.Fatalf("Validate error = %q, want env diagnostic", err)
+	}
+}
+
+func TestValidateEnvKeyShape(t *testing.T) {
+	tests := []struct {
+		name string
+		key  string
+	}{
+		{name: "empty", key: ""},
+		{name: "contains equals", key: "BAD=KEY"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := Order{Name: "bad", Exec: "scripts/x.sh", Trigger: "manual", Env: map[string]string{tt.key: "value"}}
+			err := Validate(a)
+			if err == nil {
+				t.Fatal("Validate should fail for invalid env key")
+			}
+			if !strings.Contains(err.Error(), "env") {
+				t.Fatalf("Validate error = %q, want env diagnostic", err)
+			}
+		})
 	}
 }
 
@@ -326,5 +377,187 @@ interval = "24h"
 	}
 	if a.Trigger != "cron" {
 		t.Fatalf("Trigger = %q, want %q", a.Trigger, "cron")
+	}
+}
+
+func TestParseEnv(t *testing.T) {
+	data := []byte(`
+[order]
+exec = "scripts/doctor.sh"
+trigger = "cooldown"
+interval = "5m"
+
+[order.env]
+GC_DOCTOR_LATENCY_WARN_S = "3"
+GC_JSONL_SPIKE_THRESHOLD = "30"
+`)
+	a, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if a.Env["GC_DOCTOR_LATENCY_WARN_S"] != "3" {
+		t.Errorf("Env[GC_DOCTOR_LATENCY_WARN_S] = %q, want %q", a.Env["GC_DOCTOR_LATENCY_WARN_S"], "3")
+	}
+	if a.Env["GC_JSONL_SPIKE_THRESHOLD"] != "30" {
+		t.Errorf("Env[GC_JSONL_SPIKE_THRESHOLD] = %q, want %q", a.Env["GC_JSONL_SPIKE_THRESHOLD"], "30")
+	}
+}
+
+func TestParseEnvAbsent(t *testing.T) {
+	data := []byte(`
+[order]
+formula = "mol-test"
+trigger = "manual"
+`)
+	a, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(a.Env) != 0 {
+		t.Errorf("Env = %v, want empty when absent", a.Env)
+	}
+}
+
+func TestParseScope(t *testing.T) {
+	data := []byte(`
+[order]
+scope = "city"
+exec = "scripts/sweep.sh"
+trigger = "cooldown"
+interval = "5m"
+`)
+	a, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if a.Scope != "city" {
+		t.Errorf("Scope = %q, want %q", a.Scope, "city")
+	}
+	if !a.IsCityScoped() {
+		t.Error("IsCityScoped() = false, want true for scope=city")
+	}
+}
+
+func TestParseScopeDefaultsToRig(t *testing.T) {
+	data := []byte(`
+[order]
+exec = "scripts/health.sh"
+trigger = "cooldown"
+interval = "5m"
+`)
+	a, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if a.Scope != "" {
+		t.Errorf("Scope = %q, want empty (rig default)", a.Scope)
+	}
+	if a.IsCityScoped() {
+		t.Error("IsCityScoped() = true, want false for unscoped order")
+	}
+}
+
+func TestValidateRejectsUnknownScope(t *testing.T) {
+	a := Order{
+		Name:     "bad-scope",
+		Exec:     "scripts/x.sh",
+		Trigger:  "cooldown",
+		Interval: "5m",
+		Scope:    "global",
+	}
+	err := Validate(a)
+	if err == nil {
+		t.Fatal("Validate succeeded, want unknown-scope rejection")
+	}
+	if !strings.Contains(err.Error(), "scope") {
+		t.Fatalf("Validate error = %q, want scope context", err.Error())
+	}
+}
+
+func TestValidateAcceptsCityAndRigScope(t *testing.T) {
+	for _, scope := range []string{"", "city", "rig"} {
+		a := Order{
+			Name:     "scoped",
+			Exec:     "scripts/x.sh",
+			Trigger:  "cooldown",
+			Interval: "5m",
+			Scope:    scope,
+		}
+		if err := Validate(a); err != nil {
+			t.Errorf("Validate(scope=%q) = %v, want nil", scope, err)
+		}
+	}
+}
+
+func TestParseOrderParams(t *testing.T) {
+	data := []byte(`
+[order]
+formula = "pr-review"
+trigger = "manual"
+
+[order.params]
+repo = { required = true }
+pr = { required = true }
+note = {}
+`)
+	a, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(a.Params) != 3 {
+		t.Fatalf("len(Params) = %d, want 3", len(a.Params))
+	}
+	if !a.Params["repo"].Required {
+		t.Fatal("Params[repo].Required = false, want true")
+	}
+	if a.Params["note"].Required {
+		t.Fatal("Params[note].Required = true, want false")
+	}
+}
+
+func TestValidateRequiredParams(t *testing.T) {
+	a := Order{
+		Name:    "pr-review",
+		Formula: "pr-review",
+		Trigger: "manual",
+		Params: map[string]OrderParam{
+			"repo": {Required: true},
+			"pr":   {Required: true},
+			"note": {Required: false},
+		},
+	}
+
+	if err := ValidateRequiredParams(a, map[string]string{"repo": "octo/demo", "pr": "1"}); err != nil {
+		t.Fatalf("ValidateRequiredParams with all required present = %v, want nil", err)
+	}
+
+	// Optional param may be omitted.
+	if err := ValidateRequiredParams(a, map[string]string{"repo": "octo/demo", "pr": "1", "extra": "ignored"}); err != nil {
+		t.Fatalf("ValidateRequiredParams with optional omitted = %v, want nil", err)
+	}
+
+	err := ValidateRequiredParams(a, map[string]string{"repo": "octo/demo"})
+	if err == nil {
+		t.Fatal("ValidateRequiredParams with missing pr = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "pr") {
+		t.Fatalf("error = %q, want it to name missing param pr", err.Error())
+	}
+
+	// A present-but-empty value counts as MISSING: webhook arg extraction inserts
+	// the key even when the payload path resolved to "", so a required param that
+	// rendered empty must not be treated as supplied (else the order fires with an
+	// empty required value).
+	emptyErr := ValidateRequiredParams(a, map[string]string{"repo": "octo/demo", "pr": ""})
+	if emptyErr == nil {
+		t.Fatal("ValidateRequiredParams with empty-but-present pr = nil, want error (empty required value is not supplied)")
+	}
+	if !strings.Contains(emptyErr.Error(), "pr") {
+		t.Fatalf("error = %q, want it to name the empty required param pr", emptyErr.Error())
+	}
+
+	// A whitespace-only value is likewise treated as missing.
+	if err := ValidateRequiredParams(a, map[string]string{"repo": "octo/demo", "pr": "   "}); err == nil {
+		t.Fatal("ValidateRequiredParams with whitespace-only pr = nil, want error")
 	}
 }

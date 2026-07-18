@@ -41,24 +41,53 @@ type eventsAPITransportError struct {
 }
 
 type cliWireEvent struct {
-	Actor   string          `json:"actor"`
-	Message string          `json:"message,omitempty"`
-	Payload json.RawMessage `json:"payload,omitempty"`
-	Seq     int64           `json:"seq"`
-	Subject string          `json:"subject,omitempty"`
-	Ts      time.Time       `json:"ts"`
-	Type    string          `json:"type"`
+	Actor     string          `json:"actor"`
+	Message   string          `json:"message,omitempty"`
+	Payload   json.RawMessage `json:"payload,omitempty"`
+	RunID     string          `json:"run_id,omitempty"`
+	SessionID string          `json:"session_id,omitempty"`
+	StepID    string          `json:"step_id,omitempty"`
+	Seq       int64           `json:"seq"`
+	Subject   string          `json:"subject,omitempty"`
+	Ts        time.Time       `json:"ts"`
+	Type      string          `json:"type"`
+	OK        bool            `json:"ok"`
 }
 
 type cliWireTaggedEvent struct {
-	Actor   string          `json:"actor"`
-	City    string          `json:"city"`
-	Message string          `json:"message,omitempty"`
-	Payload json.RawMessage `json:"payload,omitempty"`
-	Seq     int64           `json:"seq"`
-	Subject string          `json:"subject,omitempty"`
-	Ts      time.Time       `json:"ts"`
-	Type    string          `json:"type"`
+	Actor     string          `json:"actor"`
+	City      string          `json:"city"`
+	Message   string          `json:"message,omitempty"`
+	Payload   json.RawMessage `json:"payload,omitempty"`
+	RunID     string          `json:"run_id,omitempty"`
+	SessionID string          `json:"session_id,omitempty"`
+	StepID    string          `json:"step_id,omitempty"`
+	Seq       int64           `json:"seq"`
+	Subject   string          `json:"subject,omitempty"`
+	Ts        time.Time       `json:"ts"`
+	Type      string          `json:"type"`
+	OK        bool            `json:"ok"`
+}
+
+type cliEventsRotateResponse struct {
+	Rotated     bool                    `json:"rotated"`
+	Reason      string                  `json:"reason,omitempty"`
+	Archive     *cliEventsRotateArchive `json:"archive,omitempty"`
+	AnchorEvent *cliEventsRotateAnchor  `json:"anchor_event,omitempty"`
+	OK          bool                    `json:"ok"`
+}
+
+type cliEventsRotateArchive struct {
+	Path              string `json:"path"`
+	FirstSeq          uint64 `json:"first_seq"`
+	LastSeq           uint64 `json:"last_seq"`
+	CompressionStatus string `json:"compression_status"`
+}
+
+type cliEventsRotateAnchor struct {
+	Seq  uint64    `json:"seq"`
+	Type string    `json:"type"`
+	Ts   time.Time `json:"ts"`
 }
 
 type cliEventEnvelope = cliWireEvent
@@ -177,9 +206,35 @@ DTO or SSE envelope.`,
 	cmd.Flags().StringVar(&timeoutFlag, "timeout", "30s", "Max wait duration for --watch (e.g. 30s, 5m)")
 	cmd.Flags().Uint64Var(&afterFlag, "after", 0, "Resume from this city event sequence number (city scope only)")
 	cmd.Flags().StringVar(&afterCursor, "after-cursor", "", "Resume from this supervisor event cursor (supervisor scope only)")
-	cmd.Flags().StringArrayVar(&payloadMatch, "payload-match", nil, "Filter by payload field (key=value, repeatable)")
+	cmd.Flags().StringArrayVar(&payloadMatch, "payload-match", nil, "Filter by payload field (key=value or key.subkey=value, repeatable)")
 	cmd.Flags().BoolVar(&jsonFlagDeprecated, "json", false, "Deprecated: output is always JSONL. Accepted for back-compat.")
 	_ = cmd.Flags().MarkDeprecated("json", "output is always JSONL; the flag is now a no-op and will be removed in a future release")
+	cmd.AddCommand(newEventsRotateCmd(stdout, stderr))
+	return cmd
+}
+
+func newEventsRotateCmd(stdout, stderr io.Writer) *cobra.Command {
+	var apiURL string
+	var wait bool
+	cmd := &cobra.Command{
+		Use:   "rotate",
+		Short: "Force rotate the city event log",
+		Long: `Force rotate the city event log through the running supervisor.
+
+Output is one JSON line. Empty active logs are successful no-ops.`,
+		Example: `  gc events rotate
+  gc events rotate --wait
+  gc --city /path/to/city events rotate --api http://127.0.0.1:8080`,
+		Args: cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			if cmdEventsRotate(apiURL, wait, stdout, stderr) != 0 {
+				return errExit
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&apiURL, "api", "", "GC API server URL override (auto-discovered by default)")
+	cmd.Flags().BoolVar(&wait, "wait", false, "Wait for archive compression to complete before returning")
 	return cmd
 }
 
@@ -247,6 +302,15 @@ func cmdEventsWatch(apiURLOverride, typeFilter string, payloadMatchArgs []string
 	return doEventsWatch(scope, typeFilter, pm, afterSeq, afterCursor, timeout, stdout, stderr)
 }
 
+func cmdEventsRotate(apiURLOverride string, wait bool, stdout, stderr io.Writer) int {
+	scope, err := resolveEventsScope(apiURLOverride)
+	if err != nil {
+		fmt.Fprintln(stderr, "gc events: rotate requires a running supervisor; start it with 'gc supervisor start'") //nolint:errcheck
+		return 1
+	}
+	return doEventsRotate(scope, wait, stdout, stderr)
+}
+
 func openEventsScope(apiURLOverride string, stderr io.Writer) (eventsAPIScope, int) {
 	scope, err := resolveEventsScope(apiURLOverride)
 	if err != nil {
@@ -257,15 +321,18 @@ func openEventsScope(apiURLOverride string, stderr io.Writer) (eventsAPIScope, i
 }
 
 func resolveEventsScope(apiURLOverride string) (eventsAPIScope, error) {
-	cityPath, cfg, err := resolveDashboardContext()
-	if err != nil {
-		return eventsAPIScope{}, err
-	}
-
-	cityName := resolvedEventsCityName(cityPath, cfg)
 	if override := strings.TrimSpace(apiURLOverride); override != "" {
 		localSupervisorAPI := matchesLocalSupervisorAPI(override)
-		cityName = resolvedExplicitEventsCityName(override, cityPath, cityName)
+		// Try local city context for display (soft fail — no-city and remote-
+		// only scenarios must both work when --api is explicit).
+		var cityPath, cityName string
+		if cp, cfg, cityErr := resolveDashboardContext(); cityErr == nil {
+			cityPath = cp
+			cityName = resolvedEventsCityName(cp, cfg)
+			if localSupervisorAPI {
+				cityName = resolvedManagedEventsCityName(cp, cityName)
+			}
+		}
 		return eventsAPIScope{
 			apiURL:             strings.TrimRight(override, "/"),
 			cityName:           cityName,
@@ -274,6 +341,13 @@ func resolveEventsScope(apiURLOverride string) (eventsAPIScope, error) {
 			localSupervisorAPI: localSupervisorAPI,
 		}, nil
 	}
+
+	cityPath, cfg, err := resolveDashboardContext()
+	if err != nil {
+		return eventsAPIScope{}, err
+	}
+
+	cityName := resolvedEventsCityName(cityPath, cfg)
 
 	if supervisorAliveHook() != 0 {
 		cityName = resolvedManagedEventsCityName(cityPath, cityName)
@@ -317,13 +391,6 @@ func resolveEventsScope(apiURLOverride string) (eventsAPIScope, error) {
 		cityPath,
 		"gc supervisor start",
 	)
-}
-
-func resolvedExplicitEventsCityName(apiURLOverride, cityPath, fallback string) string {
-	if !matchesLocalSupervisorAPI(apiURLOverride) {
-		return fallback
-	}
-	return resolvedManagedEventsCityName(cityPath, fallback)
 }
 
 func matchesLocalSupervisorAPI(apiURLOverride string) bool {
@@ -630,10 +697,14 @@ func eventsSinceCutoff(sinceFlag string) (time.Time, error) {
 
 func localWireEvent(e events.Event, _ io.Writer) cliWireEvent {
 	item := cliWireEvent{
-		Actor: e.Actor,
-		Seq:   int64(e.Seq),
-		Ts:    e.Ts,
-		Type:  e.Type,
+		Actor:     e.Actor,
+		Seq:       int64(e.Seq),
+		Ts:        e.Ts,
+		Type:      e.Type,
+		RunID:     e.RunID,
+		SessionID: e.SessionID,
+		StepID:    e.StepID,
+		OK:        true,
 	}
 	if e.Subject != "" {
 		item.Subject = e.Subject
@@ -656,6 +727,7 @@ func cityWireEventFromTyped(item genclient.TypedEventStreamEnvelope) (cliWireEve
 	if err := json.Unmarshal(data, &out); err != nil {
 		return cliWireEvent{}, err
 	}
+	out.OK = true
 	return out, nil
 }
 
@@ -668,6 +740,7 @@ func supervisorWireEventFromTyped(item genclient.TypedTaggedEventStreamEnvelope)
 	if err := json.Unmarshal(data, &out); err != nil {
 		return cliWireTaggedEvent{}, err
 	}
+	out.OK = true
 	return out, nil
 }
 
@@ -780,6 +853,104 @@ func doEventsWatch(scope eventsAPIScope, typeFilter string, payloadMatch map[str
 	return streamCityEvents(ctx, client, scope.cityName, resumeSeq, typeFilter, payloadMatch, true, stdout, stderr)
 }
 
+func doEventsRotate(scope eventsAPIScope, wait bool, stdout, stderr io.Writer) int {
+	if scope.localOnly || strings.TrimSpace(scope.apiURL) == "" {
+		printEventsRotateSupervisorRequired(stderr)
+		return 1
+	}
+	if scope.isSupervisor() {
+		fmt.Fprintln(stderr, "gc events: rotate requires a city in scope; run from a city directory or pass --city") //nolint:errcheck
+		return 1
+	}
+
+	client, err := scope.client()
+	if err != nil {
+		fmt.Fprintf(stderr, "gc events: %v\n", err) //nolint:errcheck
+		return 1
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	resp, err := rotateCityEvents(ctx, client, scope.cityName, wait)
+	if err != nil {
+		printEventsRotateError(scope, err, stderr)
+		return 1
+	}
+	if wait && resp.Rotated && resp.Archive != nil && resp.Archive.CompressionStatus != "complete" {
+		_, _ = fmt.Fprintf(
+			stderr,
+			"gc events: rotation succeeded but compression did not complete within 30s; archive_path=%s; check disk space and retry\n",
+			resp.Archive.Path,
+		)
+		return 1
+	}
+	return printJSONLines(resp, stdout, stderr)
+}
+
+func rotateCityEvents(ctx context.Context, client *genclient.ClientWithResponses, cityName string, wait bool) (cliEventsRotateResponse, error) {
+	params := &genclient.RotateEventsParams{XGCRequest: "true"}
+	if wait {
+		params.Wait = &wait
+	}
+	resp, err := client.RotateEventsWithResponse(ctx, cityName, params)
+	if err != nil {
+		return cliEventsRotateResponse{}, &eventsAPITransportError{err: err}
+	}
+	if err := eventsListError(resp.StatusCode(), resp.Body); err != nil {
+		return cliEventsRotateResponse{}, err
+	}
+	if resp.JSON200 == nil {
+		return cliEventsRotateResponse{}, fmt.Errorf("empty rotate response")
+	}
+	return cliRotateResponseFromGen(*resp.JSON200)
+}
+
+func cliRotateResponseFromGen(item genclient.EventRotateResponse) (cliEventsRotateResponse, error) {
+	data, err := json.Marshal(item)
+	if err != nil {
+		return cliEventsRotateResponse{}, err
+	}
+	var out cliEventsRotateResponse
+	if err := json.Unmarshal(data, &out); err != nil {
+		return cliEventsRotateResponse{}, err
+	}
+	out.OK = true
+	return out, nil
+}
+
+func printEventsRotateError(scope eventsAPIScope, err error, stderr io.Writer) {
+	if isEventsRotateSupervisorRequired(err) {
+		printEventsRotateSupervisorRequired(stderr)
+		return
+	}
+
+	var apiErr *eventsAPIError
+	if errors.As(err, &apiErr) {
+		msg := strings.TrimSpace(apiErr.Error())
+		if apiErr.statusCode == http.StatusNotFound && gcapi.IsCityNotFoundOrNotRunningDetail(apiErr.detail) {
+			fmt.Fprintf(stderr, "gc events: city '%s' not found; run 'gc supervisor cities' to list registered cities\n", scope.cityName) //nolint:errcheck
+			return
+		}
+		if apiErr.statusCode == http.StatusMethodNotAllowed && strings.HasPrefix(msg, "rotation is only supported") {
+			msg = "rotate" + strings.TrimPrefix(msg, "rotation")
+		}
+		fmt.Fprintf(stderr, "gc events: %s\n", msg) //nolint:errcheck
+		return
+	}
+
+	fmt.Fprintf(stderr, "gc events: %v\n", err) //nolint:errcheck
+}
+
+func isEventsRotateSupervisorRequired(err error) bool {
+	var transport *eventsAPITransportError
+	return errors.As(err, &transport)
+}
+
+func printEventsRotateSupervisorRequired(stderr io.Writer) {
+	fmt.Fprintln(stderr, "gc events: rotate requires a running supervisor; start it with 'gc supervisor start'") //nolint:errcheck
+}
+
 func probeCityEventsReachable(ctx context.Context, client *genclient.ClientWithResponses, cityName string) error {
 	limit := int64(1)
 	resp, err := client.GetV0CityByCityNameEventsWithResponse(ctx, cityName, &genclient.GetV0CityByCityNameEventsParams{
@@ -788,7 +959,7 @@ func probeCityEventsReachable(ctx context.Context, client *genclient.ClientWithR
 	if err != nil {
 		return &eventsAPITransportError{err: err}
 	}
-	return eventsListError(resp.StatusCode(), resp.ApplicationproblemJSONDefault)
+	return eventsListError(resp.StatusCode(), resp.Body)
 }
 
 func fetchCityEvents(ctx context.Context, client *genclient.ClientWithResponses, cityName, typeFilter, sinceFlag string) ([]cliWireEvent, error) {
@@ -811,7 +982,7 @@ func fetchCityEvents(ctx context.Context, client *genclient.ClientWithResponses,
 		if err != nil {
 			return nil, &eventsAPITransportError{err: err}
 		}
-		if err := eventsListError(resp.StatusCode(), resp.ApplicationproblemJSONDefault); err != nil {
+		if err := eventsListError(resp.StatusCode(), resp.Body); err != nil {
 			return nil, err
 		}
 		if resp.JSON200 == nil || resp.JSON200.Items == nil {
@@ -839,7 +1010,7 @@ func fetchCityHeadIndex(ctx context.Context, client *genclient.ClientWithRespons
 	if err != nil {
 		return "", &eventsAPITransportError{err: err}
 	}
-	if err := eventsListError(resp.StatusCode(), resp.ApplicationproblemJSONDefault); err != nil {
+	if err := eventsListError(resp.StatusCode(), resp.Body); err != nil {
 		return "", err
 	}
 	if resp.HTTPResponse == nil {
@@ -876,7 +1047,7 @@ func fetchSupervisorEventsWithLimit(ctx context.Context, client *genclient.Clien
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	if err := eventsListError(resp.StatusCode(), resp.ApplicationproblemJSONDefault); err != nil {
+	if err := eventsListError(resp.StatusCode(), resp.Body); err != nil {
 		return nil, err
 	}
 	if resp.JSON200 == nil || resp.JSON200.Items == nil {
@@ -917,13 +1088,19 @@ func fetchSupervisorHeadCursor(ctx context.Context, client *genclient.ClientWith
 	return supervisorCursorFor(items), nil
 }
 
-func eventsListError(statusCode int, problem *genclient.ErrorModel) error {
+// eventsListError converts a non-2xx events response into a typed
+// eventsAPIError. It reads the problem+json body directly from the raw
+// response bytes rather than a generated per-status field: the events ops
+// enumerate their error statuses (no catch-all `default` response), so the
+// populated field varies by status, but the body is always an ErrorModel.
+func eventsListError(statusCode int, body []byte) error {
 	if statusCode >= 200 && statusCode < 300 {
 		return nil
 	}
 
 	err := &eventsAPIError{statusCode: statusCode}
-	if problem != nil {
+	var problem genclient.ErrorModel
+	if len(body) > 0 && json.Unmarshal(body, &problem) == nil {
 		if problem.Detail != nil {
 			err.detail = strings.TrimSpace(*problem.Detail)
 		}
@@ -974,7 +1151,7 @@ func printJSONLines(items any, stdout, stderr io.Writer) int {
 }
 
 func writeJSONLValue(stdout io.Writer, value any) error {
-	data, err := json.Marshal(value)
+	data, err := json.Marshal(withDefaultSuccessOK(value))
 	if err != nil {
 		return err
 	}
@@ -1422,7 +1599,7 @@ func matchPayload(payload any, payloadMatch map[string][]string) bool {
 
 func matchPayloadObject(obj map[string]any, payloadMatch map[string][]string) bool {
 	for key, wants := range payloadMatch {
-		value, ok := obj[key]
+		value, ok := lookupPayloadKey(obj, key)
 		if !ok {
 			return false
 		}
@@ -1439,6 +1616,48 @@ func matchPayloadObject(obj map[string]any, payloadMatch map[string][]string) bo
 		}
 	}
 	return true
+}
+
+// lookupPayloadKey resolves a key against a payload object, supporting
+// dotted paths into nested map[string]any values. A flat key like "type"
+// looks up at the top level; "bead.issue_type" walks obj["bead"]["issue_type"].
+//
+// This allows --payload-match to filter nested event payloads such as
+// bead.closed (where the actually-filterable fields live under
+// payload.bead.*). At each object level, an exact match for the remaining
+// key wins before walking another segment, so literal dotted keys such as
+// "gc.root_bead_id" under bead.metadata remain filterable.
+//
+// Returns (value, true) if the path resolves; (nil, false) if any segment
+// is missing or an intermediate value is not an object.
+func lookupPayloadKey(obj map[string]any, key string) (any, bool) {
+	if value, ok := obj[key]; ok {
+		return value, true
+	}
+	if !strings.Contains(key, ".") {
+		return nil, false
+	}
+	parts := strings.Split(key, ".")
+	current := obj
+	for i, part := range parts {
+		remaining := strings.Join(parts[i:], ".")
+		if value, ok := current[remaining]; ok {
+			return value, true
+		}
+		value, ok := current[part]
+		if !ok {
+			return nil, false
+		}
+		if i == len(parts)-1 {
+			return value, true
+		}
+		next, ok := value.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current = next
+	}
+	return nil, false
 }
 
 func payloadValueString(value any) string {

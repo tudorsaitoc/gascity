@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -128,6 +129,11 @@ func TestBeadsScriptInitRejectsPartialCanonicalDoltTarget(t *testing.T) {
 }
 
 func TestBeadsScriptInitFallsBackToDirWhenStoreRootUnset(t *testing.T) {
+	// This test deliberately omits GC_STORE_ROOT from opts.Env to exercise the
+	// init fall-back to the dir argument. Neutralize any ambient GC_STORE_ROOT
+	// (set whenever the suite runs inside a gc city) so it cannot leak in via
+	// os.Environ() and defeat the fall-back the test is asserting.
+	clearDoltAndCityEnv(t)
 	result := runBeadsScript(t, beadsScriptOptions{
 		Op:   "init",
 		Args: []string{"/city/services/api", "ap"},
@@ -163,6 +169,28 @@ func TestBeadsScriptListUsesScopedWorkdir(t *testing.T) {
 	assertCallContains(t, result.callLog, `git config --global beads.role`)
 }
 
+func TestBeadsScriptCloseForcesCrossActorClose(t *testing.T) {
+	result := runBeadsScript(t, beadsScriptOptions{
+		Op:       "close",
+		Args:     []string{"ga-orphan"},
+		PodPhase: "Running",
+		Env: map[string]string{
+			"GC_CITY_PATH":  "/city",
+			"GC_STORE_ROOT": "/city/frontend",
+		},
+	})
+	if result.err != nil {
+		t.Fatalf("gc-beads-k8s close error = %v\noutput:\n%s", result.err, result.output)
+	}
+	// This wrapper's close is an exec Store.Close delegate: it runs under the
+	// pod/controller actor against agent-owned beads, so it must force-close to
+	// clear bd's cross-actor guard (gastownhall/beads#3734). Pin the full argv so
+	// a regression dropping --force (which would leak at the BD_VERSION bump) or
+	// reordering the id past --force (the constraint exec.go's Close comment
+	// documents) is caught here rather than in a live k8s deploy.
+	assertCallContains(t, result.callLog, "close --force --json ga-orphan")
+}
+
 func TestBeadsScriptListDoesNotRewriteIssuePrefixPerCommand(t *testing.T) {
 	result := runBeadsScript(t, beadsScriptOptions{
 		Op: "list",
@@ -177,6 +205,49 @@ func TestBeadsScriptListDoesNotRewriteIssuePrefixPerCommand(t *testing.T) {
 		t.Fatalf("gc-beads-k8s list error = %v\noutput:\n%s", result.err, result.output)
 	}
 	assertCallNotContains(t, result.callLog, "config set issue_prefix")
+}
+
+func TestBeadsScriptReadyForwardsIncludeEphemeral(t *testing.T) {
+	result := runBeadsScript(t, beadsScriptOptions{
+		Op:   "ready",
+		Args: []string{"--include-ephemeral"},
+		Env: map[string]string{
+			"GC_CITY_PATH":  "/city",
+			"GC_STORE_ROOT": "/city/frontend",
+		},
+		ReadyOutput: `[{"id":"ga-regular","title":"regular","status":"open","issue_type":"task","created_at":"2026-06-01T00:00:00Z"},{"id":"ga-wisp","title":"wisp","status":"open","issue_type":"task","created_at":"2026-06-01T00:00:01Z","ephemeral":true}]`,
+	})
+	if result.err != nil {
+		t.Fatalf("gc-beads-k8s ready --include-ephemeral error = %v\noutput:\n%s", result.err, result.output)
+	}
+	assertCallContains(t, result.callLog, "ready --include-ephemeral --json --limit 0")
+	if !strings.Contains(result.output, `"id": "ga-wisp"`) || !strings.Contains(result.output, `"ephemeral": true`) {
+		t.Fatalf("ready output = %s, want converted ephemeral row", result.output)
+	}
+}
+
+func TestBeadsScriptReadyRejectsUnsupportedArgs(t *testing.T) {
+	result := runBeadsScript(t, beadsScriptOptions{
+		Op:   "ready",
+		Args: []string{"--unknown"},
+		Env: map[string]string{
+			"GC_CITY_PATH":  "/city",
+			"GC_STORE_ROOT": "/city/frontend",
+		},
+	})
+	if result.err == nil {
+		t.Fatalf("gc-beads-k8s ready --unknown error = nil, want failure\noutput:\n%s", result.output)
+	}
+	var exitErr *exec.ExitError
+	if !errors.As(result.err, &exitErr) || exitErr.ExitCode() != 1 {
+		t.Fatalf("ready --unknown error = %v, want exit code 1", result.err)
+	}
+	if !strings.Contains(result.output, "ready: unsupported argument: --unknown") {
+		t.Fatalf("ready --unknown output = %q, want unsupported argument message", result.output)
+	}
+	if strings.TrimSpace(result.callLog) != "" {
+		t.Fatalf("ready --unknown should fail before kubectl calls, got call log:\n%s", result.callLog)
+	}
 }
 
 func TestBeadsScriptConfigSetKeepsBEADSDIRScoped(t *testing.T) {
@@ -197,11 +268,12 @@ func TestBeadsScriptConfigSetKeepsBEADSDIRScoped(t *testing.T) {
 }
 
 type beadsScriptOptions struct {
-	Op         string
-	Args       []string
-	Env        map[string]string
-	PodPhase   string
-	ListOutput string
+	Op          string
+	Args        []string
+	Env         map[string]string
+	PodPhase    string
+	ListOutput  string
+	ReadyOutput string
 }
 
 type beadsScriptResult struct {
@@ -215,6 +287,9 @@ func runBeadsScript(t *testing.T, opts beadsScriptOptions) beadsScriptResult {
 	t.Helper()
 	if opts.ListOutput == "" {
 		opts.ListOutput = "[]"
+	}
+	if opts.ReadyOutput == "" {
+		opts.ReadyOutput = "[]"
 	}
 
 	tmpDir := t.TempDir()
@@ -231,6 +306,7 @@ set -euo pipefail
 manifest_out=%q
 call_log=%q
 list_output=%q
+ready_output=%q
 printf '%%s\n' "$*" >> "$call_log"
 joined=" $* "
 if [[ "$joined" == *" get pod gc-beads-runner -o jsonpath={.status.phase} "* ]]; then
@@ -256,11 +332,19 @@ if [[ "$joined" == *" exec gc-beads-runner -- sh -c "* ]]; then
     printf '%%s' "$list_output"
     exit 0
   fi
+  if [[ "$*" == *" ready --include-ephemeral --json --limit 0"* ]]; then
+    printf '%%s' "$ready_output"
+    exit 0
+  fi
+  if [[ "$*" == *" ready --json --limit 0"* ]]; then
+    printf '%%s' "$ready_output"
+    exit 0
+  fi
   exit 0
 fi
 printf 'unexpected kubectl call: %%s\n' "$*" >&2
 exit 1
-`, manifestPath, callLogPath, opts.ListOutput, opts.PodPhase)
+`, manifestPath, callLogPath, opts.ListOutput, opts.ReadyOutput, opts.PodPhase)
 	if err := os.WriteFile(fakeKubectl, []byte(kubectlScript), 0o755); err != nil {
 		t.Fatalf("write fake kubectl: %v", err)
 	}

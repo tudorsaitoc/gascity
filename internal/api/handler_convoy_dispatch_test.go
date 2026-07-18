@@ -1,15 +1,21 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/gastownhall/gascity/internal/beadmeta"
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/events"
@@ -791,6 +797,120 @@ func TestWorkflowSQLCandidatesForWorkflowIDResolveBeadPrefixViaRoutes(t *testing
 	}
 }
 
+func TestWorkflowSQLCandidatesForWorkflowIDUsesConfiguredHyphenatedPrefix(t *testing.T) {
+	state := newFakeState(t)
+	state.cityName = "bright-lights"
+	state.cityPath = t.TempDir()
+	state.cityBeadStore = beads.NewMemStore()
+	state.cfg.Rigs = []config.Rig{
+		{Name: "pieces", Path: "rigs/pieces", Prefix: "pieces"},
+		{Name: "pieces-annotator", Path: "rigs/pieces-annotator", Prefix: "pieces-annotator"},
+	}
+	state.stores = map[string]beads.Store{
+		"pieces":           beads.NewMemStore(),
+		"pieces-annotator": beads.NewMemStore(),
+	}
+
+	piecesPath := filepath.Join(state.cityPath, "rigs/pieces")
+	if err := os.MkdirAll(filepath.Join(piecesPath, ".beads"), 0o700); err != nil {
+		t.Fatalf("MkdirAll(pieces .beads): %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(piecesPath, ".beads", "routes.jsonl"), []byte(`{"prefix":"pieces","path":"."}`+"\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile(pieces routes.jsonl): %v", err)
+	}
+
+	annotatorPath := filepath.Join(state.cityPath, "rigs/pieces-annotator")
+	if err := os.MkdirAll(filepath.Join(annotatorPath, ".beads"), 0o700); err != nil {
+		t.Fatalf("MkdirAll(pieces-annotator .beads): %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(annotatorPath, ".beads", "routes.jsonl"), []byte(`{"prefix":"pieces-annotator","path":"."}`+"\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile(pieces-annotator routes.jsonl): %v", err)
+	}
+
+	candidates := workflowSQLCandidatesForWorkflowID(state, "pieces-annotator-gnpgief", "", "")
+	if len(candidates) != 1 {
+		t.Fatalf("len(candidates) = %d, want 1", len(candidates))
+	}
+	if candidates[0].info.ref != "rig:pieces-annotator" {
+		t.Fatalf("candidate.ref = %q, want rig:pieces-annotator", candidates[0].info.ref)
+	}
+	if candidates[0].path != annotatorPath {
+		t.Fatalf("candidate.path = %q, want %q", candidates[0].path, annotatorPath)
+	}
+}
+
+func TestWorkflowSQLDepFromRowDefaultsMissingTypeToBlocks(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		depType sql.NullString
+	}{
+		{name: "null", depType: sql.NullString{}},
+		{name: "empty", depType: sql.NullString{Valid: true}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dep := workflowSQLDepFromRow(
+				sql.NullString{String: "child", Valid: true},
+				sql.NullString{String: "parent", Valid: true},
+				tc.depType,
+			)
+			if dep.Type != "blocks" {
+				t.Fatalf("dep.Type = %q, want blocks", dep.Type)
+			}
+		})
+	}
+}
+
+func TestWorkflowSQLDependsOnExprFromColumnsSupportsBD104AndBD105(t *testing.T) {
+	tests := []struct {
+		name    string
+		columns map[string]bool
+		want    string
+	}{
+		{
+			name:    "bd 1.0.4 depends_on_id",
+			columns: map[string]bool{"depends_on_id": true},
+			want:    "COALESCE(NULLIF(d.depends_on_id, ''), '')",
+		},
+		{
+			name: "bd 1.0.5 split target columns",
+			columns: map[string]bool{
+				"depends_on_issue_id": true,
+				"depends_on_wisp_id":  true,
+				"depends_on_external": true,
+			},
+			want: "COALESCE(NULLIF(d.depends_on_issue_id, ''), NULLIF(d.depends_on_wisp_id, ''), NULLIF(d.depends_on_external, ''), '')",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := workflowSQLDependsOnExprFromColumns("d", tt.columns)
+			if err != nil {
+				t.Fatalf("workflowSQLDependsOnExprFromColumns() error = %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("workflowSQLDependsOnExprFromColumns() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorkflowSQLSnapshotScopeDefaultsToSelectedStore(t *testing.T) {
+	root := beads.Bead{Metadata: map[string]string{}}
+	info := workflowStoreInfo{scopeKind: "rig", scopeRef: "gascity"}
+
+	scopeKind, scopeRef := workflowSQLSnapshotScope(root, info, "", "")
+	if scopeKind != "rig" || scopeRef != "gascity" {
+		t.Fatalf("scope = (%q, %q), want selected store scope (rig, gascity)", scopeKind, scopeRef)
+	}
+
+	root.Metadata["gc.scope_kind"] = "city"
+	root.Metadata["gc.scope_ref"] = "maintainer-city"
+	scopeKind, scopeRef = workflowSQLSnapshotScope(root, info, "rig", "fallback")
+	if scopeKind != "city" || scopeRef != "maintainer-city" {
+		t.Fatalf("metadata scope = (%q, %q), want metadata override (city, maintainer-city)", scopeKind, scopeRef)
+	}
+}
+
 func TestWorkflowGetNormalizesShortScopeRefs(t *testing.T) {
 	state := newFakeState(t)
 	state.cityName = "test-city"
@@ -924,6 +1044,94 @@ func TestWorkflowStatusTreatsSkippedAsSkipped(t *testing.T) {
 	}
 }
 
+// oldInlineWorkflowBeadResponse reproduces the pre-refactor inline
+// struct-literal construction that the three build loops used, so
+// TestWorkflowBeadResponseFromBeadEquivalence can pin the new codec-backed
+// mapper against it field-for-field.
+func oldInlineWorkflowBeadResponse(bead beads.Bead) workflowBeadResponse {
+	return workflowBeadResponse{
+		ID:            bead.ID,
+		Title:         bead.Title,
+		Status:        workflowStatus(bead),
+		Kind:          workflowKind(bead),
+		StepRef:       strings.TrimSpace(bead.Metadata[beadmeta.StepRefMetadataKey]),
+		Attempt:       workflowAttempt(bead),
+		LogicalBeadID: strings.TrimSpace(bead.Metadata[beadmeta.LogicalBeadIDMetadataKey]),
+		ScopeRef:      strings.TrimSpace(bead.Metadata[beadmeta.ScopeRefMetadataKey]),
+		Assignee:      strings.TrimSpace(bead.Assignee),
+		Metadata:      cloneStringMap(bead.Metadata),
+	}
+}
+
+func TestWorkflowBeadResponseFromBeadEquivalence(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		bead beads.Bead
+	}{
+		{
+			name: "fully populated with padded metadata",
+			bead: beads.Bead{
+				ID:       "step-1",
+				Title:    "Do the thing",
+				Status:   "in_progress",
+				Assignee: "  worker-1  ",
+				Type:     "task",
+				Metadata: map[string]string{
+					beadmeta.KindMetadataKey:          "  run  ",
+					beadmeta.OutcomeMetadataKey:       "",
+					beadmeta.AttemptMetadataKey:       "  2  ",
+					beadmeta.StepRefMetadataKey:       "  iteration.1.review  ",
+					beadmeta.LogicalBeadIDMetadataKey: "  logical-9  ",
+					beadmeta.ScopeRefMetadataKey:      "  gascity  ",
+				},
+			},
+		},
+		{
+			name: "minimal bead with nil metadata",
+			bead: beads.Bead{ID: "root-2", Title: "bare"},
+		},
+		{
+			name: "closed with fail outcome",
+			bead: beads.Bead{
+				ID:       "step-3",
+				Title:    "failed step",
+				Status:   "closed",
+				Metadata: map[string]string{beadmeta.OutcomeMetadataKey: beadmeta.OutcomeFail},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := workflowBeadResponseFromBead(tc.bead)
+			want := oldInlineWorkflowBeadResponse(tc.bead)
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("workflowBeadResponseFromBead mismatch:\n got=%#v\nwant=%#v", got, want)
+			}
+			// Attempt pointer semantics: nil when unset, non-nil when > 0.
+			if (got.Attempt == nil) != (want.Attempt == nil) {
+				t.Fatalf("attempt pointer nilness mismatch: got=%v want=%v", got.Attempt, want.Attempt)
+			}
+			// nil source metadata must stay nil so the wire keeps "metadata": null.
+			if tc.bead.Metadata == nil && got.Metadata != nil {
+				t.Fatalf("nil metadata projected to non-nil: %#v", got.Metadata)
+			}
+		})
+	}
+
+	// Clone independence: mutating the source metadata after projection must
+	// not change the response map.
+	src := map[string]string{beadmeta.KindMetadataKey: "workflow"}
+	resp := workflowBeadResponseFromBead(beads.Bead{ID: "root-1", Metadata: src})
+	src[beadmeta.KindMetadataKey] = "mutated"
+	if resp.Metadata[beadmeta.KindMetadataKey] != "workflow" {
+		t.Fatalf("response metadata not independent of source: %q", resp.Metadata[beadmeta.KindMetadataKey])
+	}
+}
+
 func TestWorkflowGetRejectsNonWorkflowRoot(t *testing.T) {
 	state := newFakeState(t)
 	cityStore := beads.NewMemStore()
@@ -995,4 +1203,95 @@ func (p *incrementingLatestSeqProvider) Watch(context.Context, uint64) (events.W
 
 func (p *incrementingLatestSeqProvider) Close() error {
 	return nil
+}
+
+// Intentionally NOT t.Parallel(): it redirects the global log writer, so it
+// must not run concurrently with any other test that logs or rebinds output.
+func TestLogWorkflowSQLFallbackSurfacesGenuineFailures(t *testing.T) {
+	var buf bytes.Buffer
+	origOut := log.Writer()
+	origFlags := log.Flags()
+	log.SetOutput(&buf)
+	log.SetFlags(0)
+	t.Cleanup(func() {
+		log.SetOutput(origOut)
+		log.SetFlags(origFlags)
+	})
+
+	// A deployment with no SQL workflow store runs the per-store scan as its
+	// steady state, not a regression — it must stay quiet so the supervisor
+	// does not log on every workflow fetch (gascity#2940).
+	logWorkflowSQLFallback("wf_quiet", nil)
+	logWorkflowSQLFallback("wf_quiet", errNoSQLWorkflowStores)
+	if buf.Len() != 0 {
+		t.Fatalf("benign SQL fallbacks logged, want quiet: %q", buf.String())
+	}
+
+	// A genuine fast-path failure (Dolt unreachable, workflow absent from the
+	// scope's SQL stores, …) is the perf regression operators need to see.
+	logWorkflowSQLFallback("wf_loud", errors.New("dial tcp 127.0.0.1:3306: connection refused"))
+	out := buf.String()
+	if !strings.Contains(out, "wf_loud") || !strings.Contains(out, "connection refused") {
+		t.Fatalf("genuine SQL fast-path failure not surfaced: %q", out)
+	}
+}
+
+// workflowIDListSpyStore counts only the scan's gc.workflow_id metadata List
+// queries (snapshotFromStore lists by gc.root_bead_id, which is not counted).
+type workflowIDListSpyStore struct {
+	beads.Store
+	calls *int
+}
+
+func (s workflowIDListSpyStore) List(q beads.ListQuery) ([]beads.Bead, error) {
+	if q.Metadata["gc.workflow_id"] != "" {
+		*s.calls++
+	}
+	return s.Store.List(q)
+}
+
+// Locks in the #2940 scan bound: when a point Get by physical bead id resolves
+// the workflow root, the gc.workflow_id metadata List sweep is skipped entirely
+// across all stores (the pre-bound single pass ran it in every store).
+func TestWorkflowGetSkipsMetadataListSweepWhenIDResolvesDirectly(t *testing.T) {
+	state := newFakeState(t)
+	state.cityName = "test-city"
+	state.cityBeadStore = beads.NewMemStore()
+	rigMem := beads.NewMemStore()
+	var listCalls int
+	state.stores = map[string]beads.Store{
+		"alpha": workflowIDListSpyStore{Store: rigMem, calls: &listCalls},
+	}
+
+	root, err := rigMem.Create(beads.Bead{
+		Title: "Rig workflow",
+		Type:  "task",
+		Metadata: map[string]string{
+			"gc.kind":             "workflow",
+			"gc.formula_contract": "graph.v2",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create(root): %v", err)
+	}
+
+	h := newTestCityHandler(t, state)
+	// Request by the physical bead id so Phase-1 Get resolves it directly.
+	req := httptest.NewRequest(http.MethodGet, cityURL(state, "/workflow/"+root.ID+"?scope_kind=rig&scope_ref=alpha"), nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	var snapshot workflowSnapshotResponse
+	if err := json.NewDecoder(rec.Body).Decode(&snapshot); err != nil {
+		t.Fatalf("Decode(snapshot): %v", err)
+	}
+	if snapshot.RootBeadID != root.ID {
+		t.Fatalf("root_bead_id = %q, want %q", snapshot.RootBeadID, root.ID)
+	}
+	if listCalls != 0 {
+		t.Fatalf("gc.workflow_id metadata List ran %d time(s); want 0 once Get resolved the id directly", listCalls)
+	}
 }

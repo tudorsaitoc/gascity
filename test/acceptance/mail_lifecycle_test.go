@@ -18,7 +18,7 @@ import (
 
 func TestMailLifecycle(t *testing.T) {
 	c := helpers.NewCity(t, testEnv)
-	c.InitFrom(filepath.Join(helpers.ExamplesDir(), "gastown"))
+	c.InitFromNoStart(filepath.Join(helpers.ExamplesDir(), "gastown"))
 
 	// Send a message from "human" to "mayor".
 	out, err := c.GC("mail", "send", "mayor", "--from", "human",
@@ -114,10 +114,13 @@ func TestMailLifecycle(t *testing.T) {
 		}
 	})
 
-	t.Run("Delete_NonexistentID", func(t *testing.T) {
-		_, err := c.GC("mail", "delete", "no-such-msg-xyz")
-		if err == nil {
-			t.Fatal("expected error deleting nonexistent message")
+	t.Run("Delete_NonexistentIDIsIdempotent", func(t *testing.T) {
+		out, err := c.GC("mail", "delete", "no-such-msg-xyz")
+		if err != nil {
+			t.Fatalf("gc mail delete no-such-msg-xyz: %v\n%s", err, out)
+		}
+		if !strings.Contains(out, "Already deleted no-such-msg-xyz") {
+			t.Errorf("output = %q, want 'Already deleted no-such-msg-xyz'", out)
 		}
 	})
 
@@ -165,7 +168,7 @@ func TestMailLifecycle(t *testing.T) {
 
 func TestMailErrorPaths(t *testing.T) {
 	c := helpers.NewCity(t, testEnv)
-	c.Init("claude")
+	c.InitNoStart("claude")
 
 	t.Run("ReadMissingID", func(t *testing.T) {
 		_, err := c.GC("mail", "read")

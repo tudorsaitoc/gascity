@@ -25,6 +25,9 @@ type createRequest struct {
 	Assignee    string            `json:"assignee,omitempty"`
 	From        string            `json:"from,omitempty"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
+	Ephemeral   bool              `json:"ephemeral,omitempty"`
+	NoHistory   bool              `json:"no_history,omitempty"`
+	DeferUntil  *time.Time        `json:"defer_until,omitempty"`
 }
 
 // updateRequest is the JSON wire format sent on stdin for update operations.
@@ -55,6 +58,7 @@ type beadWire struct {
 	Type        string                     `json:"type"`
 	Priority    *int                       `json:"priority,omitempty"`
 	CreatedAt   time.Time                  `json:"created_at"`
+	UpdatedAt   time.Time                  `json:"updated_at"`
 	Assignee    string                     `json:"assignee"`
 	From        string                     `json:"from"`
 	ParentID    string                     `json:"parent_id"`
@@ -63,6 +67,9 @@ type beadWire struct {
 	Description string                     `json:"description"`
 	Labels      []string                   `json:"labels"`
 	Metadata    map[string]json.RawMessage `json:"metadata,omitempty"`
+	Ephemeral   bool                       `json:"ephemeral,omitempty"`
+	NoHistory   bool                       `json:"no_history,omitempty"`
+	DeferUntil  *time.Time                 `json:"defer_until,omitempty"`
 }
 
 // marshalCreate converts a Bead to JSON for the exec script's create operation.
@@ -79,6 +86,9 @@ func marshalCreate(b beads.Bead) ([]byte, error) {
 		Assignee:    b.Assignee,
 		From:        b.From,
 		Metadata:    b.Metadata,
+		Ephemeral:   b.Ephemeral,
+		NoHistory:   b.NoHistory,
+		DeferUntil:  b.DeferUntil,
 	}
 	return json.Marshal(r)
 }

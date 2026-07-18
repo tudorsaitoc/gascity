@@ -3,7 +3,7 @@ title: "Health Patrol"
 ---
 
 
-> Last verified against code: 2026-04-25
+> Last verified against code: 2026-05-29
 
 ## Summary
 
@@ -13,8 +13,9 @@ agent liveness, detects configuration drift, enforces crash loop
 quarantine, kills idle agents, and dispatches orders on a periodic
 tick. Health Patrol follows the Erlang/OTP supervision model: the
 controller is the supervisor, agents are workers, `[[agent]]` entries
-are child specs, and "let it crash" is realized through GUPP + beads
-(agents die, hooks persist, fresh sessions resume the work).
+are child specs, and "let it crash" is realized through persistent work
+plus the rule that any agent finding work on its hook runs it (agents
+die, hooks persist, fresh sessions resume the work).
 
 ## Key Concepts
 
@@ -160,6 +161,35 @@ are not in the desired set:
   not from `session.suspended` events.
 - True orphans are killed immediately.
 
+### Detached Work Probe Contract
+
+Work beads may carry `gc.detached` when a controller/operator path has
+deliberately detached tmux-backed work from its owning session and still needs
+the controller to distinguish "live elsewhere" from "orphaned or stranded."
+The value is `tmux:<socket>:<session>`, where `<socket>` is the tmux socket name
+passed to `tmux -L` and `<session>` is the tmux session target passed to
+`has-session -t`.
+
+This field is controller-owned work metadata, not user role behavior. The only
+valid producer is code that has just created or adopted detached tmux-backed
+work and can name the backing tmux socket/session. As of this PR, Gas City has
+consumer-side protection and tests for the metadata but no in-repo producer;
+follow-up bead `ga-a3oya` tracks wiring the first producer or retiring the
+metadata if it is no longer needed.
+
+Consumers treat the field conservatively:
+- Alive probe: preserve the assignment and suppress stranded diagnostics for
+  that work.
+- Dead probe: clear `gc.detached` and let normal orphan/stranded handling
+  proceed.
+- Probe error or timeout: orphan release waits for three consecutive probe
+  failures before releasing, while stranded diagnostics emit immediately and
+  preserve `gc.detached`.
+
+Orphan release clears `gc.detached` in the same store update that reopens the
+work. If the release update fails, the detached guard remains on the work bead
+for the next controller tick.
+
 **Dependency-aware bounded parallel starts** (Phase 1b): The bead-driven
 session reconciler plans starts serially, groups them into dependency
 waves, runs each wave with bounded parallelism, then applies
@@ -260,8 +290,9 @@ Health Patrol follows Erlang/OTP patterns mapped to Gas City:
 | one_for_one restart      | Restart dead agent only (no cascade)      |
 | max_restarts/max_seconds | `max_restarts` / `restart_window`         |
 | Links (death propagates) | Not implemented (no `depends_on` yet)     |
-| "Let it crash"           | GUPP + beads: agent dies, hook persists,  |
-|                          | fresh session picks up persisted work     |
+| "Let it crash"           | Persistent work + run-what's-on-your-hook: |
+|                          | agent dies, hook persists, fresh session  |
+|                          | picks up persisted work                    |
 | Process mailbox          | Mail inbox (beads with type=message)      |
 | GenServer loop           | Agent loop: check hook -> run -> repeat   |
 

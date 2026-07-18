@@ -12,9 +12,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gastownhall/gascity/internal/agentutil"
+	"github.com/gastownhall/gascity/internal/beadmeta"
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/execenv"
+	gitpkg "github.com/gastownhall/gascity/internal/git"
 	"github.com/gastownhall/gascity/internal/sling"
 	"github.com/gastownhall/gascity/internal/sourceworkflow"
 )
@@ -42,6 +45,8 @@ type slingResponse struct {
 	AttachedBeadID string   `json:"attached_bead_id,omitempty"`
 	Mode           string   `json:"mode,omitempty"`
 	Warnings       []string `json:"warnings,omitempty"`
+	DashboardURL   string   `json:"dashboard_url,omitempty" doc:"Absolute dashboard deep link for the slung work: the run detail view when a graph workflow was launched, otherwise the runs list. Present only when the serving process also hosts the dashboard (the supervisor listener); the standalone controller API omits it."`
+	Run            *RunRef  `json:"run,omitempty" doc:"Reference to the launched run resource, present only when a graph workflow was launched (the same run the Location header addresses)."`
 }
 
 var apiSlingStderr = func() io.Writer { return os.Stderr }
@@ -171,6 +176,10 @@ func (s *Server) execSling(ctx context.Context, body slingBody, _ string) (*slin
 		var crossRigErr *sling.CrossRigError
 		if errors.As(err, &crossRigErr) {
 			return nil, http.StatusBadRequest, "cross_rig", err.Error(), nil
+		}
+		var crossStoreErr *sling.CrossStoreRouteError
+		if errors.As(err, &crossStoreErr) {
+			return nil, http.StatusBadRequest, "cross_store", err.Error(), nil
 		}
 		return nil, http.StatusBadRequest, "invalid", err.Error(), nil
 	}
@@ -384,8 +393,12 @@ func (r apiBranchResolver) DefaultBranch(dir string) string {
 	}
 	// Best-effort: read git's origin/HEAD ref for the default branch.
 	// Falls back to empty string if git is unavailable.
-	out, err := exec.CommandContext(context.Background(), "git", "-C", dir,
-		"symbolic-ref", "--short", "refs/remotes/origin/HEAD").Output()
+	cmd := exec.CommandContext(context.Background(), "git", "-C", dir,
+		"symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+	// Sanitize the environment so a leaked GIT_DIR from a parent repo or hook
+	// cannot redirect resolution to the wrong repository's default branch.
+	cmd.Env = gitpkg.SanitizedEnv()
+	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
@@ -432,7 +445,11 @@ func (r apiBeadRouter) Route(_ context.Context, req sling.RouteRequest) error {
 	if r.store == nil {
 		return fmt.Errorf("built-in sling routing requires a store")
 	}
-	if err := r.store.SetMetadata(req.BeadID, "gc.routed_to", req.Target); err != nil {
+	routedTo := req.Target
+	if cfg != nil {
+		routedTo = agentutil.NormalizePoolRouteTarget(cfg, req.Target)
+	}
+	if err := r.store.SetMetadata(req.BeadID, beadmeta.RoutedToMetadataKey, routedTo); err != nil {
 		if req.Force && errors.Is(err, beads.ErrNotFound) {
 			return nil
 		}

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -126,6 +128,185 @@ func TestLooksLikeDoltSQLServer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := looksLikeDoltSQLServer(tc.argv); got != tc.want {
 				t.Errorf("looksLikeDoltSQLServer(%v) = %v, want %v", tc.argv, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestParseDoltPSLine_DoltSQLServer(t *testing.T) {
+	line := "  78306  65392 Sun May 17 09:31:24 2026 /usr/local/bin/dolt sql-server --config /tmp/TestGcBeadsBdStartUsesRootBeadsDataDir802378814/001/.gc/runtime/packs/dolt/dolt-config.yaml --host 127.0.0.1"
+	got, ok := parseDoltPSLine(line, map[int][]int{78306: {3306}})
+	if !ok {
+		t.Fatal("parseDoltPSLine did not recognize dolt sql-server")
+	}
+	if got.PID != 78306 {
+		t.Fatalf("PID = %d, want 78306", got.PID)
+	}
+	if got.RSSBytes != 65392*1024 {
+		t.Fatalf("RSSBytes = %d, want %d", got.RSSBytes, int64(65392*1024))
+	}
+	if !reflect.DeepEqual(got.Ports, []int{3306}) {
+		t.Fatalf("Ports = %v, want [3306]", got.Ports)
+	}
+	if got.StartIdentity != "Sun May 17 09:31:24 2026" {
+		t.Fatalf("StartIdentity = %q", got.StartIdentity)
+	}
+	if cfg := extractConfigPath(got.Argv); cfg != "/tmp/TestGcBeadsBdStartUsesRootBeadsDataDir802378814/001/.gc/runtime/packs/dolt/dolt-config.yaml" {
+		t.Fatalf("config = %q", cfg)
+	}
+}
+
+func TestParseDoltPSLine_PreservesSpacedConfigPath(t *testing.T) {
+	line := "12345 1024 Sun May 17 09:31:24 2026 dolt sql-server --config /tmp/Test With Space/config.yaml --port 3306"
+	got, ok := parseDoltPSLine(line, nil)
+	if !ok {
+		t.Fatal("parseDoltPSLine did not recognize dolt sql-server")
+	}
+	if cfg := extractConfigPath(got.Argv); cfg != "/tmp/Test With Space/config.yaml" {
+		t.Fatalf("config = %q", cfg)
+	}
+}
+
+func TestParseDoltPSLine_IgnoresNonDolt(t *testing.T) {
+	line := "12345 1024 Sun May 17 09:31:24 2026 mysqld --config /tmp/TestX/config.yaml"
+	if got, ok := parseDoltPSLine(line, nil); ok {
+		t.Fatalf("parseDoltPSLine = %+v, want ignored", got)
+	}
+}
+
+func TestParseListeningPortsByPIDFromLsof(t *testing.T) {
+	output := `COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+dolt    78306 dbox   11u  IPv4 0x0000000000000000      0t0  TCP 127.0.0.1:3306 (LISTEN)
+dolt    78306 dbox   12u  IPv6 0x0000000000000000      0t0  TCP [::1]:3307 (LISTEN)
+dolt    99999 dbox   12u  IPv4 0x0000000000000000      0t0  TCP 127.0.0.1:70000 (LISTEN)
+`
+	got := parseListeningPortsByPIDFromLsof(output)
+	want := map[int][]int{78306: {3306, 3307}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("parseListeningPortsByPIDFromLsof = %v, want %v", got, want)
+	}
+}
+
+func TestSameReapProcessIdentity_UsesPSStartIdentityFallback(t *testing.T) {
+	target := ReapTarget{PID: 42, StartIdentity: "Sun May 17 09:31:24 2026"}
+	same := DoltProcInfo{PID: 42, StartIdentity: "Sun May 17 09:31:24 2026"}
+	reused := DoltProcInfo{PID: 42, StartIdentity: "Sun May 17 09:32:00 2026"}
+
+	if !sameReapProcessIdentity(target, same) {
+		t.Fatal("sameReapProcessIdentity should accept matching ps start identity")
+	}
+	if sameReapProcessIdentity(target, reused) {
+		t.Fatal("sameReapProcessIdentity should reject mismatched ps start identity")
+	}
+}
+
+func TestCWDStateFromLink(t *testing.T) {
+	// The non-suffix cases never stat, so an arbitrary cwdLink is fine.
+	cases := []struct {
+		name string
+		link string
+		want string
+	}{
+		{"plain live path", "/data/worktrees/live", procPathStateLive},
+		{"path with spaces", "/data/worktrees/dir with spaces", procPathStateLive},
+		// "(deleted)" must terminate the readlink, not appear mid-string.
+		{"deleted mid-string stays live", "/data/worktrees/x (deleted) suffix", procPathStateLive},
+		// A genuinely unlinked cwd: the literal "<path> (deleted)" does not
+		// exist on disk, so the inode comparison fails closed to deleted.
+		{"unlinked inode is deleted", "/data/worktrees/gone (deleted)", procPathStateDeleted},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := cwdStateFromLink(tc.link, "/proc/self/cwd"); got != tc.want {
+				t.Errorf("cwdStateFromLink(%q) = %q, want %q", tc.link, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCWDStateFromLink_LiveDirNamedDeletedStaysLive(t *testing.T) {
+	// Pathological but real: a live directory whose name literally ends in
+	// " (deleted)". The readlink target is identical to the kernel's unlinked
+	// marker, so only an inode comparison can tell them apart. When the literal
+	// path resolves to the same inode as the procfs cwd link, it must classify
+	// live and never be reaped.
+	dir := filepath.Join(t.TempDir(), "scope (deleted)")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// cwdLink == the literal path here: both stat the same live inode, the way
+	// /proc/<pid>/cwd would resolve for a process whose cwd is this directory.
+	if got := cwdStateFromLink(dir, dir); got != procPathStateLive {
+		t.Errorf("cwdStateFromLink(%q) = %q, want live (real dir named '... (deleted)')", dir, got)
+	}
+}
+
+func TestCWDStateFromLink_NonDefinitiveStatErrorIsUnknown(t *testing.T) {
+	// A stat failure that is NOT a definitive not-exist (here EACCES from an
+	// unsearchable parent, standing in for permission, I/O, or hung-mount
+	// errors) must fail closed to unknown/protect, never deleted/reap. The old
+	// sameFile collapsed every stat error to "not the same file" and reaped;
+	// destructive force-mode cleanup must not act on ambiguous evidence.
+	if os.Geteuid() == 0 {
+		t.Skip("running as root bypasses directory permission checks")
+	}
+	parent := filepath.Join(t.TempDir(), "locked")
+	if err := os.Mkdir(parent, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Restore search permission before t.TempDir's RemoveAll cleanup runs
+	// (Cleanup is LIFO, so this registers after — and runs before — it).
+	t.Cleanup(func() { _ = os.Chmod(parent, 0o755) })
+	if err := os.Chmod(parent, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	// Stat of "<parent>/scope (deleted)" fails with EACCES because searching the
+	// 0o000 parent is denied; EACCES is not os.IsNotExist, so it must be unknown.
+	link := filepath.Join(parent, "scope (deleted)")
+	if got := cwdStateFromLink(link, link); got != procPathStateUnknown {
+		t.Errorf("cwdStateFromLink(%q) under EACCES = %q, want unknown (fail closed, not deleted)", link, got)
+	}
+}
+
+func TestDoltProcCWDState_SelfIsLive(t *testing.T) {
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("host has no /proc; cwd state degrades to unknown by design")
+	}
+	if got := doltProcCWDState(os.Getpid()); got != procPathStateLive {
+		t.Errorf("doltProcCWDState(self) = %q, want %q", got, procPathStateLive)
+	}
+}
+
+func TestDoltProcCWDState_UnknownForBadPID(t *testing.T) {
+	// PID 0 has no /proc entry anywhere; the helper must degrade to unknown
+	// (the classification's protect-leaning default), never guess.
+	if got := doltProcCWDState(0); got != procPathStateUnknown {
+		t.Errorf("doltProcCWDState(0) = %q, want unknown", got)
+	}
+}
+
+func TestDoltConfigPathState(t *testing.T) {
+	dir := t.TempDir()
+	existing := filepath.Join(dir, "dolt-config.yaml")
+	if err := os.WriteFile(existing, []byte("listener:\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	missing := filepath.Join(dir, "removed", "dolt-config.yaml")
+
+	cases := []struct {
+		name string
+		argv []string
+		want string
+	}{
+		{"existing absolute config", []string{"dolt", "sql-server", "--config", existing}, procPathStateLive},
+		{"missing absolute config", []string{"dolt", "sql-server", "--config", missing}, procPathStateDeleted},
+		{"relative config is unknown", []string{"dolt", "sql-server", "--config", "dolt-config.yaml"}, procPathStateUnknown},
+		{"no config flag is unknown", []string{"dolt", "sql-server", "-H", "127.0.0.1"}, procPathStateUnknown},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := doltConfigPathState(tc.argv); got != tc.want {
+				t.Errorf("doltConfigPathState(%v) = %q, want %q", tc.argv, got, tc.want)
 			}
 		})
 	}

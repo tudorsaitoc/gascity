@@ -67,7 +67,7 @@ func newTestSupervisorMuxWithInitializer(t *testing.T, init cityInitializer) *Su
 	return NewSupervisorMux(&fakeCityResolver{
 		cities:             map[string]*fakeState{},
 		supervisorRecorder: events.NewFake(),
-	}, init, false, "test", time.Now())
+	}, init, false, "test", "", time.Now())
 }
 
 func TestSupervisorCityCreateConflictsWhenTargetAlreadyInitialized(t *testing.T) {
@@ -122,6 +122,7 @@ func TestSupervisorCityCreateConflictsWhenTargetAlreadyInitialized(t *testing.T)
 func TestSupervisorCityCreateScaffoldsViaInitializer(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("GC_HOME", filepath.Join(home, ".gc"))
 	cityPath := filepath.Join(home, "mc-city")
 	init := &fakeInitializer{
 		scaffoldResult: &cityinit.InitResult{
@@ -164,6 +165,7 @@ func TestSupervisorCityCreateScaffoldsViaInitializer(t *testing.T) {
 func TestSupervisorCityCreateScaffoldsWithStartCommand(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("GC_HOME", filepath.Join(home, ".gc"))
 	cityPath := filepath.Join(home, "mc-city")
 	init := &fakeInitializer{
 		scaffoldResult: &cityinit.InitResult{
@@ -201,6 +203,7 @@ func TestSupervisorCityCreateScaffoldsWithStartCommand(t *testing.T) {
 func TestSupervisorCityCreateReturnsRequestID(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("GC_HOME", filepath.Join(home, ".gc"))
 	cityPath := filepath.Join(home, "mc-city")
 	init := &fakeInitializer{
 		scaffoldResult: &cityinit.InitResult{
@@ -234,6 +237,7 @@ func TestSupervisorCityCreateReturnsRequestID(t *testing.T) {
 func TestSupervisorCityCreateReturnsCurrentEventCursor(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("GC_HOME", filepath.Join(home, ".gc"))
 	cityPath := filepath.Join(home, "mc-city")
 	recorder := events.NewFake()
 	recorder.Record(events.Event{Type: events.SessionWoke, Actor: "seed"})
@@ -248,7 +252,7 @@ func TestSupervisorCityCreateReturnsCurrentEventCursor(t *testing.T) {
 			ProviderUsed: "codex",
 		},
 	}
-	sm := NewSupervisorMux(resolver, init, false, "test", time.Now())
+	sm := NewSupervisorMux(resolver, init, false, "test", "", time.Now())
 
 	req := httptest.NewRequest(http.MethodPost, "/v0/city", strings.NewReader(`{"dir":"mc-city","provider":"codex"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -269,6 +273,7 @@ func TestSupervisorCityCreateReturnsCurrentEventCursor(t *testing.T) {
 func TestSupervisorCityCreateStoresPendingRequestForReconciler(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("GC_HOME", filepath.Join(home, ".gc"))
 	cityPath := filepath.Join(home, "mc-city")
 	resolver := &fakeCityResolver{
 		cities:             map[string]*fakeState{},
@@ -281,7 +286,7 @@ func TestSupervisorCityCreateStoresPendingRequestForReconciler(t *testing.T) {
 			ProviderUsed: "claude",
 		},
 	}
-	sm := NewSupervisorMux(resolver, init, false, "test", time.Now())
+	sm := NewSupervisorMux(resolver, init, false, "test", "", time.Now())
 
 	postReq := httptest.NewRequest(http.MethodPost, "/v0/city", strings.NewReader(`{"dir":"mc-city","provider":"claude"}`))
 	postReq.Header.Set("Content-Type", "application/json")
@@ -324,7 +329,7 @@ func TestSupervisorCityCreateRejectsDuplicatePendingRequest(t *testing.T) {
 			ProviderUsed: "claude",
 		},
 	}
-	sm := NewSupervisorMux(resolver, init, false, "test", time.Now())
+	sm := NewSupervisorMux(resolver, init, false, "test", "", time.Now())
 
 	req := httptest.NewRequest(http.MethodPost, "/v0/city", strings.NewReader(`{"dir":"`+cityPath+`","provider":"claude"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -359,7 +364,7 @@ func TestSupervisorCityCreateEmitsFailedEventForPostRegisterFailure(t *testing.T
 		},
 		scaffoldErr: cityinit.NewPostRegisterFailure(lifecycleErr),
 	}
-	sm := NewSupervisorMux(resolver, init, false, "test", time.Now())
+	sm := NewSupervisorMux(resolver, init, false, "test", "", time.Now())
 
 	req := httptest.NewRequest(http.MethodPost, "/v0/city", strings.NewReader(`{"dir":"`+cityPath+`","provider":"claude"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -407,7 +412,7 @@ func TestSupervisorCityRequestResultUsesCityTagOnSupervisorStream(t *testing.T) 
 		cities:             map[string]*fakeState{},
 		supervisorRecorder: events.NewFake(),
 	}
-	sm := NewSupervisorMux(resolver, nil, false, "test", time.Now())
+	sm := NewSupervisorMux(resolver, nil, false, "test", "", time.Now())
 
 	streamCtx, cancelStream := context.WithCancel(context.Background())
 	defer cancelStream()
@@ -502,7 +507,7 @@ func TestSupervisorCityCreateClearsPendingRequestOnScaffoldError(t *testing.T) {
 	cityPath := filepath.Join(t.TempDir(), "mc-city")
 	resolver := &fakeCityResolver{cities: map[string]*fakeState{}, supervisorRecorder: events.NewFake()}
 	init := &fakeInitializer{scaffoldErr: errors.New("scaffold failed")}
-	sm := NewSupervisorMux(resolver, init, false, "test", time.Now())
+	sm := NewSupervisorMux(resolver, init, false, "test", "", time.Now())
 	req := httptest.NewRequest(http.MethodPost, "/v0/city", strings.NewReader(`{"dir":"`+cityPath+`","provider":"codex"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-GC-Request", "test")
@@ -574,7 +579,7 @@ func TestSupervisorCityUnregisterReturnsCurrentEventCursor(t *testing.T) {
 			CityPath: "/tmp/mc-city",
 		},
 	}
-	sm := NewSupervisorMux(resolver, init, false, "test", time.Now())
+	sm := NewSupervisorMux(resolver, init, false, "test", "", time.Now())
 	req := httptest.NewRequest(http.MethodPost, "/v0/city/mc-city/unregister", nil)
 	req.Header.Set("X-GC-Request", "test")
 	rec := httptest.NewRecorder()
@@ -606,7 +611,7 @@ func TestSupervisorCityUnregisterStoresPendingRequestFromRegistryWhenSnapshotMis
 			CityPath: cityPath,
 		},
 	}
-	sm := NewSupervisorMux(resolver, init, false, "test", time.Now())
+	sm := NewSupervisorMux(resolver, init, false, "test", "", time.Now())
 	req := httptest.NewRequest(http.MethodPost, "/v0/city/mc-city/unregister", nil)
 	req.Header.Set("X-GC-Request", "test")
 	rec := httptest.NewRecorder()

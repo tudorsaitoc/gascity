@@ -20,6 +20,7 @@ import (
 	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/events"
 	"github.com/gastownhall/gascity/internal/runtime"
+	sessionpkg "github.com/gastownhall/gascity/internal/session"
 )
 
 func TestControllerLoopCancel(t *testing.T) {
@@ -116,7 +117,7 @@ func TestGracefulStopAllFallsBackWhenPartialListOmitsExplicitTarget(t *testing.T
 	_ = sp.Start(context.Background(), "alpha", runtime.Config{})
 
 	var stdout, stderr bytes.Buffer
-	gracefulStopAll([]string{"alpha"}, sp, 20*time.Millisecond, events.Discard, nil, nil, &stdout, &stderr)
+	gracefulStopAll([]string{"alpha"}, sp, 20*time.Millisecond, events.Discard, nil, beads.SessionStore{}, &stdout, &stderr)
 	if sp.IsRunning("alpha") {
 		t.Fatal("gracefulStopAll should stop explicit targets even when partial listing omits them")
 	}
@@ -244,7 +245,7 @@ func TestControllerSocketFallbackUsesShortPathForLongCityPath(t *testing.T) {
 	pokeCh := make(chan struct{}, 1)
 	controlDispatcherCh := make(chan struct{}, 1)
 	configDirty := &atomic.Bool{}
-	lis, err := startControllerSocket(cityPath, cancel, configDirty, nil, convergenceReqCh, pokeCh, controlDispatcherCh)
+	lis, err := startControllerSocket(cityPath, cancel, nil, configDirty, nil, convergenceReqCh, pokeCh, controlDispatcherCh)
 	if err != nil {
 		t.Fatalf("startControllerSocket: %v", err)
 	}
@@ -383,6 +384,7 @@ func TestSendControllerCommandWithTimeoutsTimesOutOnRead(t *testing.T) {
 func writeCityTOML(t *testing.T, dir string, cityName string, agentNames ...string) string {
 	t.Helper()
 	clearInheritedBeadsEnv(t)
+	requireNoLeakedDoltAfterForPaths(t, dir)
 	tomlPath := filepath.Join(dir, "city.toml")
 	var buf bytes.Buffer
 	buf.WriteString("[workspace]\nname = " + `"` + cityName + `"` + "\n\n")
@@ -400,6 +402,7 @@ func writeCityTOML(t *testing.T, dir string, cityName string, agentNames ...stri
 func writeControllerNamedSessionCityTOML(t *testing.T, dir, cityName, mode, idleTimeout string) string {
 	t.Helper()
 	clearInheritedBeadsEnv(t)
+	requireNoLeakedDoltAfterForPaths(t, dir)
 	tomlPath := filepath.Join(dir, "city.toml")
 	var buf bytes.Buffer
 	buf.WriteString("[workspace]\nname = " + `"` + cityName + `"` + "\n\n")
@@ -494,8 +497,6 @@ func TestControllerReloadsConfig(t *testing.T) {
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
-
-	cancel()
 
 	deadline = time.After(1500 * time.Millisecond)
 	for {
@@ -610,10 +611,22 @@ func TestBuildIdleTracker_SkipsAlwaysNamedSessionIdleTimeout(t *testing.T) {
 	}
 
 	sp := runtime.NewFake()
-	sp.SetActivity("mayor", time.Now().Add(-10*time.Minute))
+	startFakeSession(t, sp, "mayor")
+	now := time.Now()
+	sp.SetActivity("mayor", now.Add(-10*time.Minute))
 
-	if tracker := buildIdleTracker(cfg, "test", dir, sp); tracker != nil {
-		t.Fatalf("buildIdleTracker(cfg) = %#v, want nil for always-named singleton", tracker)
+	tracker, ok := buildIdleTracker(cfg, "test", dir, sp).(*memoryIdleTracker)
+	if !ok {
+		t.Fatalf("buildIdleTracker(cfg) = %T, want *memoryIdleTracker with named fallback exemption", tracker)
+	}
+	if _, ok := tracker.templateTimeouts["mayor"]; !ok {
+		t.Fatalf("templateTimeouts = %v, want mayor fallback registered", tracker.templateTimeouts)
+	}
+	if !tracker.templateFallbackExemptions["mayor"] {
+		t.Fatalf("templateFallbackExemptions = %v, want mayor exempt", tracker.templateFallbackExemptions)
+	}
+	if tracker.checkIdle("mayor", "mayor", sp, now) {
+		t.Fatalf("always-named session inherited template idle timeout")
 	}
 }
 
@@ -1249,7 +1262,7 @@ func TestControllerReloadsNamedSessionModeAndAppliesIdleTimeout(t *testing.T) {
 	if !ok || tracker == nil {
 		t.Fatal("buildIdleTracker(parsedCfg) = nil, want tracker")
 	}
-	if !tracker.checkIdle("mayor", sp, time.Now()) {
+	if !tracker.checkIdle("mayor", "", sp, time.Now()) {
 		t.Fatalf("fresh idle tracker did not consider mayor idle; activity=%v timeouts=%v", sp.Activity["mayor"], tracker.timeouts)
 	}
 
@@ -1288,7 +1301,7 @@ func TestHandleControllerConnControlDispatcher(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		handleControllerConn(server, cityPath, func() {}, nil, nil, convergenceReqCh, pokeCh, controlDispatcherCh)
+		handleControllerConn(server, cityPath, func() {}, nil, nil, nil, convergenceReqCh, pokeCh, controlDispatcherCh)
 		close(done)
 	}()
 
@@ -1452,7 +1465,7 @@ func TestResetSessionCircuitBreakerStateClearsRacingOpenPersist(t *testing.T) {
 
 	persistErr := make(chan error, 1)
 	go func() {
-		persistErr <- persistSessionCircuitBreakerMetadata(store, &session, cb, identity, t0.Add(6*time.Minute))
+		persistErr <- persistSessionCircuitBreakerMetadata(sessionFrontDoor(store), session.ID, cb, identity, t0.Add(6*time.Minute))
 	}()
 
 	select {
@@ -1633,7 +1646,7 @@ func TestResetSessionCircuitBreakerStateRejectsStaleRestoreSnapshot(t *testing.T
 	if got := updated.Metadata[sessionCircuitResetGenerationMetadata]; got != "2" {
 		t.Fatalf("%s = %q, want 2", sessionCircuitResetGenerationMetadata, got)
 	}
-	if reset, err := cb.restoreFromMetadata(identity, staleSnapshot, t0.Add(7*time.Minute)); err != nil || reset {
+	if reset, err := cb.restoreFromMetadata(identity, sessionpkg.CircuitStateFromMetadata(staleSnapshot), t0.Add(7*time.Minute)); err != nil || reset {
 		t.Fatalf("restoreFromMetadata stale reset=%v err=%v", reset, err)
 	}
 	if cb.IsOpen(identity, t0.Add(7*time.Minute)) {
@@ -1677,7 +1690,7 @@ func TestResetSessionCircuitBreakerStateRejectsHigherGenerationStaleRestoreSnaps
 	if got := updated.Metadata[sessionCircuitResetGenerationMetadata]; got != "5" {
 		t.Fatalf("%s = %q, want 5", sessionCircuitResetGenerationMetadata, got)
 	}
-	if reset, err := cb.restoreFromMetadata(identity, staleSnapshot, t0.Add(7*time.Minute)); err != nil || reset {
+	if reset, err := cb.restoreFromMetadata(identity, sessionpkg.CircuitStateFromMetadata(staleSnapshot), t0.Add(7*time.Minute)); err != nil || reset {
 		t.Fatalf("restoreFromMetadata stale reset=%v err=%v", reset, err)
 	}
 	if cb.IsOpen(identity, t0.Add(7*time.Minute)) {
@@ -1789,12 +1802,15 @@ func readSessionCircuitResetSocketReply(t *testing.T, conn net.Conn) sessionCirc
 }
 
 func TestControllerReloadInvalidConfig(t *testing.T) {
+	skipSlowCmdGCTest(t, "starts real Dolt lifecycle")
 	old := debounceDelay
 	debounceDelay = 5 * time.Millisecond
 	t.Cleanup(func() { debounceDelay = old })
 
-	dir := shortSocketTempDir(t, "gc-invalid-")
+	dir := shortSocketTempDir(t, "gc-reload-invalid-")
 	tomlPath := writeCityTOML(t, dir, "test", "mayor")
+	disableManagedDoltRecoveryForTest(t)
+	cleanupManagedDoltTestCity(t, dir)
 
 	cfg, err := config.Load(osFS{}, tomlPath)
 	if err != nil {
@@ -1820,8 +1836,12 @@ func TestControllerReloadInvalidConfig(t *testing.T) {
 	defer cancel()
 	var stdout, stderr bytes.Buffer
 
-	go controllerLoop(ctx, 20*time.Millisecond, cfg, "test", tomlPath, nil,
-		buildFn, sp, nil, nil, nil, nil, nil, events.Discard, nil, nil, nil, nil, &stdout, &stderr)
+	done := make(chan struct{})
+	go func() {
+		controllerLoop(ctx, 20*time.Millisecond, cfg, "test", tomlPath, nil,
+			buildFn, sp, nil, nil, nil, nil, nil, events.Discard, nil, nil, nil, nil, &stdout, &stderr)
+		close(done)
+	}()
 
 	// Wait for initial reconcile.
 	for reconcileCount.Load() < 1 {
@@ -1845,7 +1865,11 @@ func TestControllerReloadInvalidConfig(t *testing.T) {
 	}
 
 	cancel()
-	time.Sleep(50 * time.Millisecond) // let controllerLoop goroutine exit before TempDir cleanup
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for controllerLoop to exit")
+	}
 
 	if !strings.Contains(stderr.String(), "config reload") {
 		t.Errorf("expected config reload error in stderr, got: %s", stderr.String())
@@ -1856,6 +1880,7 @@ func TestControllerReloadInvalidConfig(t *testing.T) {
 }
 
 func TestControllerReloadCityNameChange(t *testing.T) {
+	skipSlowCmdGCTest(t, "starts real Dolt lifecycle")
 	old := debounceDelay
 	debounceDelay = 5 * time.Millisecond
 	t.Cleanup(func() { debounceDelay = old })
@@ -1899,13 +1924,12 @@ func TestControllerReloadCityNameChange(t *testing.T) {
 	// Change the city name.
 	writeCityTOML(t, dir, "different-city", "mayor")
 
-	// Wait for tick.
-	target := reconcileCount.Load() + 2
 	deadline := time.After(3 * time.Second)
-	for reconcileCount.Load() < target {
+	for !strings.Contains(stderr.String(), "workspace.name changed") {
 		select {
 		case <-deadline:
-			t.Fatal("timed out waiting for tick after name change")
+			t.Fatalf("timed out waiting for city name change rejection; reconciles=%d stdout=%q stderr=%q",
+				reconcileCount.Load(), stdout.String(), stderr.String())
 		default:
 			time.Sleep(10 * time.Millisecond)
 		}
@@ -2177,10 +2201,10 @@ func (osFS) Rename(oldpath, newpath string) error                 { return os.Re
 func (osFS) Remove(name string) error                             { return os.Remove(name) }
 
 // TestTryReloadConfig_IncludesBuiltinPackOrders verifies that the controller's
-// config reload path includes builtin pack formula layers so the order
-// dispatcher sees orders from all embedded packs (core, maintenance, bd, dolt).
+// config reload path composes the explicit builtin pack includes so the order
+// dispatcher sees orders from all embedded packs (core, bd, dolt).
 // Regression test for gc-4624: dolt pack orders never fired because
-// tryReloadConfig did not pass builtinPackIncludes to LoadWithIncludes.
+// tryReloadConfig dropped the builtin pack formula layers.
 func TestTryReloadConfig_IncludesBuiltinPackOrders(t *testing.T) {
 	configureTestDoltIdentityEnv(t)
 	t.Setenv("GC_BEADS", "")
@@ -2190,9 +2214,10 @@ func TestTryReloadConfig_IncludesBuiltinPackOrders(t *testing.T) {
 	if err := os.WriteFile(tomlPath, []byte("[workspace]\nname = \"test\"\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile(city.toml): %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "pack.toml"), []byte("[pack]\nname = \"test\"\nschema = 1\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "pack.toml"), []byte("[pack]\nname = \"test\"\nschema = 2\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile(pack.toml): %v", err)
 	}
+	writeBuiltinImportsFixture(t, dir, "core", "bd")
 
 	result, err := tryReloadConfig(tomlPath, "test", dir)
 	if err != nil {
@@ -2210,17 +2235,20 @@ func TestTryReloadConfig_IncludesBuiltinPackOrders(t *testing.T) {
 		names[a.Name] = true
 	}
 
-	// Maintenance pack orders (always included).
+	// Core pack housekeeping orders (explicit core include).
 	for _, want := range []string{"gate-sweep", "wisp-compact"} {
 		if !names[want] {
-			t.Errorf("missing maintenance order %q; got %v", want, names)
+			t.Errorf("missing core order %q; got %v", want, names)
 		}
 	}
 	// Dolt pack orders (included transitively via bd pack).
-	for _, want := range []string{"dolt-health", "dolt-gc-nudge", "dolt-remotes-patrol"} {
+	for _, want := range []string{"dolt-health", "dolt-remotes-patrol", "mol-dog-compactor"} {
 		if !names[want] {
 			t.Errorf("missing dolt order %q; got %v", want, names)
 		}
+	}
+	if names["dolt-gc-nudge"] {
+		t.Errorf("dolt-gc-nudge should not be registered as a recurring order; got %v", names)
 	}
 }
 

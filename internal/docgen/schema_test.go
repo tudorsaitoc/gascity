@@ -2,8 +2,12 @@ package docgen
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/invopop/jsonschema"
 )
 
 // defProperties extracts the properties map for a named $defs entry.
@@ -184,6 +188,224 @@ func TestCitySchemaOrderOverrideIncludesLegacyGateAlias(t *testing.T) {
 	}
 	if deprecated, ok := gateField["deprecated"].(bool); !ok || !deprecated {
 		t.Fatalf("OrderOverride.gate deprecated = %v, want true", gateField["deprecated"])
+	}
+}
+
+// TestCitySchemaCityAgentNotRequired guards against the regression where
+// City.Agents was reflected as a required property because its TOML tag
+// lacked omitempty. Real cities use [imports.*] (PackV2) and ship without
+// any [[agent]] block; the schema must reflect that.
+func TestCitySchemaCityAgentNotRequired(t *testing.T) {
+	s, err := GenerateCitySchema()
+	if err != nil {
+		t.Fatalf("GenerateCitySchema: %v", err)
+	}
+
+	data, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	defs := raw["$defs"].(map[string]interface{})
+	city := defs["City"].(map[string]interface{})
+	required, _ := city["required"].([]interface{})
+	for _, r := range required {
+		if r == "agent" {
+			t.Errorf("City.required includes %q; PackV2 cities ship without [[agent]] blocks — Agents needs omitempty", "agent")
+		}
+	}
+}
+
+func TestCitySchemaOmitsLegacyPackSourceSurface(t *testing.T) {
+	s, err := GenerateCitySchema()
+	if err != nil {
+		t.Fatalf("GenerateCitySchema: %v", err)
+	}
+
+	data, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	cityProps := defProperties(t, raw, "City")
+	if _, ok := cityProps["packs"]; ok {
+		t.Fatal("City schema exposes legacy [packs.*] surface")
+	}
+	defs := raw["$defs"].(map[string]interface{})
+	if _, ok := defs["PackSource"]; ok {
+		t.Fatal("City schema exposes legacy PackSource ref/path surface")
+	}
+}
+
+func TestPublicImportSchemaOnlyExposesSourceAndVersion(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		generate func() (interface{}, error)
+	}{
+		{name: "city", generate: func() (interface{}, error) { return GenerateCitySchema() }},
+		{name: "pack", generate: func() (interface{}, error) { return GeneratePackSchema() }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, err := tc.generate()
+			if err != nil {
+				t.Fatalf("generate schema: %v", err)
+			}
+			data, err := json.Marshal(s)
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+			var raw map[string]interface{}
+			if err := json.Unmarshal(data, &raw); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+
+			props := defProperties(t, raw, "Import")
+			for _, want := range []string{"source", "version"} {
+				if _, ok := props[want]; !ok {
+					t.Fatalf("Import schema missing public field %q in %v", want, props)
+				}
+			}
+			for _, hidden := range []string{"export", "transitive", "shadow"} {
+				if _, ok := props[hidden]; ok {
+					t.Fatalf("Import schema exposes compatibility field %q in %v", hidden, props)
+				}
+			}
+			if len(props) != 2 {
+				t.Fatalf("Import schema properties = %v, want exactly source and version", props)
+			}
+
+			defs := raw["$defs"].(map[string]interface{})
+			imp := defs["Import"].(map[string]interface{})
+			required, _ := imp["required"].([]interface{})
+			if len(required) != 1 || required[0] != "source" {
+				t.Fatalf("Import.required = %v, want [source]", required)
+			}
+		})
+	}
+}
+
+func TestGeneratePackSchema(t *testing.T) {
+	s, err := GeneratePackSchema()
+	if err != nil {
+		t.Fatalf("GeneratePackSchema: %v", err)
+	}
+
+	data, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	props := defProperties(t, raw, "PackConfig")
+	for _, expected := range []string{"pack", "imports", "agent", "providers", "service", "commands"} {
+		if _, ok := props[expected]; !ok {
+			t.Errorf("missing PackConfig property %q", expected)
+		}
+	}
+}
+
+func TestPackSchemaPackMetaRequired(t *testing.T) {
+	s, err := GeneratePackSchema()
+	if err != nil {
+		t.Fatalf("GeneratePackSchema: %v", err)
+	}
+	data, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	defs := raw["$defs"].(map[string]interface{})
+	pack := defs["PackConfig"].(map[string]interface{})
+	required, _ := pack["required"].([]interface{})
+	found := false
+	for _, r := range required {
+		if r == "pack" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("PackConfig.required = %v, want to include %q ([pack] block is mandatory in pack.toml)", required, "pack")
+	}
+}
+
+func TestPackSchemaAliasFieldHidden(t *testing.T) {
+	s, err := GeneratePackSchema()
+	if err != nil {
+		t.Fatalf("GeneratePackSchema: %v", err)
+	}
+	data, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	props := defProperties(t, raw, "PackConfig")
+	if _, ok := props["agents"]; ok {
+		t.Errorf("PackConfig should hide the legacy %q alias (jsonschema:\"-\") for agent_defaults", "agents")
+	}
+}
+
+// TestAddGoCommentsFilteredSkipsHiddenDirs verifies that addGoCommentsFiltered
+// does not enter directories whose name begins with ".". This guards against
+// the TOCTOU failure where .gc/*/pr-checkout/ dirs are deleted by mpr cleanup
+// while a schema-gen walk is in progress: if the hidden dir is unreadable or
+// disappears mid-walk, a plain r.AddGoComments(".", ...) surfaces an I/O error;
+// the filtered variant must skip hidden dirs entirely so no such error occurs.
+func TestAddGoCommentsFilteredSkipsHiddenDirs(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Visible source dir with a Go struct — should be processed normally.
+	if err := os.MkdirAll(filepath.Join(tmp, "pkg"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	goSrc := "package pkg\n\n// Widget is a widget.\ntype Widget struct{}\n"
+	if err := os.WriteFile(filepath.Join(tmp, "pkg", "widget.go"), []byte(goSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Hidden dir made unreadable: if walked it triggers "permission denied".
+	gcDir := filepath.Join(tmp, ".gc")
+	if err := os.MkdirAll(gcDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(gcDir, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(gcDir, 0o755) })
+
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+
+	r := &jsonschema.Reflector{FieldNameTag: "toml"}
+	if err := addGoCommentsFiltered(r, "example.com/test", "."); err != nil {
+		t.Errorf("addGoCommentsFiltered failed with unreadable hidden dir: %v", err)
 	}
 }
 

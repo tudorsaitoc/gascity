@@ -25,8 +25,10 @@ import (
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/convergence"
+	"github.com/gastownhall/gascity/internal/emergency"
 	"github.com/gastownhall/gascity/internal/events"
 	"github.com/gastownhall/gascity/internal/fsys"
+	"github.com/gastownhall/gascity/internal/packman"
 	"github.com/gastownhall/gascity/internal/pathutil"
 	"github.com/gastownhall/gascity/internal/runtime"
 	"github.com/gastownhall/gascity/internal/supervisor"
@@ -122,6 +124,7 @@ func acquireControllerLock(cityPath string) (*os.File, error) {
 func startControllerSocket(
 	cityPath string,
 	cancelFn context.CancelFunc,
+	forceShutdown *atomic.Bool,
 	dirty *atomic.Bool,
 	reloadReqCh chan reloadRequest,
 	convergenceReqCh chan convergenceRequest,
@@ -144,19 +147,21 @@ func startControllerSocket(
 			if err != nil {
 				return // listener closed
 			}
-			go handleControllerConn(conn, cityPath, cancelFn, dirty, reloadReqCh, convergenceReqCh, pokeCh, controlDispatcherCh)
+			go handleControllerConn(conn, cityPath, cancelFn, forceShutdown, dirty, reloadReqCh, convergenceReqCh, pokeCh, controlDispatcherCh)
 		}
 	}()
 	return lis, nil
 }
 
 // handleControllerConn reads from a connection and dispatches commands.
-// Supported commands: "stop" (shutdown), "ping" (liveness check, returns PID),
-// "converge:{json}" (convergence commands routed to event loop).
+// Supported commands: "stop" (shutdown), "stop-force" (shutdown without
+// interrupt grace), "ping" (liveness check, returns PID), "converge:{json}"
+// (convergence commands routed to event loop).
 func handleControllerConn(
 	conn net.Conn,
 	cityPath string,
 	cancelFn context.CancelFunc,
+	forceShutdown *atomic.Bool,
 	dirty *atomic.Bool,
 	reloadReqCh chan reloadRequest,
 	convergenceReqCh chan convergenceRequest,
@@ -172,6 +177,12 @@ func handleControllerConn(
 		line := scanner.Text()
 		switch {
 		case line == "stop":
+			cancelFn()
+			conn.Write([]byte("ok\n")) //nolint:errcheck // best-effort ack
+		case line == "stop-force":
+			if forceShutdown != nil {
+				forceShutdown.Store(true)
+			}
 			cancelFn()
 			conn.Write([]byte("ok\n")) //nolint:errcheck // best-effort ack
 		case line == "ping":
@@ -258,7 +269,12 @@ func handleSessionCircuitResetSocketCmd(conn net.Conn, cityPath, payload string)
 		})
 		return
 	}
-	if err := resetSessionCircuitBreakerState(store, sessionID, identity, defaultSessionCircuitBreaker()); err != nil {
+	// Route the session circuit-breaker reset through the session
+	// coordination-class store so a [beads.classes.sessions] relocation reaches
+	// this socket-command path. No-refresh loader: this runs inside the running
+	// controller (packs already materialized); nil cfg → cliSessionStore identity.
+	cfg, _ := loadCityConfigWithoutBuiltinPackRefresh(cityPath, io.Discard)
+	if err := resetSessionCircuitBreakerState(cliSessionStore(store, cfg, cityPath), sessionID, identity, defaultSessionCircuitBreaker()); err != nil {
 		writeJSONLine(conn, sessionCircuitResetReply{
 			Outcome: "failed",
 			Error:   err.Error(),
@@ -276,7 +292,7 @@ func resetSessionCircuitBreakerState(store beads.Store, sessionID string, identi
 	if cb == nil {
 		cb = defaultSessionCircuitBreaker()
 	}
-	if err := loadPersistedSessionCircuitResetGeneration(store, sessionID, identity, cb); err != nil {
+	if err := loadPersistedSessionCircuitResetGeneration(sessionFrontDoor(store), sessionID, identity, cb); err != nil {
 		return err
 	}
 	initialSnapshot := cb.snapshotIdentity(identity)
@@ -297,7 +313,7 @@ func resetSessionCircuitBreakerState(store beads.Store, sessionID string, identi
 
 func resetAndClearSessionCircuitBreakerState(store beads.Store, sessionID string, identity string, cb *sessionCircuitBreaker, restoreSnapshot sessionCircuitBreakerIdentitySnapshot) error {
 	resetGeneration := cb.Reset(identity)
-	if err := clearPersistedSessionCircuitBreakerMetadata(store, sessionID, resetGeneration); err != nil {
+	if err := clearPersistedSessionCircuitBreakerMetadata(sessionFrontDoor(store), sessionID, resetGeneration); err != nil {
 		cb.restoreIdentity(identity, restoreSnapshot)
 		// Restore the pre-reset snapshot rather than the just-reset one so a
 		// durable clear failure cannot strand the breaker CLOSED in memory.
@@ -381,6 +397,7 @@ func handleReloadSocketCmd(conn net.Conn, payload string, ch chan reloadRequest)
 	req := reloadRequest{
 		wait:       wire.Wait,
 		timeout:    timeout,
+		soft:       wire.Soft,
 		acceptedCh: make(chan reloadControlReply, 1),
 		doneCh:     make(chan reloadControlReply, 1),
 	}
@@ -886,12 +903,20 @@ func tryReloadConfig(tomlPath, lockedWorkspaceName, cityRoot string) (*reloadRes
 	if err := ensureLegacyNamedPacksCached(cityRoot); err != nil {
 		return nil, fmt.Errorf("fetching packs: %w", err)
 	}
+	// Re-materialize any bundled pack synthetic caches that were written by a
+	// different binary version. The config loader's strict content-hash check
+	// rejects caches whose hash was produced by a binary whose embedded pack
+	// content differs from the running controller (e.g., after "gc import install"
+	// runs with a newer on-disk binary). EnsureBundledPacksCurrent repairs stale
+	// caches from the running binary's embedded packs before the loader validates.
+	if err := packman.EnsureBundledPacksCurrent(cityRoot); err != nil {
+		return nil, fmt.Errorf("refreshing bundled pack caches: %w", err)
+	}
 
-	allIncludes, err := cityConfigIncludesWithBuiltinPacks(cityRoot, extraConfigFiles...)
-	if err != nil {
+	if err := ensureBuiltinPacksForConfigLoad(fsys.OSFS{}, tomlPath, resolveLoadCityConfigWarningWriter()); err != nil {
 		return nil, err
 	}
-	newCfg, prov, err := config.LoadWithIncludes(fsys.OSFS{}, tomlPath, allIncludes...)
+	newCfg, prov, err := config.LoadWithIncludes(fsys.OSFS{}, tomlPath, extraConfigFiles...)
 	if err != nil {
 		return nil, fmt.Errorf("parsing city.toml: %w", err)
 	}
@@ -928,8 +953,14 @@ func tryReloadConfig(tomlPath, lockedWorkspaceName, cityRoot string) (*reloadRes
 	if err := config.ValidateServices(newCfg.Services); err != nil {
 		return failWithWarnings(fmt.Errorf("validating services: %w", err))
 	}
+	if err := config.ValidateWebhooks(newCfg.Webhooks); err != nil {
+		return failWithWarnings(fmt.Errorf("validating webhooks: %w", err))
+	}
 	if err := workspacesvc.ValidateRuntimeSupport(newCfg.Services); err != nil {
 		return failWithWarnings(fmt.Errorf("validating services: %w", err))
+	}
+	if err := validatePackRuntimeRegistrations(newCfg); err != nil {
+		return failWithWarnings(fmt.Errorf("validating pack runtimes: %w", err))
 	}
 	newName := loadedCityName(newCfg, filepath.Dir(tomlPath))
 	if newName != lockedWorkspaceName {
@@ -949,15 +980,28 @@ func gracefulStopAll(
 	timeout time.Duration,
 	rec events.Recorder,
 	cfg *config.City,
-	store beads.Store,
+	store beads.SessionStore,
 	stdout, stderr io.Writer,
 ) {
-	if timeout <= 0 || len(names) == 0 {
+	gracefulStopAllWithForceSignal(names, sp, timeout, rec, cfg, store, stdout, stderr, nil)
+}
+
+func gracefulStopAllWithForceSignal(
+	names []string,
+	sp runtime.Provider,
+	timeout time.Duration,
+	rec events.Recorder,
+	cfg *config.City,
+	store beads.SessionStore,
+	stdout, stderr io.Writer,
+	forceStopRequested func() bool,
+) {
+	if timeout <= 0 || len(names) == 0 || stopForceRequested(forceStopRequested) {
 		// Immediate kill (no grace period).
-		stopTargetsBounded(stopTargetsForNames(names, cfg, store, stderr), cfg, store, sp, rec, "gc", stdout, stderr)
+		stopTargetsBounded(stopTargetsForNames(names, cfg, store.Store, stderr), cfg, store.Store, sp, rec, "gc", stdout, stderr)
 		return
 	}
-	targets := stopTargetsForNames(names, cfg, store, stderr)
+	targets := stopTargetsForNames(names, cfg, store.Store, stderr)
 	targetByName := make(map[string]stopTarget, len(targets))
 	for _, target := range targets {
 		targetByName[target.name] = target
@@ -969,14 +1013,20 @@ func gracefulStopAll(
 	// The configured timeout is the post-dispatch grace window; dispatch
 	// latency is intentionally outside that budget so every interrupted
 	// session still gets the full graceful-exit wait once nudged.
-	sent := interruptTargetsBounded(targets, cfg, store, sp, stderr)
+	sent := interruptTargetsBoundedWithForceSignal(targets, cfg, store.Store, sp, stderr, forceStopRequested)
 	fmt.Fprintf(stdout, "Sent interrupt to %d/%d agent(s), waiting %s...\n", //nolint:errcheck // best-effort stdout
 		sent, len(names), timeout)
 
 	// Poll until all agents exit or timeout expires (avoid sleeping full duration).
 	pollInterval := 500 * time.Millisecond
+	if forceStopRequested != nil {
+		pollInterval = 50 * time.Millisecond
+	}
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
+		if stopForceRequested(forceStopRequested) {
+			break
+		}
 		allExited := true
 		if runningSet, ok := runningSessionSet(sp, names); ok {
 			allExited = len(runningSet) == 0
@@ -993,6 +1043,9 @@ func gracefulStopAll(
 			break
 		}
 		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			break
+		}
 		if remaining < pollInterval {
 			time.Sleep(remaining)
 		} else {
@@ -1016,20 +1069,40 @@ func gracefulStopAll(
 			}
 			fmt.Fprintf(stdout, "Agent '%s' exited gracefully\n", name) //nolint:errcheck // best-effort stdout
 			subject := name
-			if target, ok := targetByName[name]; ok && target.subject != "" {
-				subject = target.subject
-			}
-			if target, ok := targetByName[name]; ok && cityStopSessionMarked(store, target.sessionID) {
-				markCityStopSessionAsAsleep(store, target.sessionID, stderr)
+			// SessionLifecyclePayload.SessionID is contractually "always
+			// present" — when the targetByName lookup misses (or the
+			// bead's ID couldn't be filled) we fall back to the loop
+			// variable, which is the session_name. ResolveSessionID
+			// canonicalizes session_name → bead ID for any consumer.
+			sessionID := name
+			var template, agentIdentity string
+			if target, ok := targetByName[name]; ok {
+				if target.subject != "" {
+					subject = target.subject
+				}
+				if target.sessionID != "" {
+					sessionID = target.sessionID
+				}
+				template = target.template
+				agentIdentity = target.agentName
+				if cityStopSessionMarked(store.Store, target.sessionID) {
+					markCityStopSessionAsAsleep(sessionFrontDoor(store.Store), target.sessionID, stderr)
+				}
 			}
 			rec.Record(events.Event{
 				Type: events.SessionStopped, Actor: "gc", Subject: subject,
+				Payload: api.SessionLifecyclePayloadJSON(sessionID, template, "exited gracefully"),
 			})
+			telemetry.RecordAgentStop(context.Background(), name, firstNonEmptyGCString(agentIdentity, template), "graceful-exit", nil)
 			continue
 		}
 		survivors = append(survivors, name)
 	}
-	stopTargetsBounded(filterStopTargets(targets, survivors), cfg, store, sp, rec, "gc", stdout, stderr)
+	stopTargetsBounded(filterStopTargets(targets, survivors), cfg, store.Store, sp, rec, "gc", stdout, stderr)
+}
+
+func stopForceRequested(forceStopRequested func() bool) bool {
+	return forceStopRequested != nil && forceStopRequested()
 }
 
 func runningSessionSet(sp runtime.Provider, names []string) (map[string]bool, bool) {
@@ -1119,6 +1192,7 @@ func controllerLoop(
 		stdout:              stdout,
 		stderr:              stderr,
 	}
+	cr.setControllerState(cs)
 	cr.run(ctx)
 }
 
@@ -1198,7 +1272,8 @@ func runController(
 	configDirty := &atomic.Bool{}
 
 	sockPath := controllerSocketPath(cityPath)
-	lis, err := startControllerSocket(cityPath, cancel, configDirty, reloadReqCh, convergenceReqCh, pokeCh, controlDispatcherCh)
+	forceShutdown := &atomic.Bool{}
+	lis, err := startControllerSocket(cityPath, cancel, forceShutdown, configDirty, reloadReqCh, convergenceReqCh, pokeCh, controlDispatcherCh)
 	if err != nil {
 		fmt.Fprintf(stderr, "gc start: %v\n", err) //nolint:errcheck // best-effort stderr
 		return 1
@@ -1245,6 +1320,7 @@ func runController(
 		Rec:                     rec,
 		PoolSessions:            poolSessions,
 		PoolDeathHandlers:       poolDeathHandlers,
+		ForceStopShutdown:       forceShutdown,
 		ReloadReqCh:             reloadReqCh,
 		ConvergenceReqCh:        convergenceReqCh,
 		PokeCh:                  pokeCh,
@@ -1261,8 +1337,11 @@ func runController(
 	cs.pokeCh = pokeCh
 	cs.configDirty = configDirty
 	cs.services = cr.svc
-	cs.startBeadEventWatcher(ctx)
+	cs.emergencyCh = make(chan emergency.Record, 64)
 	cr.setControllerState(cs)
+	cs.startBeadEventWatcher(ctx)
+	cs.startEmergencyEventRelay(ctx)
+	cs.startMaintenanceLoop(ctx)
 
 	// Start API server if configured. Standalone city mode wraps the
 	// single city in a SupervisorMux so every endpoint is served at its
@@ -1280,7 +1359,20 @@ func runController(
 		// not own the supervisor registry/reconciler path required by
 		// async POST /v0/city, so leave the initializer nil and let the
 		// handler return 501 for create/unregister routes.
-		apiMux := api.NewSupervisorMux(&singleCityStateResolver{state: cs}, nil, readOnly, "controller", time.Now())
+		apiMux := api.NewSupervisorMux(&singleCityStateResolver{state: cs}, nil, readOnly, "controller", commit, time.Now())
+		apiMux.WithAnyHostAllowed()
+		// Gate city-config mutations on a signed write grant when configured.
+		// Fail closed at boot if write-auth is required but no key is set.
+		if err := api.InstallWriteAuth(apiMux, cfg.API.WriteAuthVerifyKey, cfg.API.WriteAuthRequired); err != nil {
+			fmt.Fprintf(stderr, "api: write-auth: %v\n", err) //nolint:errcheck
+			return 1
+		}
+		// Gate city reads on a signed read grant when configured. Fail closed at
+		// boot if read-auth is required but no key is set.
+		if err := api.InstallReadAuth(apiMux, cfg.API.ReadAuthVerifyKey, cfg.API.ReadAuthRequired); err != nil {
+			fmt.Fprintf(stderr, "api: read-auth: %v\n", err) //nolint:errcheck
+			return 1
+		}
 		addr := net.JoinHostPort(bind, strconv.Itoa(cfg.API.Port))
 		apiLis, apiErr := net.Listen("tcp", addr)
 		if apiErr != nil {

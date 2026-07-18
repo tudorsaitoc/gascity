@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/searchpath"
 	"gopkg.in/yaml.v3"
 )
@@ -45,20 +46,25 @@ var (
 	providerProbePathEnv        = "/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin"
 	providerProbeGOOS           = runtime.GOOS
 	providerProbeCommandContext = exec.CommandContext
+	providerProbeExpandDirs     = searchpath.Expand
 	providerProbeCache          = newCachedProviderProbeStore()
 
 	defaultProviderReadinessItems = []string{"claude", "codex", "gemini"}
 	defaultReadinessItems         = []string{"claude", "codex", "gemini", "github_cli"}
 	supportedProviderReadiness    = readinessItemSet{
-		"claude": {},
-		"codex":  {},
-		"gemini": {},
+		"antigravity": {},
+		"claude":      {},
+		"codex":       {},
+		"gemini":      {},
+		"mimocode":    {},
 	}
 	supportedReadiness = readinessItemSet{
-		"claude":     {},
-		"codex":      {},
-		"gemini":     {},
-		"github_cli": {},
+		"antigravity": {},
+		"claude":      {},
+		"codex":       {},
+		"gemini":      {},
+		"github_cli":  {},
+		"mimocode":    {},
 	}
 	readinessProbeSpecs = map[string]readinessProbeSpec{
 		"claude": {
@@ -80,6 +86,20 @@ var (
 				return probeGemini(homeDir)
 			},
 		},
+		"antigravity": {
+			displayName: "Antigravity",
+			kind:        probeKindProvider,
+			probe: func(_ context.Context, homeDir string) providerProbeResult {
+				return probeAntigravity(homeDir)
+			},
+		},
+		"mimocode": {
+			displayName: "MiMo Code",
+			kind:        probeKindProvider,
+			probe: func(_ context.Context, homeDir string) providerProbeResult {
+				return probeMimoCode(homeDir)
+			},
+		},
 		"github_cli": {
 			displayName: "GitHub CLI",
 			kind:        probeKindTool,
@@ -88,7 +108,7 @@ var (
 	}
 )
 
-const providerProbeCacheTTL = 2 * time.Second
+var providerProbeCacheTTL = 2 * time.Second
 
 type providerReadinessResponse struct {
 	Providers map[string]providerReadiness `json:"providers"`
@@ -165,6 +185,18 @@ type cachedProviderProbeStore struct {
 func SupportsProviderReadiness(name string) bool {
 	_, ok := supportedProviderReadiness[strings.TrimSpace(name)]
 	return ok
+}
+
+// ProviderReadinessNames returns the readiness-aware provider names in
+// canonical onboarding order.
+func ProviderReadinessNames() []string {
+	names := make([]string, 0, len(supportedProviderReadiness))
+	for _, name := range config.BuiltinProviderOrder() {
+		if _, ok := supportedProviderReadiness[name]; ok {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 // ProbeProviders returns readiness results for the requested provider names.
@@ -333,7 +365,7 @@ func probeClaude(ctx context.Context, homeDir string) providerProbeResult {
 		return providerProbeResult{status: probeStatusNotInstalled, detail: "claude executable not found in probe PATH"}
 	}
 
-	stdout, _, err := runProbeCommand(ctx, homeDir, 5*time.Second, path, "auth", "status", "--json")
+	stdout, _, err := runProbeCommandWithEnv(ctx, homeDir, 5*time.Second, claudeProbeCommandEnv(), path, "auth", "status", "--json")
 	if err != nil && strings.TrimSpace(stdout) == "" {
 		return providerProbeResult{status: probeStatusProbeError, detail: "claude auth status failed before returning JSON"}
 	}
@@ -345,12 +377,24 @@ func probeClaude(ctx context.Context, homeDir string) providerProbeResult {
 	if !status.LoggedIn {
 		return providerProbeResult{status: probeStatusNeedsAuth, detail: "claude is installed but not logged in"}
 	}
-	// Onboarding only supports the first-party claude.ai OAuth flow. API-key
-	// or alternate providers are intentionally treated as unsupported.
-	if status.AuthMethod == "claude.ai" && status.APIProvider == "firstParty" {
+	// Onboarding supports the first-party claude.ai OAuth flow. Both the
+	// interactive `claude /login` flow ("claude.ai") and the long-lived
+	// token from `claude setup-token` ("oauth_token") are accepted — the
+	// latter is needed in headless / containerised environments where the
+	// interactive browser flow is not available. API-key or alternate
+	// providers are intentionally treated as unsupported.
+	if claudeFirstPartyAuthMethod(status.AuthMethod) && status.APIProvider == "firstParty" {
 		return providerProbeResult{status: probeStatusConfigured}
 	}
-	return providerProbeResult{status: probeStatusInvalidConfiguration, detail: "claude must use claude.ai first-party auth"}
+	return providerProbeResult{status: probeStatusInvalidConfiguration, detail: "claude must use claude.ai or oauth_token first-party auth"}
+}
+
+func claudeFirstPartyAuthMethod(method string) bool {
+	switch method {
+	case "claude.ai", "oauth_token":
+		return true
+	}
+	return false
 }
 
 func probeCodex(homeDir string) providerProbeResult {
@@ -432,6 +476,66 @@ func probeGemini(homeDir string) providerProbeResult {
 	}
 }
 
+func probeAntigravity(homeDir string) providerProbeResult {
+	if _, ok := findProbeBinary("agy", homeDir); !ok {
+		return providerProbeResult{status: probeStatusNotInstalled, detail: "agy executable not found in probe PATH"}
+	}
+
+	data, err := os.ReadFile(filepath.Join(homeDir, ".gemini", "antigravity-cli", "antigravity-oauth-token"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return providerProbeResult{status: probeStatusNeedsAuth, detail: "missing ~/.gemini/antigravity-cli/antigravity-oauth-token"}
+		}
+		return providerProbeResult{status: probeStatusProbeError, detail: "failed to read Antigravity OAuth token"}
+	}
+	if strings.TrimSpace(string(data)) == "" {
+		return providerProbeResult{status: probeStatusNeedsAuth, detail: "Antigravity OAuth token is empty"}
+	}
+	return providerProbeResult{status: probeStatusConfigured}
+}
+
+func probeMimoCode(homeDir string) providerProbeResult {
+	if _, ok := findProbeBinary("mimo", homeDir); !ok {
+		return providerProbeResult{status: probeStatusNotInstalled, detail: "mimo executable not found in probe PATH"}
+	}
+
+	// XIAOMI_API_KEY is the headless auth path (mirrors the GitHub CLI
+	// token-env precedent); the auth.json credential store is the
+	// `mimo providers login` path.
+	if strings.TrimSpace(os.Getenv("XIAOMI_API_KEY")) != "" {
+		return providerProbeResult{status: probeStatusConfigured}
+	}
+
+	authPath := mimoCodeAuthPath(homeDir)
+	data, err := os.ReadFile(authPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return providerProbeResult{status: probeStatusNeedsAuth, detail: fmt.Sprintf("set XIAOMI_API_KEY or run `mimo providers login` (missing %s)", authPath)}
+		}
+		return providerProbeResult{status: probeStatusProbeError, detail: fmt.Sprintf("failed to read %s", authPath)}
+	}
+	var credentials map[string]json.RawMessage
+	if err := json.Unmarshal(data, &credentials); err != nil {
+		return providerProbeResult{status: probeStatusProbeError, detail: fmt.Sprintf("invalid JSON in %s", authPath)}
+	}
+	if len(credentials) == 0 {
+		return providerProbeResult{status: probeStatusNeedsAuth, detail: fmt.Sprintf("no credentials in %s; set XIAOMI_API_KEY or run `mimo providers login`", authPath)}
+	}
+	return providerProbeResult{status: probeStatusConfigured}
+}
+
+// mimoCodeAuthPath resolves the credential store written by
+// `mimo providers login`. mimo (an OpenCode fork) places it under the XDG
+// data root: $XDG_DATA_HOME when set to an absolute path, otherwise
+// ~/.local/share.
+func mimoCodeAuthPath(homeDir string) string {
+	dataRoot := filepath.Join(homeDir, ".local", "share")
+	if xdg := strings.TrimSpace(os.Getenv("XDG_DATA_HOME")); xdg != "" && filepath.IsAbs(xdg) {
+		dataRoot = xdg
+	}
+	return filepath.Join(dataRoot, "mimocode", "auth.json")
+}
+
 func probeGitHubCLI(ctx context.Context, homeDir string) providerProbeResult {
 	ghPath, ok := findProbeBinary("gh", homeDir)
 	if !ok {
@@ -478,10 +582,11 @@ func githubCLITokenConfigured() bool {
 }
 
 func probeGitHubCLIAuthStatus(ctx context.Context, homeDir, ghPath string) providerProbeResult {
-	stdout, stderr, err := runProbeCommand(
+	stdout, stderr, err := runProbeCommandWithEnv(
 		ctx,
 		homeDir,
 		5*time.Second,
+		gitHubCLIProbeCommandEnv(),
 		ghPath,
 		"auth",
 		"status",
@@ -521,17 +626,18 @@ func findProbeBinary(name, homeDir string) (string, bool) {
 }
 
 func providerProbeSearchDirs(homeDir, goos, basePath string) []string {
-	return searchpath.Expand(homeDir, goos, basePath)
+	return providerProbeExpandDirs(homeDir, goos, basePath)
 }
 
 func providerProbeSearchPath(homeDir string) string {
-	return searchpath.ExpandPath(homeDir, providerProbeGOOS, providerProbePathEnv)
+	return strings.Join(providerProbeSearchDirs(homeDir, providerProbeGOOS, providerProbePathEnv), string(os.PathListSeparator))
 }
 
-func runProbeCommand(
+func runProbeCommandWithEnv(
 	ctx context.Context,
 	homeDir string,
 	timeout time.Duration,
+	extraEnv []string,
 	path string,
 	args ...string,
 ) (string, string, error) {
@@ -540,7 +646,7 @@ func runProbeCommand(
 
 	cmd := providerProbeCommandContext(ctx, path, args...)
 	cmd.Dir = homeDir
-	cmd.Env = probeCommandEnv(homeDir)
+	cmd.Env = append(probeCommandEnv(homeDir), extraEnv...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -576,16 +682,27 @@ func probeCommandEnv(homeDir string) []string {
 	} else {
 		env = append(env, "XDG_STATE_HOME="+filepath.Join(homeDir, ".local", "state"))
 	}
-	if configDir := strings.TrimSpace(os.Getenv("GH_CONFIG_DIR")); configDir != "" {
-		env = append(env, "GH_CONFIG_DIR="+configDir)
-	}
-	for _, key := range []string{
+	return env
+}
+
+func claudeProbeCommandEnv() []string {
+	return probeEnvVars("CLAUDE_CONFIG_DIR", "CLAUDE_CODE_OAUTH_TOKEN")
+}
+
+func gitHubCLIProbeCommandEnv() []string {
+	return probeEnvVars(
+		"GH_CONFIG_DIR",
 		"GH_HOST",
 		"GH_TOKEN",
 		"GITHUB_TOKEN",
 		"GH_ENTERPRISE_TOKEN",
 		"GITHUB_ENTERPRISE_TOKEN",
-	} {
+	)
+}
+
+func probeEnvVars(keys ...string) []string {
+	env := make([]string, 0, len(keys))
+	for _, key := range keys {
 		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 			env = append(env, key+"="+value)
 		}

@@ -135,10 +135,10 @@ func TestCmdOrderHistoryUsesProviderAwareCityStore(t *testing.T) {
 	writeProviderAwareTestCity(t, cityDir, `[workspace]
 name = "demo"
 `)
-	if err := os.MkdirAll(filepath.Join(cityDir, "orders", "digest"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(cityDir, "orders"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(cityDir, "orders", "digest", "order.toml"), []byte(`[order]
+	if err := os.WriteFile(filepath.Join(cityDir, "orders", "digest.toml"), []byte(`[order]
 formula = "mol-digest"
 trigger = "manual"
 `), 0o644); err != nil {
@@ -238,6 +238,145 @@ name = "demo"
 	}
 }
 
+// TestDoConvoyAutocloseResolvesRigStoreForRigBead is the regression for #3411:
+// the bd on_close hook is spawned from the supervisor and inherits its (city)
+// cwd/env, but the closed bead can live in a rig store. Autoclose must resolve
+// the store that actually owns the bead, not the cwd-rooted city store, or
+// completed rig convoys strand open in the ready list.
+func TestDoConvoyAutocloseResolvesRigStoreForRigBead(t *testing.T) {
+	configureIsolatedRuntimeEnv(t)
+	t.Setenv("GC_BEADS", "file")
+
+	cityDir := t.TempDir()
+	rigDir := filepath.Join(cityDir, "ops")
+	if err := os.MkdirAll(rigDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureScopedFileStoreLayout(cityDir); err != nil {
+		t.Fatal(err)
+	}
+	writeProviderAwareTestCity(t, cityDir, `[workspace]
+name = "demo"
+[[rigs]]
+name = "ops"
+path = "ops"
+prefix = "OP"
+`)
+	if err := ensurePersistedScopeLocalFileStore(cityDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensurePersistedScopeLocalFileStore(rigDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Convoy + tracked child live in the RIG store only; the city store is
+	// empty, matching the live case where a rig-prefixed bead closes.
+	rigStore, err := openScopeLocalFileStore(rigDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	convoy, err := rigStore.Create(beads.Bead{Title: "sling-ops", Type: "convoy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	child, err := rigStore.Create(beads.Bead{Title: "task", Type: "task", ParentID: convoy.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rigStore.Close(child.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	// The hook runs from the supervisor's (city) cwd, not the rig checkout.
+	chdirProviderAwareTest(t, cityDir)
+
+	var stdout, stderr bytes.Buffer
+	doConvoyAutoclose(child.ID, &stdout, &stderr)
+
+	reloaded, err := openStoreAtForCity(rigDir, cityDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := reloaded.Get(convoy.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status != "closed" {
+		t.Fatalf("rig convoy status = %q, want closed (autoclose did not resolve the rig store)", updated.Status)
+	}
+	if !strings.Contains(stdout.String(), "Auto-closed convoy") {
+		t.Fatalf("stdout = %q, want autoclose message", stdout.String())
+	}
+}
+
+// TestDoMoleculeAutocloseResolvesRigStoreForRigBead is the molecule sibling of
+// the #3411 regression: closing the last step of a molecule whose subtree
+// lives in a rig store must auto-close the root, even though the on_close hook
+// runs from the supervisor's (city) cwd. It also exercises the store-ref being
+// derived from the resolved rig store rather than the city store.
+func TestDoMoleculeAutocloseResolvesRigStoreForRigBead(t *testing.T) {
+	configureIsolatedRuntimeEnv(t)
+	t.Setenv("GC_BEADS", "file")
+
+	cityDir := t.TempDir()
+	rigDir := filepath.Join(cityDir, "ops")
+	if err := os.MkdirAll(rigDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureScopedFileStoreLayout(cityDir); err != nil {
+		t.Fatal(err)
+	}
+	writeProviderAwareTestCity(t, cityDir, `[workspace]
+name = "demo"
+[[rigs]]
+name = "ops"
+path = "ops"
+prefix = "OP"
+`)
+	if err := ensurePersistedScopeLocalFileStore(cityDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensurePersistedScopeLocalFileStore(rigDir); err != nil {
+		t.Fatal(err)
+	}
+
+	rigStore, err := openScopeLocalFileStore(rigDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := rigStore.Create(beads.Bead{Title: "mol-ops", Type: "molecule"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	step, err := rigStore.Create(beads.Bead{Title: "do work", Type: "step", ParentID: root.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rigStore.Close(step.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	chdirProviderAwareTest(t, cityDir)
+
+	var stdout, stderr bytes.Buffer
+	doMoleculeAutoclose(step.ID, &stdout, &stderr)
+
+	reloaded, err := openStoreAtForCity(rigDir, cityDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := reloaded.Get(root.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status != "closed" {
+		t.Fatalf("rig molecule root status = %q, want closed (autoclose did not resolve the rig store)", updated.Status)
+	}
+	if !strings.Contains(stdout.String(), "Auto-closed molecule "+root.ID) {
+		t.Fatalf("stdout = %q, want molecule auto-close message", stdout.String())
+	}
+}
+
 func TestCmdOrderRunExecSkipsStoreOpenForScopedFileProvider(t *testing.T) {
 	configureIsolatedRuntimeEnv(t)
 	t.Setenv("GC_BEADS", "file")
@@ -249,10 +388,10 @@ func TestCmdOrderRunExecSkipsStoreOpenForScopedFileProvider(t *testing.T) {
 	writeProviderAwareTestCity(t, cityDir, `[workspace]
 name = "demo"
 `)
-	if err := os.MkdirAll(filepath.Join(cityDir, "orders", "poll"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(cityDir, "orders"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(cityDir, "orders", "poll", "order.toml"), []byte(`[order]
+	if err := os.WriteFile(filepath.Join(cityDir, "orders", "poll.toml"), []byte(`[order]
 exec = "printf 'exec ok\\n'"
 trigger = "manual"
 `), 0o644); err != nil {
@@ -261,7 +400,7 @@ trigger = "manual"
 	chdirProviderAwareTest(t, cityDir)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdOrderRun("poll", "", &stdout, &stderr)
+	code := cmdOrderRun("poll", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdOrderRun(exec) = %d, want 0; stderr: %s", code, stderr.String())
 	}
@@ -281,10 +420,10 @@ func TestCmdOrderRunFormulaUsesProviderAwareCityStore(t *testing.T) {
 	writeProviderAwareTestCity(t, cityDir, `[workspace]
 name = "demo"
 `)
-	if err := os.MkdirAll(filepath.Join(cityDir, "orders", "digest"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(cityDir, "orders"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(cityDir, "orders", "digest", "order.toml"), []byte(`[order]
+	if err := os.WriteFile(filepath.Join(cityDir, "orders", "digest.toml"), []byte(`[order]
 formula = "mol-digest"
 trigger = "manual"
 pool = "dog"
@@ -294,11 +433,11 @@ pool = "dog"
 	if err := os.MkdirAll(filepath.Join(cityDir, "formulas"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	formulaText, err := os.ReadFile(filepath.Join(sharedTestFormulaDir, "mol-digest.formula.toml"))
+	formulaText, err := os.ReadFile(filepath.Join(sharedTestFormulaDir, "mol-digest.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(cityDir, "formulas", "mol-digest.formula.toml"), formulaText, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(cityDir, "formulas", "mol-digest.toml"), formulaText, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := ensurePersistedScopeLocalFileStore(cityDir); err != nil {
@@ -307,7 +446,7 @@ pool = "dog"
 	chdirProviderAwareTest(t, cityDir)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdOrderRun("digest", "", &stdout, &stderr)
+	code := cmdOrderRun("digest", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdOrderRun(formula) = %d, want 0; stderr: %s", code, stderr.String())
 	}
@@ -331,6 +470,15 @@ pool = "dog"
 func TestDoConvoyAutocloseUsesBeadsDirStoreRoot(t *testing.T) {
 	configureIsolatedRuntimeEnv(t)
 	t.Setenv("GC_BEADS", "file")
+
+	envCityDir := t.TempDir()
+	if err := ensureScopedFileStoreLayout(envCityDir); err != nil {
+		t.Fatal(err)
+	}
+	writeProviderAwareTestCity(t, envCityDir, `[workspace]
+name = "ambient"
+`)
+	t.Setenv("GC_CITY", envCityDir)
 
 	cityDir := t.TempDir()
 	if err := ensureScopedFileStoreLayout(cityDir); err != nil {
@@ -390,9 +538,67 @@ name = "demo"
 	}
 }
 
+func TestAutocloseCityPathForStoreRootPrefersStoreRootCityOverInheritedGCCity(t *testing.T) {
+	configureIsolatedRuntimeEnv(t)
+
+	envCityDir := t.TempDir()
+	if err := ensureScopedFileStoreLayout(envCityDir); err != nil {
+		t.Fatal(err)
+	}
+	writeProviderAwareTestCity(t, envCityDir, `[workspace]
+name = "ambient"
+`)
+	t.Setenv("GC_CITY", envCityDir)
+
+	storeCityDir := t.TempDir()
+	if err := ensureScopedFileStoreLayout(storeCityDir); err != nil {
+		t.Fatal(err)
+	}
+	writeProviderAwareTestCity(t, storeCityDir, `[workspace]
+name = "store"
+`)
+
+	got := autocloseCityPathForStoreRoot(storeCityDir)
+	if canonicalTestPath(got) != canonicalTestPath(storeCityDir) {
+		t.Fatalf("autocloseCityPathForStoreRoot(%q) = %q, want store-root city %q", storeCityDir, got, storeCityDir)
+	}
+}
+
+func TestAutocloseCityPathForStoreRootUsesExplicitCityForExternalRigRuntime(t *testing.T) {
+	configureIsolatedRuntimeEnv(t)
+
+	envCityDir := t.TempDir()
+	if err := ensureScopedFileStoreLayout(envCityDir); err != nil {
+		t.Fatal(err)
+	}
+	writeProviderAwareTestCity(t, envCityDir, `[workspace]
+name = "ambient"
+`)
+	t.Setenv("GC_CITY", envCityDir)
+
+	rigDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(rigDir, ".gc"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	got := autocloseCityPathForStoreRoot(rigDir)
+	if canonicalTestPath(got) != canonicalTestPath(envCityDir) {
+		t.Fatalf("autocloseCityPathForStoreRoot(%q) = %q, want explicit city %q", rigDir, got, envCityDir)
+	}
+}
+
 func TestDoWispAutocloseUsesBeadsDirStoreRoot(t *testing.T) {
 	configureIsolatedRuntimeEnv(t)
 	t.Setenv("GC_BEADS", "file")
+
+	envCityDir := t.TempDir()
+	if err := ensureScopedFileStoreLayout(envCityDir); err != nil {
+		t.Fatal(err)
+	}
+	writeProviderAwareTestCity(t, envCityDir, `[workspace]
+name = "ambient"
+`)
+	t.Setenv("GC_CITY", envCityDir)
 
 	cityDir := t.TempDir()
 	if err := ensureScopedFileStoreLayout(cityDir); err != nil {

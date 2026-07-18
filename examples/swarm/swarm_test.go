@@ -9,11 +9,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/BurntSushi/toml"
+	"github.com/gastownhall/gascity/internal/builtinpacks"
 	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/fsys"
+	"github.com/gastownhall/gascity/internal/packman"
 )
 
 func exampleDir() string {
@@ -21,9 +24,32 @@ func exampleDir() string {
 	return filepath.Dir(filename)
 }
 
+// primeBundledPackCache hydrates a hermetic repo cache with the bundled
+// builtin pack content at the pinned commit so the example's packs.lock
+// resolves offline.
+func primeBundledPackCache(t *testing.T) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("GC_HOME", filepath.Join(home, ".gc"))
+	commit := strings.TrimPrefix(config.BundledPackImportVersion, "sha:")
+	coreSource, ok := builtinpacks.Source("core")
+	if !ok {
+		t.Fatal("bundled core pack not registered")
+	}
+	cachePath, err := packman.RepoCachePath(coreSource, commit)
+	if err != nil {
+		t.Fatalf("RepoCachePath: %v", err)
+	}
+	if err := builtinpacks.MaterializeSyntheticRepo(cachePath, commit); err != nil {
+		t.Fatalf("MaterializeSyntheticRepo: %v", err)
+	}
+}
+
 // loadExpanded loads city.toml with full pack expansion.
 func loadExpanded(t *testing.T) *config.City {
 	t.Helper()
+	primeBundledPackCache(t)
 	dir := exampleDir()
 	cfg, _, err := config.LoadWithIncludes(fsys.OSFS{}, filepath.Join(dir, "city.toml"))
 	if err != nil {
@@ -41,8 +67,22 @@ func TestCityTomlParses(t *testing.T) {
 	if cfg.Workspace.Name != "swarm" {
 		t.Errorf("Workspace.Name = %q, want %q", cfg.Workspace.Name, "swarm")
 	}
-	if len(cfg.Workspace.Includes) != 1 || cfg.Workspace.Includes[0] != "packs/swarm" {
-		t.Errorf("Workspace.Includes = %v, want [packs/swarm]", cfg.Workspace.Includes)
+	if gotIncludes := cfg.Workspace.LegacyIncludes(); len(gotIncludes) != 0 {
+		t.Errorf("Workspace.Includes = %v, want none (builtin packs compose via pack.toml imports)", gotIncludes)
+	}
+	if imp, ok := cfg.Imports["core"]; ok {
+		t.Errorf("cfg.Imports[core] = %v, want absent from city.toml (pinned in pack.toml)", imp)
+	}
+}
+
+func TestRootPackOwnsSwarmImport(t *testing.T) {
+	dir := exampleDir()
+	packCfg, err := config.Load(fsys.OSFS{}, filepath.Join(dir, "pack.toml"))
+	if err != nil {
+		t.Fatalf("config.Load(pack.toml): %v", err)
+	}
+	if got := packCfg.Imports["swarm"].Source; got != "packs/swarm" {
+		t.Fatalf("pack import swarm = %q, want %q", got, "packs/swarm")
 	}
 }
 
@@ -126,10 +166,11 @@ func TestCombinedPackParses(t *testing.T) {
 		t.Errorf("[pack] schema = %d, want 2", tc.Pack.Schema)
 	}
 
-	// Expect 5 agents: mayor, deacon, dog (city), coder, committer (rig).
+	// Expect 4 locally-defined agents: mayor, deacon (city), coder, committer (rig).
+	// The initialized city picks up dog from the system-provided maintenance pack.
 	agents := discoverPackAgents(t, filepath.Join("packs", "swarm"))
 	want := map[string]bool{
-		"mayor": false, "deacon": false, "dog": false,
+		"mayor": false, "deacon": false,
 		"coder": false, "committer": false,
 	}
 	for _, a := range agents {
@@ -144,12 +185,12 @@ func TestCombinedPackParses(t *testing.T) {
 			t.Errorf("missing pack agent %q", name)
 		}
 	}
-	if len(agents) != 5 {
-		t.Errorf("pack has %d agents, want 5", len(agents))
+	if len(agents) != 4 {
+		t.Errorf("pack has %d locally-defined agents, want 4", len(agents))
 	}
 
-	// Verify city-scoped agents have scope = "city".
-	wantCity := map[string]bool{"mayor": true, "deacon": true, "dog": true}
+	// Verify the pack's local city-scoped agents have scope = "city".
+	wantCity := map[string]bool{"mayor": true, "deacon": true}
 	for _, a := range agents {
 		if wantCity[a.Name] && a.Scope != "city" {
 			t.Errorf("agent %q: scope = %q, want %q", a.Name, a.Scope, "city")
@@ -158,10 +199,12 @@ func TestCombinedPackParses(t *testing.T) {
 }
 
 func TestCityAgentsFilter(t *testing.T) {
-	// Without rigs, only city-scoped agents appear.
+	// Swarm's own city-scoped agents plus the dolt maintenance dog that the
+	// composed builtin packs contribute (bd imports dolt transitively), plus
+	// the visible core control dispatcher.
 	cfg := loadExpanded(t)
 
-	cityAgents := map[string]bool{"mayor": true, "deacon": true, "dog": true}
+	cityAgents := map[string]bool{"mayor": true, "deacon": true, "dog": true, "control-dispatcher": true}
 	var explicit int
 	for _, a := range cfg.Agents {
 		if a.Implicit {
@@ -174,9 +217,12 @@ func TestCityAgentsFilter(t *testing.T) {
 		if a.Dir != "" {
 			t.Errorf("city agent %q: dir = %q, want empty", a.Name, a.Dir)
 		}
+		if a.Name == "dog" && a.BindingName != "bd" {
+			t.Errorf("dog agent binding = %q, want bd (city-level imports stamp the city binding)", a.BindingName)
+		}
 	}
-	if explicit != 3 {
-		t.Errorf("got %d explicit agents, want 3 city-scoped agents", explicit)
+	if explicit != 4 {
+		t.Errorf("got %d explicit agents, want mayor + deacon + dolt dog + control-dispatcher", explicit)
 	}
 }
 
@@ -230,8 +276,8 @@ func TestAllPromptTemplatesExist(t *testing.T) {
 		}
 	}
 
-	if count != 5 {
-		t.Errorf("found %d prompt template files, want 5", count)
+	if count != 4 {
+		t.Errorf("found %d local prompt template files, want 4", count)
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 	"github.com/gastownhall/gascity/internal/formula"
 	"github.com/gastownhall/gascity/internal/molecule"
 	"github.com/gastownhall/gascity/internal/sling"
+	"github.com/gastownhall/gascity/internal/webhookverify"
 )
 
 // extmsgNotifyTimeout bounds fire-and-forget goroutines spawned from
@@ -75,12 +76,85 @@ type Server struct {
 	responseCacheMu      sync.Mutex
 	responseCacheEntries map[string]responseCacheEntry
 
+	// storeHealth caches the on-disk size walk and maintenance-log read
+	// for /v0/status's StoreHealth block. Refreshed on expiry; missing
+	// store directories produce a zero-value entry so repeated requests
+	// don't re-walk a fresh city between maintenance runs.
+	storeHealthMu       sync.Mutex
+	storeHealthEntry    *StatusStoreHealth
+	storeHealthExpires  time.Time
+	storeHealthComputer func(ctx context.Context) *StatusStoreHealth
+
+	// componentVersions caches the dolt engine and bd CLI versions the
+	// supervisor drives for /v0/status. Binary versions are immutable for
+	// the process lifetime, so they are resolved once on first read.
+	// componentVersionsProbe overrides the real subprocess probe in tests;
+	// nil uses the PATH-resolved binaries.
+	componentVersionsOnce  sync.Once
+	componentVersionsValue componentVersions
+	componentVersionsProbe func() componentVersions
+
+	// dashboardBase reports the browser-reachable base URL of the dashboard
+	// mounted on the process serving this city's API, or "" when unmounted.
+	// Nil (the default) also means unmounted — the standalone controller
+	// [api] port serves /v0 without the SPA — so handlers omit dashboard
+	// deep links. Populated from SupervisorMux.WithDashboardBase when the
+	// supervisor builds per-city servers.
+	dashboardBase func() string
+
 	// LookPathFunc can be overridden in tests. Defaults to exec.LookPath.
 	LookPathFunc func(string) (string, error)
 
 	// SlingRunnerFunc can be overridden in tests. When nil, uses a real
 	// shell runner. Set this to inject a fake runner for unit tests.
 	SlingRunnerFunc sling.SlingRunner
+
+	// webhookEvents overrides the E8 webhook.received / webhook.rejected sink.
+	// Nil (the default) forwards to the city event bus via cityEventWebhookSink;
+	// tests inject a fake to assert emitted events. See webhookEventSink.
+	webhookEvents WebhookEventSink
+
+	// webhookDedup is the E8 delivery-idempotency store, keyed (webhook,
+	// delivery-id). Shared across deliveries for the process lifetime of this
+	// per-city Server (the supervisor caches one Server per city).
+	webhookDedup *webhookDedupCache
+
+	// webhookLimiter is the E8 per-webhook token-bucket rate limiter.
+	webhookLimiter *webhookRateLimiter
+
+	// webhookVerifiers memoizes the built E4 verifier per webhook so a stateful
+	// verifier (the jwt-jwks JWKS cache) persists across deliveries instead of
+	// being rebuilt — and its JWKS refetched — on every request. Keyed by webhook
+	// name; a cheap config fingerprint guards each entry so a config hot-reload
+	// that changes the verify config rebuilds the verifier. Secret resolution
+	// stays per-request; only the verifier (the stateful part) is reused.
+	webhookVerifiersMu sync.Mutex
+	webhookVerifiers   map[string]cachedWebhookVerifier
+
+	// webhookAccessFaultLogged latches which pre-limiter access-gate operator
+	// faults (a misconfigured allowed_cidrs, or an unset/empty bearer_env on a
+	// hook that still passes config load) have already been reported, so a flood
+	// against a misconfigured public hook logs the fault ONCE, not once per
+	// request. These gates run BEFORE the delivery limiter, so — unlike the
+	// limiter-throttled verifier fault — an unbounded per-request log/event here
+	// would be the CWE-400 amplifier the receiver exists to avoid; the 503 itself
+	// is still returned per request (as cheap as the other pre-limiter rejects)
+	// and is deliberately non-evented. Keyed by (webhook name, fault detail) so a
+	// different or changed misconfiguration reports again; keys derive from
+	// operator config, never attacker input, so the set is bounded by config.
+	webhookAccessFaultMu     sync.Mutex
+	webhookAccessFaultLogged map[string]struct{}
+
+	// webhookMaxBody overrides the /hook/ request body cap in tests. Zero uses
+	// defaultMaxWebhookBodyBytes.
+	webhookMaxBody int64
+}
+
+// cachedWebhookVerifier is a memoized verifier plus the config fingerprint it
+// was built from; a fingerprint mismatch on the next delivery triggers a rebuild.
+type cachedWebhookVerifier struct {
+	verifier    webhookverify.Verifier
+	fingerprint string
 }
 
 type lookPathEntry struct {
@@ -155,12 +229,19 @@ func NewReadOnly(state State) *Server {
 func newServer(state State, readOnly bool) *Server {
 	mux := http.NewServeMux()
 	s := &Server{
-		state:    state,
-		mux:      mux,
-		readOnly: readOnly,
-		idem:     newIdempotencyCache(30 * time.Minute),
+		state:          state,
+		mux:            mux,
+		readOnly:       readOnly,
+		idem:           newIdempotencyCache(30 * time.Minute),
+		webhookDedup:   newWebhookDedupCache(defaultWebhookDedupTTL),
+		webhookLimiter: newWebhookRateLimiter(),
 	}
 	mux.HandleFunc("/svc/", s.handleServiceProxy)
+	// /hook/* webhook receiver — the fourth sanctioned non-Huma surface. Like
+	// /svc/* it is a raw-body pass-through (HMAC/ed25519 sign the exact bytes),
+	// so it lives on the per-city mux outside the typed Huma control plane; its
+	// gates are the R2 perimeter + E4 signature verification, not Huma middleware.
+	mux.HandleFunc("/hook/", s.handleHookProxy)
 	return s
 }
 
@@ -168,7 +249,7 @@ func newServer(state State, readOnly bool) *Server {
 // feature flags based on the city's daemon config. Called from New
 // and NewReadOnly so both modes observe the same flag state.
 func syncFeatureFlags(cfg *config.City) {
-	enabled := cfg != nil && cfg.Daemon.FormulaV2
+	enabled := cfg != nil && cfg.Daemon.FormulaV2Enabled()
 	if formula.IsFormulaV2Enabled() != enabled {
 		formula.SetFormulaV2Enabled(enabled)
 	}
@@ -206,6 +287,7 @@ func (s *Server) legacySessionHandler() http.Handler {
 	mux.HandleFunc("GET /v0/session/{id}/stream", s.handleSessionStream)
 	mux.HandleFunc("PATCH /v0/session/{id}", s.handleSessionPatch)
 	mux.HandleFunc("POST /v0/session/{id}/messages", s.handleSessionMessage)
+	mux.HandleFunc("POST /v0/session/{id}/permission-mode", s.handleSessionPermissionMode)
 	mux.HandleFunc("POST /v0/session/{id}/stop", s.handleSessionStop)
 	mux.HandleFunc("POST /v0/session/{id}/kill", s.handleSessionKill)
 	mux.HandleFunc("POST /v0/session/{id}/respond", s.handleSessionRespond)
@@ -262,7 +344,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sm := NewSupervisorMux(&singleStateResolver{state: s.state}, nil, s.readOnly, "test", time.Now())
+	sm := NewSupervisorMux(&singleStateResolver{state: s.state}, nil, s.readOnly, "test", "", time.Now())
+	sm.WithAnyHostAllowed()
 	sm.cacheMu.Lock()
 	sm.cache[s.state.CityName()] = cachedCityServer{state: s.state, srv: s}
 	sm.cacheMu.Unlock()
