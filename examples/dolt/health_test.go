@@ -904,3 +904,160 @@ func TestHealthScriptJSONAlwaysExitsZero(t *testing.T) {
 		t.Errorf("JSON payload missing expected `\"reachable\": false`; got:\n%s", out)
 	}
 }
+
+func TestHealthScriptReportsB2BackupStatus(t *testing.T) {
+	tests := []struct {
+		name          string
+		dbsJSON       string
+		wantDatabases int
+		wantUploaded  int
+		wantSkipped   int
+		wantPruned    int
+		wantBytes     int64
+		wantNoop      bool
+	}{
+		{
+			name: "covered databases",
+			dbsJSON: `[
+				{"db":"hq","uploaded":2,"skipped":3,"pruned":1,"bytes_uploaded":1234},
+				{"db":"idea_factory","uploaded":0,"skipped":2,"pruned":0,"bytes_uploaded":0}
+			]`,
+			wantDatabases: 2,
+			wantUploaded:  2,
+			wantSkipped:   5,
+			wantPruned:    1,
+			wantBytes:     1234,
+			wantNoop:      false,
+		},
+		{
+			name:          "zero database no-op",
+			dbsJSON:       `[]`,
+			wantDatabases: 0,
+			wantNoop:      true,
+		},
+	}
+
+	root := repoRoot(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cityPath := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(cityPath, ".beads"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(cityPath, ".beads", "metadata.json"),
+				[]byte(`{"database":"dolt","backend":"dolt","dolt_database":"at"}`), 0o644); err != nil {
+				t.Fatalf("write metadata: %v", err)
+			}
+
+			statusPath := filepath.Join(t.TempDir(), "dolt-backup-b2.json")
+			ts := time.Now().UTC().Add(-90 * time.Minute).Format(time.RFC3339Nano)
+			status := fmt.Sprintf(`{
+				"ts": %q,
+				"bucket": "saitoc-dolt-backup",
+				"retention_days": 7,
+				"dry_run": false,
+				"dbs": %s
+			}`, ts, tt.dbsJSON)
+			if err := os.WriteFile(statusPath, []byte(status), 0o644); err != nil {
+				t.Fatalf("write status: %v", err)
+			}
+
+			// Bind a socket to get a guaranteed-closed port, then release it.
+			l, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatalf("listen: %v", err)
+			}
+			port := strconv.Itoa(l.Addr().(*net.TCPAddr).Port)
+			_ = l.Close()
+
+			cmd := exec.Command("sh", filepath.Join(root, healthScript), "--json")
+			cmd.Env = append(filteredEnv(
+				"GC_CITY_PATH",
+				"GC_PACK_DIR",
+				"GC_DOLT_HOST",
+				"GC_DOLT_PORT",
+				"GC_DOLT_USER",
+				"GC_DOLT_PASSWORD",
+				"GC_HEALTH_SKIP_ZOMBIE_SCAN",
+				"DOLT_BACKUP_STATUS",
+				"DOLT_BACKUP_MAX_AGE_SEC",
+			),
+				"GC_CITY_PATH="+cityPath,
+				"GC_PACK_DIR="+root,
+				"GC_DOLT_HOST=127.0.0.1",
+				"GC_DOLT_PORT="+port,
+				"GC_DOLT_USER=root",
+				"GC_DOLT_PASSWORD=",
+				"GC_HEALTH_SKIP_ZOMBIE_SCAN=1",
+				"DOLT_BACKUP_STATUS="+statusPath,
+				"DOLT_BACKUP_MAX_AGE_SEC=7200",
+			)
+
+			out, err := cmd.Output()
+			if err != nil {
+				t.Fatalf("health.sh --json exited non-zero: %v\n%s", err, out)
+			}
+
+			var report struct {
+				Backups struct {
+					DoltFreshness string `json:"dolt_freshness"`
+					DoltAgeSec    int    `json:"dolt_age_sec"`
+					DoltStale     bool   `json:"dolt_stale"`
+					Mode          string `json:"mode"`
+					StatusPath    string `json:"status_path"`
+					Bucket        string `json:"bucket"`
+					RetentionDays int    `json:"retention_days"`
+					Databases     int    `json:"databases"`
+					Uploaded      int    `json:"uploaded"`
+					Skipped       int    `json:"skipped"`
+					Pruned        int    `json:"pruned"`
+					BytesUploaded int64  `json:"bytes_uploaded"`
+					Noop          bool   `json:"noop"`
+				} `json:"backups"`
+			}
+			if err := json.Unmarshal(out, &report); err != nil {
+				t.Fatalf("health.sh --json returned invalid JSON: %v\n%s", err, out)
+			}
+
+			if report.Backups.Mode != "b2-cron" {
+				t.Fatalf("backup mode = %q, want b2-cron\n%s", report.Backups.Mode, out)
+			}
+			if report.Backups.StatusPath != statusPath {
+				t.Fatalf("status_path = %q, want %q", report.Backups.StatusPath, statusPath)
+			}
+			if report.Backups.Bucket != "saitoc-dolt-backup" {
+				t.Fatalf("bucket = %q, want saitoc-dolt-backup", report.Backups.Bucket)
+			}
+			if report.Backups.RetentionDays != 7 {
+				t.Fatalf("retention_days = %d, want 7", report.Backups.RetentionDays)
+			}
+			if report.Backups.Databases != tt.wantDatabases {
+				t.Fatalf("databases = %d, want %d", report.Backups.Databases, tt.wantDatabases)
+			}
+			if report.Backups.Uploaded != tt.wantUploaded {
+				t.Fatalf("uploaded = %d, want %d", report.Backups.Uploaded, tt.wantUploaded)
+			}
+			if report.Backups.Skipped != tt.wantSkipped {
+				t.Fatalf("skipped = %d, want %d", report.Backups.Skipped, tt.wantSkipped)
+			}
+			if report.Backups.Pruned != tt.wantPruned {
+				t.Fatalf("pruned = %d, want %d", report.Backups.Pruned, tt.wantPruned)
+			}
+			if report.Backups.BytesUploaded != tt.wantBytes {
+				t.Fatalf("bytes_uploaded = %d, want %d", report.Backups.BytesUploaded, tt.wantBytes)
+			}
+			if report.Backups.Noop != tt.wantNoop {
+				t.Fatalf("noop = %v, want %v", report.Backups.Noop, tt.wantNoop)
+			}
+			if report.Backups.DoltFreshness == "" {
+				t.Fatalf("dolt_freshness is empty\n%s", out)
+			}
+			if report.Backups.DoltAgeSec <= 0 || report.Backups.DoltAgeSec > 7200 {
+				t.Fatalf("dolt_age_sec = %d, want fresh age within threshold\n%s", report.Backups.DoltAgeSec, out)
+			}
+			if report.Backups.DoltStale {
+				t.Fatalf("dolt_stale = true, want false\n%s", out)
+			}
+		})
+	}
+}

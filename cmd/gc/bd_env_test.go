@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/config"
@@ -29,6 +30,68 @@ func TestCityRuntimeProcessEnvStripsAmbientGCDolt(t *testing.T) {
 		if strings.HasPrefix(entry, "GC_DOLT=") {
 			t.Fatalf("cityRuntimeProcessEnv leaked ambient GC_DOLT control var: %q", entry)
 		}
+	}
+}
+
+func TestStatusBdCommandRunnerUsesBoundedControlEnv(t *testing.T) {
+	oldRunner := beadsExecCommandRunnerWithEnv
+	oldTimeout := statusBdCommandTimeout
+	var seen map[string]string
+	beadsExecCommandRunnerWithEnv = func(env map[string]string) beads.CommandRunner {
+		seen = env
+		return func(string, string, ...string) ([]byte, error) {
+			return []byte("[]"), nil
+		}
+	}
+	statusBdCommandTimeout = 1500 * time.Millisecond
+	t.Cleanup(func() {
+		beadsExecCommandRunnerWithEnv = oldRunner
+		statusBdCommandTimeout = oldTimeout
+	})
+
+	runner := statusBdCommandRunnerForCity("/tmp/city")
+	if _, err := runner("/tmp/city", "bd", "list"); err != nil {
+		t.Fatalf("runner returned error: %v", err)
+	}
+	if seen["BD_EXPORT_AUTO"] != "false" {
+		t.Fatalf("BD_EXPORT_AUTO = %q, want false", seen["BD_EXPORT_AUTO"])
+	}
+	if seen["GC_BD_COMMAND_TIMEOUT"] != "1.5s" {
+		t.Fatalf("GC_BD_COMMAND_TIMEOUT = %q, want 1.5s", seen["GC_BD_COMMAND_TIMEOUT"])
+	}
+}
+
+func TestOpenBoundedControlStoreAtForCityUsesBoundedControlEnv(t *testing.T) {
+	t.Setenv("GC_BEADS", "bd")
+	t.Setenv("GC_BEADS_SCOPE_ROOT", "")
+	oldRunner := beadsExecCommandRunnerWithEnv
+	oldTimeout := statusBdCommandTimeout
+	var seen map[string]string
+	beadsExecCommandRunnerWithEnv = func(env map[string]string) beads.CommandRunner {
+		seen = env
+		return func(string, string, ...string) ([]byte, error) {
+			return []byte("[]"), nil
+		}
+	}
+	statusBdCommandTimeout = 2 * time.Second
+	t.Cleanup(func() {
+		beadsExecCommandRunnerWithEnv = oldRunner
+		statusBdCommandTimeout = oldTimeout
+	})
+
+	cityPath := t.TempDir()
+	store, err := openBoundedControlStoreAtForCity(cityPath, cityPath)
+	if err != nil {
+		t.Fatalf("openBoundedControlStoreAtForCity: %v", err)
+	}
+	if err := store.Ping(); err != nil {
+		t.Fatalf("Ping: %v", err)
+	}
+	if seen["BD_EXPORT_AUTO"] != "false" {
+		t.Fatalf("BD_EXPORT_AUTO = %q, want false", seen["BD_EXPORT_AUTO"])
+	}
+	if seen["GC_BD_COMMAND_TIMEOUT"] != "2s" {
+		t.Fatalf("GC_BD_COMMAND_TIMEOUT = %q, want 2s", seen["GC_BD_COMMAND_TIMEOUT"])
 	}
 }
 

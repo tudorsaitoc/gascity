@@ -737,6 +737,19 @@ func TestBdStoreListEmptyOutputMeansNoBeads(t *testing.T) {
 	}
 }
 
+func TestBdStorePingUsesSingleRowProbe(t *testing.T) {
+	runner := fakeRunner(map[string]struct {
+		out []byte
+		err error
+	}{
+		`bd list --json --limit 1`: {out: []byte(`[]`)},
+	})
+	s := beads.NewBdStore("/city", runner)
+	if err := s.Ping(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestBdStoreListError(t *testing.T) {
 	runner := func(_, _ string, _ ...string) ([]byte, error) {
 		return nil, fmt.Errorf("exit status 1")
@@ -1605,7 +1618,7 @@ func TestBdStoreListByLabel(t *testing.T) {
 		out []byte
 		err error
 	}{
-		`bd list --json --label=order-run:digest --include-infra --include-gates --limit 5`: {
+		`bd list --json --label=order-run:digest --sort created --include-infra --include-gates --limit 5`: {
 			out: []byte(`[{"id":"bd-aaa","title":"digest wisp","status":"open","issue_type":"task","created_at":"2026-02-27T10:00:00Z","labels":["order-run:digest"]}]`),
 		},
 	})
@@ -1628,7 +1641,7 @@ func TestBdStoreListByLabel(t *testing.T) {
 func TestBdStoreListCreatedBeforeForwardsFilter(t *testing.T) {
 	before := time.Date(2026, 4, 20, 12, 0, 0, 0, time.UTC)
 	wantCmd := `bd list --json --label=order-run:digest --all --created-before ` +
-		before.Format(time.RFC3339Nano) + ` --include-infra --include-gates --limit 1`
+		before.Format(time.RFC3339Nano) + ` --sort created --include-infra --include-gates --limit 1`
 	runner := fakeRunner(map[string]struct {
 		out []byte
 		err error
@@ -1653,12 +1666,38 @@ func TestBdStoreListCreatedBeforeForwardsFilter(t *testing.T) {
 	}
 }
 
+func TestBdStoreListSortCreatedDescForwardsLimit(t *testing.T) {
+	runner := fakeRunner(map[string]struct {
+		out []byte
+		err error
+	}{
+		`bd list --json --label=order-run:digest --all --sort created --include-infra --include-gates --limit 1`: {
+			out: []byte(`[
+				{"id":"bd-new","title":"digest new","status":"closed","issue_type":"task","created_at":"2026-04-20T12:01:00Z","labels":["order-run:digest"]}
+			]`),
+		},
+	})
+	s := beads.NewBdStore("/city", runner)
+	got, err := s.List(beads.ListQuery{
+		Label:         "order-run:digest",
+		Limit:         1,
+		IncludeClosed: true,
+		Sort:          beads.SortCreatedDesc,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != "bd-new" {
+		t.Fatalf("List returned %+v, want bd-new", got)
+	}
+}
+
 func TestBdStoreListByLabelEmpty(t *testing.T) {
 	runner := fakeRunner(map[string]struct {
 		out []byte
 		err error
 	}{
-		`bd list --json --label=order-run:none --include-infra --include-gates --limit 1`: {out: []byte(`[]`)},
+		`bd list --json --label=order-run:none --sort created --include-infra --include-gates --limit 1`: {out: []byte(`[]`)},
 	})
 	s := beads.NewBdStore("/city", runner)
 	got, err := s.ListByLabel("order-run:none", 1)

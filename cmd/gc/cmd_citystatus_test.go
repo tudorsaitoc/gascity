@@ -383,7 +383,7 @@ func TestCityStatusJSONReportsStoreOpenError(t *testing.T) {
 	}
 }
 
-func TestCityStatusJSONReportsCatalogListError(t *testing.T) {
+func TestCityStatusJSONSkipsSessionCountsOnCatalogListError(t *testing.T) {
 	sp := runtime.NewFake()
 	oldOpen := openCityStoreAtForStatus
 	openCityStoreAtForStatus = func(string) (beads.Store, error) {
@@ -396,11 +396,18 @@ func TestCityStatusJSONReportsCatalogListError(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := doCityStatusJSON(sp, cfg, t.TempDir(), &stdout, &stderr)
-	if code != 1 {
-		t.Fatalf("code = %d, want 1", code)
+	if code != 0 {
+		t.Fatalf("code = %d, want 0; stderr: %s", code, stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "gc status: building session catalog") || !strings.Contains(stderr.String(), "catalog unavailable") {
-		t.Fatalf("stderr = %q, want catalog list error", stderr.String())
+	if strings.Contains(stderr.String(), "gc status: building session catalog") || strings.Contains(stderr.String(), "catalog unavailable") {
+		t.Fatalf("stderr = %q, want degraded status without catalog error", stderr.String())
+	}
+	var status StatusJSON
+	if err := json.Unmarshal(stdout.Bytes(), &status); err != nil {
+		t.Fatalf("unmarshal: %v; output: %s", err, stdout.String())
+	}
+	if status.Summary.ActiveSessions != 0 || status.Summary.SuspendedSessions != 0 {
+		t.Fatalf("session summary = %+v, want zero degraded counts", status.Summary)
 	}
 }
 
@@ -664,6 +671,16 @@ type listErrorStore struct {
 
 func (s *listErrorStore) List(beads.ListQuery) ([]beads.Bead, error) {
 	return nil, errors.New("catalog unavailable")
+}
+
+func TestLoadStatusSessionSnapshotReturnsEmptyOnListError(t *testing.T) {
+	snapshot := loadStatusSessionSnapshot(&listErrorStore{Store: beads.NewMemStore()})
+	if snapshot == nil {
+		t.Fatal("snapshot = nil, want empty snapshot")
+	}
+	if got := len(snapshot.Open()); got != 0 {
+		t.Fatalf("snapshot.Open() len = %d, want 0", got)
+	}
 }
 
 func TestControllerStatusGuidance(t *testing.T) {

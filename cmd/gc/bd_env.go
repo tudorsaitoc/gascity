@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/beads/contract"
@@ -90,6 +91,55 @@ func controlBdCommandRunnerForRig(cityPath string, cfg *config.City, rigDir stri
 
 func applyControlBdEnv(env map[string]string) {
 	env["BD_EXPORT_AUTO"] = "false"
+}
+
+var statusBdCommandTimeout = 25 * time.Second
+
+func openBoundedControlStoreAtForCity(storePath, cityPath string) (beads.Store, error) {
+	runtimeCityPath := cityPath
+	if runtimeCityPath == "" {
+		runtimeCityPath = cityForStoreDir(storePath)
+	}
+	scopeRoot := resolveStoreScopeRoot(runtimeCityPath, storePath)
+	provider := rawBeadsProviderForScope(scopeRoot, runtimeCityPath)
+	if strings.HasPrefix(provider, "exec:") || provider == "file" {
+		return openStoreAtForCity(storePath, runtimeCityPath)
+	}
+	cfg, err := loadCityConfig(runtimeCityPath, io.Discard)
+	if err != nil {
+		cfg = nil
+	}
+	if filepath.Clean(scopeRoot) == filepath.Clean(runtimeCityPath) {
+		return beads.NewBdStoreWithPrefix(scopeRoot, statusBdCommandRunnerForCity(runtimeCityPath), issuePrefixForScope(scopeRoot, runtimeCityPath, cfg)), nil
+	}
+	return beads.NewBdStoreWithPrefix(scopeRoot, statusBdCommandRunnerForRig(runtimeCityPath, cfg, scopeRoot), issuePrefixForScope(scopeRoot, runtimeCityPath, cfg)), nil
+}
+
+func openStatusStoreAtForCity(cityPath string) (beads.Store, error) {
+	return openBoundedControlStoreAtForCity(cityPath, cityPath)
+}
+
+func statusBdCommandRunnerForCity(cityPath string) beads.CommandRunner {
+	return bdCommandRunnerWithManagedRetry(cityPath, func(dir string) map[string]string {
+		env := bdRuntimeEnv(cityPath)
+		env["BEADS_DIR"] = filepath.Join(dir, ".beads")
+		applyControlBdEnv(env)
+		applyStatusBdEnv(env)
+		return env
+	})
+}
+
+func statusBdCommandRunnerForRig(cityPath string, cfg *config.City, rigDir string) beads.CommandRunner {
+	return bdCommandRunnerWithManagedRetry(cityPath, func(_ string) map[string]string {
+		env := bdRuntimeEnvForRig(cityPath, cfg, rigDir)
+		applyControlBdEnv(env)
+		applyStatusBdEnv(env)
+		return env
+	})
+}
+
+func applyStatusBdEnv(env map[string]string) {
+	env["GC_BD_COMMAND_TIMEOUT"] = statusBdCommandTimeout.String()
 }
 
 func issuePrefixForScope(scopeRoot, cityPath string, cfg *config.City) string {

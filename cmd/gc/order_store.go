@@ -444,7 +444,7 @@ func cachedOrderHistoryStoresResolver(cityPath string, cfg *config.City, stderr 
 		if store, ok := stores[key]; ok {
 			return store, nil
 		}
-		store, err := openStoreAtForCity(target.ScopeRoot, cityPath)
+		store, err := openBoundedControlStoreAtForCity(target.ScopeRoot, cityPath)
 		if err != nil {
 			return nil, err
 		}

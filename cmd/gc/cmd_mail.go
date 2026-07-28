@@ -732,7 +732,7 @@ func resolveMailTargetsForCommand(identifier string, stderr io.Writer, cmdName s
 	if isStorelessMailProvider() {
 		return resolveRawMailTargetForStorelessProvider(identifier, stderr, cmdName)
 	}
-	store, code := openCityStore(stderr, cmdName)
+	store, code := openMailIdentityStore(stderr, cmdName)
 	if store == nil {
 		_ = code
 		return resolvedMailTarget{}, false
@@ -754,7 +754,7 @@ func resolveDefaultMailTargetsForCommand(stderr io.Writer, cmdName string) (reso
 	if len(candidates) == 1 || isStorelessMailProvider() {
 		return resolveMailTargetsForCommand(candidates[0], stderr, cmdName)
 	}
-	store, code := openCityStore(stderr, cmdName)
+	store, code := openMailIdentityStore(stderr, cmdName)
 	if store == nil {
 		_ = code
 		return resolvedMailTarget{}, false
@@ -837,6 +837,7 @@ func isNoCityStoreError(err error) bool {
 }
 
 var openMailTargetStore = tryOpenCityStore
+var openMailIdentityStoreAt = openStatusStoreAtForCity
 
 func tryOpenCityStore() (beads.Store, error) {
 	cityPath, err := resolveCity()
@@ -844,6 +845,21 @@ func tryOpenCityStore() (beads.Store, error) {
 		return nil, err
 	}
 	return openCityStoreAt(cityPath)
+}
+
+func openMailIdentityStore(stderr io.Writer, cmdName string) (beads.Store, int) {
+	cityPath, err := resolveCity()
+	if err != nil {
+		fmt.Fprintf(stderr, "%s: %v\n", cmdName, err) //nolint:errcheck // best-effort stderr
+		return nil, 1
+	}
+	store, err := openMailIdentityStoreAt(cityPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s: %v\n", cmdName, err)                   //nolint:errcheck // best-effort stderr
+		fmt.Fprintln(stderr, "hint: run \"gc doctor\" for diagnostics") //nolint:errcheck // best-effort stderr
+		return nil, 1
+	}
+	return store, 0
 }
 
 func resolveMailAddressForCommand(identifier string, stderr io.Writer, cmdName string) (string, bool) {

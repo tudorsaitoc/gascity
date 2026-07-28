@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/config"
@@ -165,6 +166,115 @@ trigger = "manual"
 	if !strings.Contains(stdout.String(), run.ID) {
 		t.Fatalf("stdout missing persisted order run %q:\n%s", run.ID, stdout.String())
 	}
+}
+
+func TestCmdOrderHistoryUsesBoundedControlStoreForBdProvider(t *testing.T) {
+	configureIsolatedRuntimeEnv(t)
+	t.Setenv("GC_BEADS", "bd")
+
+	cityDir := t.TempDir()
+	writeProviderAwareTestCity(t, cityDir, `[workspace]
+name = "demo"
+`)
+	if err := os.MkdirAll(filepath.Join(cityDir, "orders", "digest"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cityDir, "orders", "digest", "order.toml"), []byte(`[order]
+formula = "mol-digest"
+trigger = "manual"
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	chdirProviderAwareTest(t, cityDir)
+
+	oldRunner := beadsExecCommandRunnerWithEnv
+	oldTimeout := statusBdCommandTimeout
+	statusBdCommandTimeout = 1500 * time.Millisecond
+	var seen []map[string]string
+	beadsExecCommandRunnerWithEnv = func(env map[string]string) beads.CommandRunner {
+		snapshot := make(map[string]string, len(env))
+		for k, v := range env {
+			snapshot[k] = v
+		}
+		seen = append(seen, snapshot)
+		return func(string, string, ...string) ([]byte, error) {
+			return []byte("[]"), nil
+		}
+	}
+	t.Cleanup(func() {
+		beadsExecCommandRunnerWithEnv = oldRunner
+		statusBdCommandTimeout = oldTimeout
+	})
+
+	var stdout, stderr bytes.Buffer
+	code := cmdOrderHistory("digest", "", &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("cmdOrderHistory = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	if len(seen) == 0 {
+		t.Fatal("cmdOrderHistory did not execute bd")
+	}
+	for _, env := range seen {
+		if env["BD_EXPORT_AUTO"] == "false" && env["GC_BD_COMMAND_TIMEOUT"] == "1.5s" {
+			return
+		}
+	}
+	t.Fatalf("cmdOrderHistory bd env did not include bounded control settings: %#v", seen)
+}
+
+func TestCmdOrderCheckUsesBoundedControlStoreForBdProvider(t *testing.T) {
+	configureIsolatedRuntimeEnv(t)
+	t.Setenv("GC_BEADS", "bd")
+
+	cityDir := t.TempDir()
+	writeProviderAwareTestCity(t, cityDir, `[workspace]
+name = "demo"
+`)
+	if err := os.MkdirAll(filepath.Join(cityDir, "orders", "digest"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cityDir, "orders", "digest", "order.toml"), []byte(`[order]
+formula = "mol-digest"
+trigger = "cooldown"
+interval = "24h"
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	chdirProviderAwareTest(t, cityDir)
+
+	oldRunner := beadsExecCommandRunnerWithEnv
+	oldTimeout := statusBdCommandTimeout
+	statusBdCommandTimeout = 1500 * time.Millisecond
+	var seen []map[string]string
+	beadsExecCommandRunnerWithEnv = func(env map[string]string) beads.CommandRunner {
+		snapshot := make(map[string]string, len(env))
+		for k, v := range env {
+			snapshot[k] = v
+		}
+		seen = append(seen, snapshot)
+		return func(string, string, ...string) ([]byte, error) {
+			return []byte("[]"), nil
+		}
+	}
+	t.Cleanup(func() {
+		beadsExecCommandRunnerWithEnv = oldRunner
+		statusBdCommandTimeout = oldTimeout
+	})
+
+	var stdout, stderr bytes.Buffer
+	code := cmdOrderCheck(&stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("cmdOrderCheck = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	if len(seen) == 0 {
+		t.Fatal("cmdOrderCheck did not execute bd")
+	}
+	for _, env := range seen {
+		if env["BD_EXPORT_AUTO"] == "false" && env["GC_BD_COMMAND_TIMEOUT"] == "1.5s" {
+			return
+		}
+	}
+	t.Fatalf("cmdOrderCheck bd env did not include bounded control settings: %#v", seen)
 }
 
 func TestConvoyStoreCandidatesUseRigStoresForScopedFileProvider(t *testing.T) {

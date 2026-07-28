@@ -39,6 +39,12 @@ func ExecCommandRunner() CommandRunner {
 // applies the provided environment overrides. Explicit keys replace any
 // inherited values from the parent process.
 func ExecCommandRunnerWithEnv(env map[string]string) CommandRunner {
+	timeout := bdCommandTimeout
+	if raw := strings.TrimSpace(env["GC_BD_COMMAND_TIMEOUT"]); raw != "" {
+		if parsed, err := time.ParseDuration(raw); err == nil && parsed > 0 {
+			timeout = parsed
+		}
+	}
 	return func(dir, name string, args ...string) ([]byte, error) {
 		start := time.Now()
 		trace := func(status string, err error) {
@@ -59,7 +65,7 @@ func ExecCommandRunnerWithEnv(env map[string]string) CommandRunner {
 				time.Now().UTC().Format(time.RFC3339Nano), status, time.Since(start), dir, name, args, msg)
 		}
 		trace("start", nil)
-		ctx, cancel := context.WithTimeout(context.Background(), bdCommandTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, name, args...)
 		cmd.WaitDelay = 2 * time.Second
@@ -80,7 +86,7 @@ func ExecCommandRunnerWithEnv(env map[string]string) CommandRunner {
 				err, out, stderr.String())
 		}
 		if ctx.Err() == context.DeadlineExceeded {
-			timeoutErr := fmt.Errorf("timed out after %s", bdCommandTimeout)
+			timeoutErr := fmt.Errorf("timed out after %s", timeout)
 			trace("timeout", timeoutErr)
 			if stderr.Len() > 0 {
 				return out, fmt.Errorf("%w: %s", timeoutErr, stderr.String())
@@ -812,7 +818,7 @@ func isBdTransientWriteConflict(err error) bool {
 
 // Ping verifies the bd binary is accessible by running a no-op command.
 func (s *BdStore) Ping() error {
-	_, err := s.runner(s.dir, "bd", "list", "--json", "--limit", "0")
+	_, err := s.runner(s.dir, "bd", "list", "--json", "--limit", "1")
 	if err != nil {
 		return fmt.Errorf("bd store ping: %w", err)
 	}
@@ -907,12 +913,12 @@ func (s *BdStore) List(query ListQuery) ([]Bead, error) {
 	}
 
 	limit := query.Limit
-	if query.Sort == SortCreatedAsc {
-		limit = 0
-	}
 	args := []string{"list", "--json"}
 	if query.Label != "" {
 		args = append(args, "--label="+query.Label)
+	}
+	if len(query.LabelAny) > 0 {
+		args = append(args, "--label-any="+strings.Join(query.LabelAny, ","))
 	}
 	if query.Assignee != "" {
 		args = append(args, "--assignee="+query.Assignee)
@@ -928,6 +934,12 @@ func (s *BdStore) List(query ListQuery) ([]Bead, error) {
 	}
 	if !query.CreatedBefore.IsZero() {
 		args = append(args, "--created-before", query.CreatedBefore.Format(time.RFC3339Nano))
+	}
+	switch query.Sort {
+	case SortCreatedAsc:
+		args = append(args, "--sort", "created", "--reverse")
+	case SortCreatedDesc:
+		args = append(args, "--sort", "created")
 	}
 	args = append(args, "--include-infra", "--include-gates", "--limit", fmt.Sprintf("%d", limit))
 	if query.ParentID != "" {

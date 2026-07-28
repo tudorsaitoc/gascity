@@ -2811,6 +2811,11 @@ func (s labelFailListStore) List(query beads.ListQuery) ([]beads.Bead, error) {
 	if query.Label == s.failLabel {
 		return nil, fmt.Errorf("list failed for %s", query.Label)
 	}
+	for _, label := range query.LabelAny {
+		if label == s.failLabel {
+			return nil, fmt.Errorf("list failed for %s", label)
+		}
+	}
 	return s.Store.List(query)
 }
 

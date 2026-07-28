@@ -261,6 +261,7 @@ func TestDefaultMailIdentityCandidates_FallsBackToHumanWhenAllEmpty(t *testing.T
 // the concrete session identity first.
 func TestResolveDefaultMailTargetsForCommand_UsesGCSessionIDBeforeAlias(t *testing.T) {
 	t.Setenv("GC_BEADS", "file")
+	t.Setenv("GC_BEADS_SCOPE_ROOT", "")
 	t.Setenv("GC_MAIL", "")
 
 	cityPath := t.TempDir()
@@ -325,6 +326,7 @@ func TestResolveDefaultMailTargetsForCommand_UsesGCSessionIDBeforeAlias(t *testi
 
 func TestResolveDefaultMailTargetsForCommand_FallsBackToGCAliasWhenSessionIDMissing(t *testing.T) {
 	t.Setenv("GC_BEADS", "file")
+	t.Setenv("GC_BEADS_SCOPE_ROOT", "")
 	t.Setenv("GC_MAIL", "")
 
 	cityPath := t.TempDir()
@@ -604,6 +606,48 @@ func TestResolveDefaultMailTargetsForCommand_StorelessProviderUsesFirstCandidate
 	}
 }
 
+func TestResolveDefaultMailTargetsForCommandUsesBoundedIdentityStore(t *testing.T) {
+	t.Setenv("GC_MAIL", "")
+	t.Setenv("GC_SESSION_ID", "worker-session")
+	_ = os.Unsetenv("GC_ALIAS")
+	_ = os.Unsetenv("GC_AGENT")
+	cityPath := t.TempDir()
+	if err := os.WriteFile(filepath.Join(cityPath, "city.toml"), []byte("[workspace]\nname = \"test-city\"\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile(city.toml): %v", err)
+	}
+	t.Setenv("GC_CITY", cityPath)
+
+	store := beads.NewMemStore()
+	if _, err := store.Create(beads.Bead{
+		Type:   session.BeadType,
+		Labels: []string{session.LabelSession},
+		Metadata: map[string]string{
+			"session_name": "worker-session",
+			"alias":        "saitoc/worker",
+		},
+	}); err != nil {
+		t.Fatalf("Create session: %v", err)
+	}
+
+	oldOpen := openMailIdentityStoreAt
+	openMailIdentityStoreAt = func(gotCityPath string) (beads.Store, error) {
+		if gotCityPath != cityPath {
+			t.Fatalf("cityPath = %q, want %q", gotCityPath, cityPath)
+		}
+		return store, nil
+	}
+	t.Cleanup(func() { openMailIdentityStoreAt = oldOpen })
+
+	var stderr bytes.Buffer
+	target, ok := resolveDefaultMailTargetsForCommand(&stderr, "gc mail inbox")
+	if !ok {
+		t.Fatalf("resolveDefaultMailTargetsForCommand() = not ok; stderr=%q", stderr.String())
+	}
+	if target.display != "saitoc/worker" {
+		t.Fatalf("target.display = %q, want saitoc/worker", target.display)
+	}
+}
+
 // TestResolveDefaultMailTargetsForCommand_SurfacesAmbiguousError_AndStops
 // confirms that when a candidate produces a non-ErrSessionNotFound error
 // (here: ErrAmbiguous from two beads sharing the same session_name), the
@@ -611,6 +655,7 @@ func TestResolveDefaultMailTargetsForCommand_StorelessProviderUsesFirstCandidate
 // through to the next candidate.
 func TestResolveDefaultMailTargetsForCommand_SurfacesAmbiguousError_AndStops(t *testing.T) {
 	t.Setenv("GC_BEADS", "file")
+	t.Setenv("GC_BEADS_SCOPE_ROOT", "")
 	t.Setenv("GC_MAIL", "")
 
 	cityPath := t.TempDir()

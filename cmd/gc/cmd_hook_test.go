@@ -395,7 +395,7 @@ max = 5
 		t.Fatalf("stdout = %q, want GC_RIG_ROOT=%q", out, rigDir)
 	}
 	// Tiered query: first tier checks in_progress assigned to session name.
-	if !strings.Contains(out, "args=list --status in_progress --assignee=myrig--polecat --json --limit=1") {
+	if !strings.Contains(out, "args=list --status in_progress --assignee=myrig--polecat --include-infra --json --limit=1") {
 		t.Fatalf("stdout = %q, want pool work_query args", out)
 	}
 }
@@ -705,7 +705,7 @@ max = 5
 		t.Fatalf("stdout = %q, want command to run from rig root %q", out, rigDir)
 	}
 	// Tiered query: first tier checks in_progress assigned to session name.
-	if !strings.Contains(out, "args=list --status in_progress --assignee=myrig--polecat-1 --json --limit=1") {
+	if !strings.Contains(out, "args=list --status in_progress --assignee=myrig--polecat-1 --include-infra --json --limit=1") {
 		t.Fatalf("stdout = %q, want pool template work_query args", out)
 	}
 }
@@ -772,7 +772,7 @@ name = "worker"
 		t.Fatalf("stdout = %q, want GC_SESSION_NAME=worker", out)
 	}
 	// Tiered query: first tier checks in_progress assigned to session name.
-	if !strings.Contains(out, `args=list --status in_progress --assignee=worker --json --limit=1`) {
+	if !strings.Contains(out, `args=list --status in_progress --assignee=worker --include-infra --json --limit=1`) {
 		t.Fatalf("stdout = %q, want metadata-routed work query", out)
 	}
 }
@@ -832,7 +832,7 @@ dir = "myrig"
 		t.Fatalf("stdout = %q, want GC_SESSION_NAME=%s", out, wantSession)
 	}
 	// Tiered query: first tier checks in_progress assigned to session name.
-	if !strings.Contains(out, `args=list --status in_progress --assignee=myrig--worker --json --limit=1`) {
+	if !strings.Contains(out, `args=list --status in_progress --assignee=myrig--worker --include-infra --json --limit=1`) {
 		t.Fatalf("stdout = %q, want metadata-routed work query", out)
 	}
 }
@@ -849,5 +849,160 @@ func TestDoHookNormalizesSingleObjectOutputToArray(t *testing.T) {
 	}
 	if got := strings.TrimSpace(stdout.String()); got != `[{"id":"bd-1","title":"Work"}]` {
 		t.Fatalf("stdout = %q, want normalized JSON array", got)
+	}
+}
+
+func TestDoHookCandidateClaimFiltersAssignedOtherSession(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	claimCalled := false
+	runner := func(_, _ string) (string, error) {
+		return `[{"id":"bd-stale","title":"Stale","status":"in_progress","assignee":"other-session","metadata":{"gc.routed_to":"saitoc/polecat"}}]`, nil
+	}
+	claimRunner := func(_, _ string) (string, error) {
+		claimCalled = true
+		return "", fmt.Errorf("should not claim work owned by another session")
+	}
+
+	code := doHookWithCandidateClaim("bd ready", ".", false, runner, claimRunner, map[string]bool{"my-session": true}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("doHookWithCandidateClaim() = %d, want 1 for stale assigned candidate; stderr=%s", code, stderr.String())
+	}
+	if claimCalled {
+		t.Fatal("claim runner was called for work assigned to another session")
+	}
+	if strings.Contains(stdout.String(), "bd-stale") {
+		t.Fatalf("stdout surfaced stale candidate assigned to another session: %q", stdout.String())
+	}
+	if got := strings.TrimSpace(stdout.String()); got != "[]" {
+		t.Fatalf("stdout = %q, want empty JSON work list", got)
+	}
+}
+
+func TestDoHookCandidateClaimClaimsUnassignedCandidateBeforeReturning(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	claimedIDs := []string{}
+	runner := func(_, _ string) (string, error) {
+		return `[{"id":"bd-claim","title":"Claim me","status":"open","metadata":{"gc.routed_to":"saitoc/polecat"}}]`, nil
+	}
+	claimRunner := func(id, _ string) (string, error) {
+		claimedIDs = append(claimedIDs, id)
+		return `[{"id":"bd-claim","title":"Claim me","status":"in_progress","assignee":"my-session","metadata":{"gc.routed_to":"saitoc/polecat"}}]`, nil
+	}
+
+	code := doHookWithCandidateClaim("bd ready", ".", false, runner, claimRunner, map[string]bool{"my-session": true}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("doHookWithCandidateClaim() = %d, want 0; stderr=%s", code, stderr.String())
+	}
+	if got, want := strings.Join(claimedIDs, ","), "bd-claim"; got != want {
+		t.Fatalf("claimed IDs = %q, want %q", got, want)
+	}
+	out := stdout.String()
+	if !strings.Contains(out, `"id":"bd-claim"`) || !strings.Contains(out, `"assignee":"my-session"`) {
+		t.Fatalf("stdout = %q, want fresh claimed bead JSON", out)
+	}
+}
+
+func TestDoHookCandidateClaimRetriesAfterLostRace(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	queryCount := 0
+	claimCount := 0
+	runner := func(_, _ string) (string, error) {
+		queryCount++
+		if queryCount == 1 {
+			return `[{"id":"bd-raced","title":"Lost race","status":"open","metadata":{"gc.routed_to":"saitoc/polecat"}}]`, nil
+		}
+		return `[{"id":"bd-next","title":"Next valid","status":"open","metadata":{"gc.routed_to":"saitoc/polecat"}}]`, nil
+	}
+	claimRunner := func(id, _ string) (string, error) {
+		claimCount++
+		if id == "bd-raced" {
+			return "", fmt.Errorf("already claimed")
+		}
+		return `[{"id":"bd-next","title":"Next valid","status":"in_progress","assignee":"my-session","metadata":{"gc.routed_to":"saitoc/polecat"}}]`, nil
+	}
+
+	code := doHookWithCandidateClaim("bd ready", ".", false, runner, claimRunner, map[string]bool{"my-session": true}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("doHookWithCandidateClaim() = %d, want 0 after retry; stderr=%s", code, stderr.String())
+	}
+	if queryCount != 2 {
+		t.Fatalf("query count = %d, want 2", queryCount)
+	}
+	if claimCount != 2 {
+		t.Fatalf("claim count = %d, want 2", claimCount)
+	}
+	out := stdout.String()
+	if strings.Contains(out, "bd-raced") {
+		t.Fatalf("stdout surfaced lost-race candidate: %q", out)
+	}
+	if !strings.Contains(out, `"id":"bd-next"`) {
+		t.Fatalf("stdout = %q, want retried candidate", out)
+	}
+}
+
+func TestHookCommandClaimJSONFlagsClaimSessionCandidate(t *testing.T) {
+	clearGCEnv(t)
+	cityDir := t.TempDir()
+	fakeBin := t.TempDir()
+	logPath := filepath.Join(t.TempDir(), "bd.log")
+	if err := os.MkdirAll(filepath.Join(cityDir, ".gc"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cityToml := `[workspace]
+name = "test-city"
+
+[[agent]]
+name = "polecat"
+work_query = "bd ready --json --limit=1"
+`
+	if err := os.WriteFile(filepath.Join(cityDir, "city.toml"), []byte(cityToml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fakeBD := filepath.Join(fakeBin, "bd")
+	script := fmt.Sprintf(`#!/bin/sh
+printf '%%s\n' "$*" >> %q
+case "$*" in
+  "ready --json --limit=1")
+    printf '[{"id":"bd-claim","title":"Claim me","status":"open","metadata":{"gc.routed_to":"test-city/polecat"}}]'
+    ;;
+  "update bd-claim --claim")
+    exit 0
+    ;;
+  "show bd-claim --json")
+    printf '{"id":"bd-claim","title":"Claim me","status":"in_progress","assignee":"runtime-session","metadata":{"gc.routed_to":"test-city/polecat"}}'
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+`, logPath)
+	if err := os.WriteFile(fakeBD, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("PATH", fakeBin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("GC_CITY", cityDir)
+	t.Setenv("GC_TEMPLATE", "polecat")
+	t.Setenv("GC_ALIAS", "polecat-1")
+	t.Setenv("GC_SESSION_ID", "mc-session")
+	t.Setenv("GC_SESSION_NAME", "runtime-session")
+
+	var stdout, stderr bytes.Buffer
+	cmd := newHookCmd(&stdout, &stderr)
+	cmd.SetArgs([]string{"--claim", "--json"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("gc hook --claim --json failed: %v; stderr=%s", err, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, `"id":"bd-claim"`) || !strings.Contains(out, `"assignee":"runtime-session"`) {
+		t.Fatalf("stdout = %q, want claimed bead JSON", out)
+	}
+	logData, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%s): %v", logPath, err)
+	}
+	logText := string(logData)
+	if !strings.Contains(logText, "update bd-claim --claim") {
+		t.Fatalf("bd log = %q, want claim command", logText)
 	}
 }

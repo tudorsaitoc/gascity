@@ -301,6 +301,6 @@ func collectPackDirs(cfg *config.City) []string {
 // canonical city topology instead of guessing from the rig path.
 func openStoreForCity(cityPath string) func(string) (beads.Store, error) {
 	return func(dirPath string) (beads.Store, error) {
-		return openStoreAtForCity(dirPath, cityPath)
+		return openBoundedControlStoreAtForCity(dirPath, cityPath)
 	}
 }

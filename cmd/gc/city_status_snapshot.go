@@ -189,7 +189,7 @@ func collectCityStatusSnapshotFromStoreSnapshot(
 	for _, ns := range cfg.NamedSessions {
 		identity := ns.QualifiedName()
 		mode := ns.ModeOrDefault()
-		status := namedSessionStatusForCity(cityPath, cfg, store, snapshot.CityName, identity, mode, suspendedRigs)
+		status := namedSessionStatusForCity(cityPath, cfg, store, statusSnapshot, snapshot.CityName, identity, mode, suspendedRigs)
 		snapshot.NamedSessions = append(snapshot.NamedSessions, cityStatusNamedSession{
 			Identity: identity,
 			Status:   status,
@@ -204,6 +204,7 @@ func namedSessionStatusForCity(
 	cityPath string,
 	cfg *config.City,
 	store beads.Store,
+	statusSnapshot *sessionBeadSnapshot,
 	cityName string,
 	identity string,
 	mode string,
@@ -213,6 +214,18 @@ func namedSessionStatusForCity(
 	if spec, ok := findNamedSessionSpec(cfg, cityName, identity); ok {
 		if mode == "always" && namedSessionBlockedBySuspension(cfg, spec.Agent, suspendedRigs) {
 			status = "degraded blocked"
+		}
+		if statusSnapshot != nil {
+			if bead, ok := findCanonicalNamedSessionBead(statusSnapshot, spec); ok {
+				if state := strings.TrimSpace(bead.Metadata["state"]); state != "" {
+					return state
+				}
+				return "materialized"
+			}
+			if _, ok := findNamedSessionConflict(statusSnapshot, spec); ok {
+				return "lookup error: configured named session conflict"
+			}
+			return status
 		}
 	}
 	if store == nil {
@@ -237,8 +250,23 @@ func namedSessionStatusForCity(
 	return "materialized"
 }
 
-func collectCitySessionCounts(cityPath string, store beads.Store, sp runtime.Provider, cfg *config.City) (StatusSummaryJSON, error) {
+func collectCitySessionCounts(cityPath string, store beads.Store, sp runtime.Provider, cfg *config.City, statusSnapshot *sessionBeadSnapshot) (StatusSummaryJSON, error) {
 	summary := StatusSummaryJSON{}
+	if statusSnapshot != nil {
+		for _, b := range statusSnapshot.Open() {
+			view := session.ProjectLifecycle(session.LifecycleInput{
+				Status:   b.Status,
+				Metadata: b.Metadata,
+			})
+			switch view.CompatState {
+			case session.StateActive:
+				summary.ActiveSessions++
+			case session.StateSuspended:
+				summary.SuspendedSessions++
+			}
+		}
+		return summary, nil
+	}
 	if store == nil {
 		return summary, nil
 	}

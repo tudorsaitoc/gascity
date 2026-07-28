@@ -88,6 +88,96 @@ now_ms() {
   esac
 }
 
+format_age() {
+  _age="$1"
+  case "$_age" in ''|*[!0-9]*) _age=0 ;; esac
+  if [ "$_age" -ge 3600 ]; then
+    printf '%sh%sm' "$((_age / 3600))" "$((_age % 3600 / 60))"
+  elif [ "$_age" -ge 60 ]; then
+    printf '%sm%ss' "$((_age / 60))" "$((_age % 60))"
+  else
+    printf '%ss' "$_age"
+  fi
+}
+
+json_escape() {
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$1" <<'PY'
+import json
+import sys
+
+print(json.dumps(sys.argv[1]))
+PY
+    return
+  fi
+  printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+}
+
+timestamp_to_epoch() (
+  ts="$1"
+  [ -n "$ts" ] || return 1
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$ts" <<'PY'
+from datetime import datetime, timezone
+import sys
+
+ts = sys.argv[1].strip()
+if ts.endswith("Z"):
+    ts = ts[:-1] + "+00:00"
+dt = datetime.fromisoformat(ts)
+if dt.tzinfo is None:
+    dt = dt.replace(tzinfo=timezone.utc)
+print(int(dt.timestamp()))
+PY
+    return $?
+  fi
+  date -d "$ts" +%s 2>/dev/null
+)
+
+read_b2_status_summary() (
+  status_file="$1"
+  [ -f "$status_file" ] || return 1
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$status_file" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as fh:
+    data = json.load(fh)
+
+dbs = data.get("dbs") or []
+
+def number(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+print(data.get("ts") or "")
+print(data.get("bucket") or "")
+print(number(data.get("retention_days")))
+print(len(dbs))
+print(sum(number(db.get("uploaded")) for db in dbs if isinstance(db, dict)))
+print(sum(number(db.get("skipped")) for db in dbs if isinstance(db, dict)))
+print(sum(number(db.get("pruned")) for db in dbs if isinstance(db, dict)))
+print(sum(number(db.get("bytes_uploaded")) for db in dbs if isinstance(db, dict)))
+PY
+    return
+  fi
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '
+      (.ts // ""),
+      (.bucket // ""),
+      (.retention_days // 0),
+      ((.dbs // []) | length),
+      ((.dbs // []) | map(.uploaded // 0) | add // 0),
+      ((.dbs // []) | map(.skipped // 0) | add // 0),
+      ((.dbs // []) | map(.pruned // 0) | add // 0),
+      ((.dbs // []) | map(.bytes_uploaded // 0) | add // 0)
+    ' "$status_file" 2>/dev/null
+  fi
+)
+
 # Find dolt PID by port.
 pid=$(managed_runtime_listener_pid "$GC_DOLT_PORT" || true)
 if [ -n "$pid" ] || managed_runtime_tcp_reachable "$GC_DOLT_PORT"; then
@@ -185,18 +275,75 @@ fi
 backup_freshness=""
 backup_stale=false
 backup_age_sec=0
-newest_backup=$(ls -1d "$GC_CITY_PATH"/migration-backup-* 2>/dev/null | sort -r | head -1 || true)
-if [ -n "$newest_backup" ]; then
+backup_mode="none"
+backup_status_path=""
+backup_bucket=""
+backup_retention_days=0
+backup_db_count=0
+backup_uploaded=0
+backup_skipped=0
+backup_pruned=0
+backup_bytes_uploaded=0
+backup_noop=true
+backup_status_candidate="${DOLT_BACKUP_STATUS:-}"
+if [ -z "$backup_status_candidate" ] && [ -f /root/saitoc/logs/nerve/dolt-backup-b2.json ]; then
+  backup_status_candidate=/root/saitoc/logs/nerve/dolt-backup-b2.json
+fi
+
+if [ -n "$backup_status_candidate" ] && [ -f "$backup_status_candidate" ]; then
+  backup_mode="b2-cron"
+  backup_status_path="$backup_status_candidate"
+  summary=$(read_b2_status_summary "$backup_status_candidate" || true)
+  if [ -n "$summary" ]; then
+    backup_ts=$(printf '%s\n' "$summary" | sed -n '1p')
+    backup_bucket=$(printf '%s\n' "$summary" | sed -n '2p')
+    backup_retention_days=$(printf '%s\n' "$summary" | sed -n '3p')
+    backup_db_count=$(printf '%s\n' "$summary" | sed -n '4p')
+    backup_uploaded=$(printf '%s\n' "$summary" | sed -n '5p')
+    backup_skipped=$(printf '%s\n' "$summary" | sed -n '6p')
+    backup_pruned=$(printf '%s\n' "$summary" | sed -n '7p')
+    backup_bytes_uploaded=$(printf '%s\n' "$summary" | sed -n '8p')
+  fi
+  for_num="$backup_retention_days $backup_db_count $backup_uploaded $backup_skipped $backup_pruned $backup_bytes_uploaded"
+  set -- $for_num
+  backup_retention_days="${1:-0}"
+  backup_db_count="${2:-0}"
+  backup_uploaded="${3:-0}"
+  backup_skipped="${4:-0}"
+  backup_pruned="${5:-0}"
+  backup_bytes_uploaded="${6:-0}"
+  case "$backup_retention_days" in ''|*[!0-9]*) backup_retention_days=0 ;; esac
+  case "$backup_db_count" in ''|*[!0-9]*) backup_db_count=0 ;; esac
+  case "$backup_uploaded" in ''|*[!0-9]*) backup_uploaded=0 ;; esac
+  case "$backup_skipped" in ''|*[!0-9]*) backup_skipped=0 ;; esac
+  case "$backup_pruned" in ''|*[!0-9]*) backup_pruned=0 ;; esac
+  case "$backup_bytes_uploaded" in ''|*[!0-9]*) backup_bytes_uploaded=0 ;; esac
+  [ "$backup_db_count" -gt 0 ] && backup_noop=false
+
+  backup_mtime=0
+  if [ -n "${backup_ts:-}" ]; then
+    backup_mtime=$(timestamp_to_epoch "$backup_ts" 2>/dev/null || echo 0)
+  fi
+  case "$backup_mtime" in ''|*[!0-9]*) backup_mtime=0 ;; esac
+  if [ "$backup_mtime" -eq 0 ]; then
+    backup_mtime=$(stat -c %Y "$backup_status_candidate" 2>/dev/null || stat -f %m "$backup_status_candidate" 2>/dev/null || echo 0)
+  fi
+  now=$(date +%s)
+  backup_age_sec=$((now - backup_mtime))
+  [ "$backup_age_sec" -lt 0 ] && backup_age_sec=0
+  backup_freshness=$(format_age "$backup_age_sec")
+  backup_max_age_sec="${DOLT_BACKUP_MAX_AGE_SEC:-21600}"
+  case "$backup_max_age_sec" in ''|*[!0-9]*) backup_max_age_sec=21600 ;; esac
+  [ "$backup_age_sec" -gt "$backup_max_age_sec" ] && backup_stale=true
+elif newest_backup=$(ls -1d "$GC_CITY_PATH"/migration-backup-* 2>/dev/null | sort -r | head -1 || true) && [ -n "$newest_backup" ]; then
+  backup_mode="migration-backup"
+  backup_status_path="$newest_backup"
+  backup_noop=false
   backup_mtime=$(stat -c %Y "$newest_backup" 2>/dev/null || stat -f %m "$newest_backup" 2>/dev/null || echo 0)
   now=$(date +%s)
   backup_age_sec=$((now - backup_mtime))
-  if [ "$backup_age_sec" -ge 3600 ]; then
-    backup_freshness="$((backup_age_sec / 3600))h$((backup_age_sec % 3600 / 60))m"
-  elif [ "$backup_age_sec" -ge 60 ]; then
-    backup_freshness="$((backup_age_sec / 60))m$((backup_age_sec % 60))s"
-  else
-    backup_freshness="${backup_age_sec}s"
-  fi
+  [ "$backup_age_sec" -lt 0 ] && backup_age_sec=0
+  backup_freshness=$(format_age "$backup_age_sec")
   [ "$backup_age_sec" -gt 1800 ] && backup_stale=true
 fi
 
@@ -277,6 +424,10 @@ fi
 timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 if [ "$json_output" = true ]; then
+  backup_freshness_json=$(json_escape "$backup_freshness")
+  backup_mode_json=$(json_escape "$backup_mode")
+  backup_status_path_json=$(json_escape "$backup_status_path")
+  backup_bucket_json=$(json_escape "$backup_bucket")
   # Build JSON output. `server.reachable` reports whether the SQL
   # handshake actually succeeded (port listening AND server answering
   # SELECT 1). Consumers (deacon patrol) should key health off
@@ -304,9 +455,19 @@ JSONEOF
 
   ],
   "backups": {
-    "dolt_freshness": "$backup_freshness",
+    "dolt_freshness": $backup_freshness_json,
     "dolt_age_sec": $backup_age_sec,
-    "dolt_stale": $backup_stale
+    "dolt_stale": $backup_stale,
+    "mode": $backup_mode_json,
+    "status_path": $backup_status_path_json,
+    "bucket": $backup_bucket_json,
+    "retention_days": $backup_retention_days,
+    "databases": $backup_db_count,
+    "uploaded": $backup_uploaded,
+    "skipped": $backup_skipped,
+    "pruned": $backup_pruned,
+    "bytes_uploaded": $backup_bytes_uploaded,
+    "noop": $backup_noop
   },
   "orphans": [
 JSONEOF
@@ -355,7 +516,19 @@ if [ -n "$backup_freshness" ]; then
   stale=""
   [ "$backup_stale" = true ] && stale=" [STALE]"
   echo ""
-  echo "Backups: ${backup_freshness} ago${stale}"
+  case "$backup_mode" in
+    b2-cron)
+      bucket=""
+      [ -n "$backup_bucket" ] && bucket=", bucket $backup_bucket"
+      echo "Backups: b2-cron, ${backup_freshness} ago${stale}, dbs $backup_db_count${bucket}"
+      ;;
+    migration-backup)
+      echo "Backups: migration-backup, ${backup_freshness} ago${stale}"
+      ;;
+    *)
+      echo "Backups: ${backup_freshness} ago${stale}"
+      ;;
+  esac
 else
   echo ""
   echo "Backups: none found"

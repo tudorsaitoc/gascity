@@ -29,6 +29,7 @@ type ListQuery struct {
 	Status        string
 	Type          string
 	Label         string
+	LabelAny      []string
 	Assignee      string
 	ParentID      string
 	Metadata      map[string]string
@@ -63,6 +64,7 @@ func (q ListQuery) HasFilter() bool {
 	return q.Status != "" ||
 		q.Type != "" ||
 		q.Label != "" ||
+		len(q.LabelAny) > 0 ||
 		q.Assignee != "" ||
 		q.ParentID != "" ||
 		len(q.Metadata) > 0 ||
@@ -89,6 +91,9 @@ func (q ListQuery) Matches(b Bead) bool {
 	if q.Label != "" && !beadHasLabel(b, q.Label) {
 		return false
 	}
+	if len(q.LabelAny) > 0 && !beadHasAnyLabel(b, q.LabelAny) {
+		return false
+	}
 	if q.Assignee != "" && b.Assignee != q.Assignee {
 		return false
 	}
@@ -108,6 +113,17 @@ func beadHasLabel(b Bead, want string) bool {
 	for _, label := range b.Labels {
 		if label == want {
 			return true
+		}
+	}
+	return false
+}
+
+func beadHasAnyLabel(b Bead, want []string) bool {
+	for _, label := range b.Labels {
+		for _, candidate := range want {
+			if label == candidate {
+				return true
+			}
 		}
 	}
 	return false

@@ -1321,8 +1321,11 @@ func TestEffectiveWorkQueryPoolDefault(t *testing.T) {
 	if !strings.Contains(got, "bd ready --metadata-field gc.routed_to=hello-world/polecat --unassigned --json --limit=1") {
 		t.Errorf("EffectiveWorkQuery() missing tier 3 routed_to: %q", got)
 	}
-	if strings.Contains(got, "--type=molecule") {
-		t.Errorf("EffectiveWorkQuery() should not route molecule containers: %q", got)
+	if !strings.Contains(got, "bd ready --assignee=\"$id\" --include-ephemeral --type molecule --json --limit=1") {
+		t.Errorf("EffectiveWorkQuery() missing assigned ephemeral molecule recovery tier: %q", got)
+	}
+	if strings.Contains(got, "bd ready --metadata-field gc.routed_to=hello-world/polecat --unassigned --include-ephemeral") {
+		t.Errorf("EffectiveWorkQuery() should not route molecule containers from shared queue: %q", got)
 	}
 }
 
@@ -1374,8 +1377,11 @@ func TestEffectiveWorkQueryPoolNameOverride(t *testing.T) {
 	if !strings.Contains(got, "bd ready --metadata-field gc.routed_to=hello-world/dog --unassigned --json --limit=1") {
 		t.Errorf("EffectiveWorkQuery() missing tier 3 routed_to with pool name: %q", got)
 	}
-	if strings.Contains(got, "--type=molecule") {
-		t.Errorf("EffectiveWorkQuery() should not route molecule containers with pool name: %q", got)
+	if !strings.Contains(got, "bd ready --assignee=\"$id\" --include-ephemeral --type molecule --json --limit=1") {
+		t.Errorf("EffectiveWorkQuery() missing assigned ephemeral molecule recovery tier with pool name: %q", got)
+	}
+	if strings.Contains(got, "bd ready --metadata-field gc.routed_to=hello-world/dog --unassigned --include-ephemeral") {
+		t.Errorf("EffectiveWorkQuery() should not route molecule containers from shared queue with pool name: %q", got)
 	}
 }
 
@@ -1399,8 +1405,12 @@ func TestEffectiveWorkQueryControlDispatcherIncludesLegacyWorkflowControlRoute(t
 	if !strings.Contains(got, `workflow-control`) {
 		t.Fatalf("EffectiveWorkQuery() missing legacy assignee alias handling: %q", got)
 	}
-	if strings.Contains(got, "--type=molecule") {
-		t.Fatalf("EffectiveWorkQuery() should keep control-dispatcher on the no-molecule path: %q", got)
+	if !strings.Contains(got, "bd ready --assignee=\"$cand\" --include-ephemeral --type molecule --json --limit=1") {
+		t.Fatalf("EffectiveWorkQuery() missing assigned ephemeral molecule recovery tier for control-dispatcher: %q", got)
+	}
+	if strings.Contains(got, "bd ready --metadata-field gc.routed_to=gascity/control-dispatcher --unassigned --include-ephemeral") ||
+		strings.Contains(got, "bd ready --metadata-field gc.routed_to=gascity/workflow-control --unassigned --include-ephemeral") {
+		t.Fatalf("EffectiveWorkQuery() should keep control-dispatcher routed demand on the no-molecule path: %q", got)
 	}
 }
 

@@ -61,6 +61,24 @@ wait
 	t.Fatalf("child process %s survived command timeout", pid)
 }
 
+func TestExecCommandRunnerWithEnvHonorsCommandTimeout(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh unavailable")
+	}
+
+	dir := t.TempDir()
+	runner := ExecCommandRunnerWithEnv(map[string]string{
+		"GC_BD_COMMAND_TIMEOUT": "50ms",
+	})
+	_, err := runner(dir, "sh", "-c", "sleep 30")
+	if err == nil {
+		t.Fatal("runner unexpectedly succeeded")
+	}
+	if !strings.Contains(err.Error(), "timed out after 50ms") {
+		t.Fatalf("error = %v, want 50ms timeout", err)
+	}
+}
+
 func TestKillCommandTreeHandlesNilCommand(t *testing.T) {
 	if err := killCommandTree(nil); err != nil && !errors.Is(err, os.ErrProcessDone) {
 		t.Fatalf("killCommandTree(nil): %v", err)

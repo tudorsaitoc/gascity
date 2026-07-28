@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +10,7 @@ import (
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/runtime"
+	"github.com/gastownhall/gascity/internal/session"
 	"github.com/gastownhall/gascity/internal/worker"
 	"github.com/spf13/cobra"
 )
@@ -67,7 +67,7 @@ type StatusSummaryJSON struct {
 
 var (
 	observeSessionTargetForStatus = workerObserveSessionTargetWithConfig
-	openCityStoreAtForStatus      = openCityStoreAt
+	openCityStoreAtForStatus      = openStatusStoreAtForCity
 )
 
 var controllerStatusStandaloneFallbackTimeout = 250 * time.Millisecond
@@ -128,16 +128,6 @@ func observeSessionTargetWithWarning(
 	target statusObservationTarget,
 	stderr io.Writer,
 ) worker.LiveObservation {
-	if store != nil && target.sessionID != "" {
-		handle, err := workerHandleForSessionWithConfig(cityPath, store, sp, cfg, target.sessionID)
-		if err == nil {
-			obs, err := worker.ObserveHandle(context.Background(), handle)
-			if err == nil {
-				return obs
-			}
-		}
-	}
-
 	// Status already passes a concrete runtime session name. Resolving that
 	// string back through the bead store turns stopped pool instances such as
 	// "dog-1" into invalid bd show lookups, which can block the overview.
@@ -145,18 +135,22 @@ func observeSessionTargetWithWarning(
 	if err != nil && stderr != nil {
 		fmt.Fprintf(stderr, "%s: observing %q: %v\n", cmdName, target.runtimeSessionName, err) //nolint:errcheck // best-effort stderr
 	}
+	if target.suspended {
+		obs.Suspended = true
+	}
 	return obs
 }
 
 type statusObservationTarget struct {
 	runtimeSessionName string
 	sessionID          string
+	suspended          bool
 }
 
 func loadStatusSessionSnapshot(store beads.Store) *sessionBeadSnapshot {
 	snapshot, err := loadSessionBeadSnapshot(store)
 	if err != nil {
-		return nil
+		return newSessionBeadSnapshot(nil)
 	}
 	return snapshot
 }
@@ -173,6 +167,7 @@ func statusObservationTargetForIdentity(
 				return statusObservationTarget{
 					runtimeSessionName: sessionName,
 					sessionID:          bead.ID,
+					suspended:          strings.TrimSpace(bead.Metadata["state"]) == string(session.StateSuspended),
 				}
 			}
 		}
@@ -224,7 +219,7 @@ func doCityStatusWithStoreAndSnapshot(
 	renderCityStatusText(snapshot, dops, stdout)
 
 	if store != nil {
-		sessions, err := collectCitySessionCounts(cityPath, store, sp, cfg)
+		sessions, err := collectCitySessionCounts(cityPath, store, sp, cfg, statusSnapshot)
 		if err != nil {
 			fmt.Fprintf(stderr, "gc status: building session catalog: %v\n", err) //nolint:errcheck // best-effort stderr
 			return 1
@@ -263,7 +258,7 @@ func doCityStatusJSONWithStoreAndSnapshot(
 ) int {
 	snapshot := collectCityStatusSnapshotFromStoreSnapshot(sp, cfg, cityPath, store, statusSnapshot, stderr)
 	if store != nil {
-		sessions, err := collectCitySessionCounts(cityPath, store, sp, cfg)
+		sessions, err := collectCitySessionCounts(cityPath, store, sp, cfg, statusSnapshot)
 		if err != nil {
 			fmt.Fprintf(stderr, "gc status: building session catalog: %v\n", err) //nolint:errcheck // best-effort stderr
 			return 1

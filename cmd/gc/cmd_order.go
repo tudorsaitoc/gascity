@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gastownhall/gascity/internal/beads"
@@ -672,7 +674,7 @@ func cmdOrderCheck(stdout, stderr io.Writer) int {
 		return epCode
 	}
 	defer ep.Close() //nolint:errcheck // best-effort
-	return doOrderCheckWithStoresResolverScoped(cityPath, cfg, aa, time.Now(), ep, cachedOrderStoresResolver(cityPath, cfg), stdout, stderr)
+	return doOrderCheckWithStoresResolverScoped(cityPath, cfg, aa, time.Now(), ep, cachedOrderHistoryStoresResolver(cityPath, cfg, stderr), stdout, stderr)
 }
 
 // orderLastRunFn returns a LastRunFunc that queries BdStore for the most
@@ -751,31 +753,35 @@ func doOrderCheckWithStoresResolverScoped(cityPath string, cfg *config.City, aa 
 	} else {
 		fmt.Fprintf(stdout, "%-20s %-12s %-5s %s\n", "NAME", "TRIGGER", "DUE", "REASON") //nolint:errcheck
 	}
-	anyDue := false
+
+	resolved := make([]orderCheckResolvedStores, 0, len(aa))
 	for _, a := range aa {
 		stores, err := resolveStores(a)
 		if err != nil {
 			fmt.Fprintf(stderr, "gc order check: %v\n", err) //nolint:errcheck // best-effort stderr
 			return 1
 		}
-		baseLastRunFn := orders.LastRunAcrossStores(stores...)
-		var lastRunErr error
+		resolved = append(resolved, orderCheckResolvedStores{order: a, stores: stores})
+	}
+	state, err := preloadOrderCheckState(resolved)
+	if err != nil {
+		fmt.Fprintf(stderr, "gc order check: %v\n", err) //nolint:errcheck // best-effort stderr
+		return 1
+	}
+
+	anyDue := false
+	for _, entry := range resolved {
+		a := entry.order
 		lastRunFn := func(orderName string) (time.Time, error) {
-			last, err := baseLastRunFn(orderName)
-			if err != nil {
-				lastRunErr = err
-			}
-			return last, err
+			return state.lastRun(orderName, entry.stores), nil
 		}
-		cursorFn := orders.CursorAcrossStores(stores...)
+		cursorFn := func(orderName string) uint64 {
+			return state.cursor(orderName, entry.stores)
+		}
 		if a.Trigger == "event" {
-			cursor, err := bdCursorAcrossStores(a.ScopedName(), stores...)
-			if err != nil {
-				fmt.Fprintf(stderr, "gc order check: reading event cursor for %s: %v\n", a.ScopedName(), err) //nolint:errcheck // best-effort stderr
-				return 1
-			}
+			scopedName := a.ScopedName()
 			cursorFn = func(string) uint64 {
-				return cursor
+				return state.cursor(scopedName, entry.stores)
 			}
 		}
 		triggerOpts, err := orderTriggerOptions(cityPath, cfg, a)
@@ -784,10 +790,6 @@ func doOrderCheckWithStoresResolverScoped(cityPath string, cfg *config.City, aa 
 			return 1
 		}
 		result := orders.CheckTriggerWithOptions(a, now, lastRunFn, ep, cursorFn, triggerOpts)
-		if lastRunErr != nil {
-			fmt.Fprintf(stderr, "gc order check: reading last run for %s: %v\n", a.ScopedName(), lastRunErr) //nolint:errcheck // best-effort stderr
-			return 1
-		}
 		due := "no"
 		if result.Due {
 			due = "yes"
@@ -808,6 +810,150 @@ func doOrderCheckWithStoresResolverScoped(cityPath string, cfg *config.City, aa 
 		return 0
 	}
 	return 1
+}
+
+type orderCheckResolvedStores struct {
+	order  orders.Order
+	stores []beads.Store
+}
+
+type orderCheckState struct {
+	byStore map[string]orderCheckStoreState
+}
+
+type orderCheckStoreState struct {
+	lastRun map[string]time.Time
+	cursor  map[string]uint64
+}
+
+func preloadOrderCheckState(resolved []orderCheckResolvedStores) (*orderCheckState, error) {
+	type wantedStore struct {
+		store        beads.Store
+		runLabels    map[string]struct{}
+		cursorLabels map[string]struct{}
+	}
+	wanted := make(map[string]*wantedStore)
+	for _, entry := range resolved {
+		runLabel := "order-run:" + entry.order.ScopedName()
+		cursorLabel := ""
+		if entry.order.Trigger == "event" {
+			cursorLabel = "order:" + entry.order.ScopedName()
+		}
+		for _, store := range entry.stores {
+			if store == nil {
+				continue
+			}
+			key := orderCheckStoreKey(store)
+			ws := wanted[key]
+			if ws == nil {
+				ws = &wantedStore{
+					store:        store,
+					runLabels:    make(map[string]struct{}),
+					cursorLabels: make(map[string]struct{}),
+				}
+				wanted[key] = ws
+			}
+			ws.runLabels[runLabel] = struct{}{}
+			if cursorLabel != "" {
+				ws.cursorLabels[cursorLabel] = struct{}{}
+			}
+		}
+	}
+
+	state := &orderCheckState{byStore: make(map[string]orderCheckStoreState, len(wanted))}
+	for key, ws := range wanted {
+		storeState := orderCheckStoreState{
+			lastRun: make(map[string]time.Time),
+			cursor:  make(map[string]uint64),
+		}
+		runLabels := sortedStringSet(ws.runLabels)
+		if len(runLabels) > 0 {
+			results, err := ws.store.List(beads.ListQuery{
+				LabelAny:      runLabels,
+				IncludeClosed: true,
+				Sort:          beads.SortCreatedDesc,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("reading last run history: %w", err)
+			}
+			for _, b := range results {
+				for _, label := range b.Labels {
+					if _, ok := ws.runLabels[label]; !ok {
+						continue
+					}
+					name := strings.TrimPrefix(label, "order-run:")
+					if b.CreatedAt.After(storeState.lastRun[name]) {
+						storeState.lastRun[name] = b.CreatedAt
+					}
+				}
+			}
+		}
+		cursorLabels := sortedStringSet(ws.cursorLabels)
+		if len(cursorLabels) > 0 {
+			results, err := ws.store.List(beads.ListQuery{
+				LabelAny:      cursorLabels,
+				IncludeClosed: true,
+				Sort:          beads.SortCreatedDesc,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("reading event cursor history: %w", err)
+			}
+			for _, b := range results {
+				for _, label := range b.Labels {
+					if _, ok := ws.cursorLabels[label]; !ok {
+						continue
+					}
+					name := strings.TrimPrefix(label, "order:")
+					seq := orders.MaxSeqFromLabels([][]string{b.Labels})
+					if seq > storeState.cursor[name] {
+						storeState.cursor[name] = seq
+					}
+				}
+			}
+		}
+		state.byStore[key] = storeState
+	}
+	return state, nil
+}
+
+func (s *orderCheckState) lastRun(orderName string, stores []beads.Store) time.Time {
+	if s == nil {
+		return time.Time{}
+	}
+	var latest time.Time
+	for _, store := range stores {
+		if store == nil {
+			continue
+		}
+		if last := s.byStore[orderCheckStoreKey(store)].lastRun[orderName]; last.After(latest) {
+			latest = last
+		}
+	}
+	return latest
+}
+
+func (s *orderCheckState) cursor(orderName string, stores []beads.Store) uint64 {
+	if s == nil {
+		return 0
+	}
+	var latest uint64
+	for _, store := range stores {
+		if store == nil {
+			continue
+		}
+		if seq := s.byStore[orderCheckStoreKey(store)].cursor[orderName]; seq > latest {
+			latest = seq
+		}
+	}
+	return latest
+}
+
+func orderCheckStoreKey(store beads.Store) string {
+	v := reflect.ValueOf(store)
+	if v.IsValid() && v.Kind() == reflect.Pointer {
+		return fmt.Sprintf("%T:%x", store, v.Pointer())
+	}
+	return fmt.Sprintf("%T:%v", store, store)
 }
 
 // --- gc order history ---
@@ -985,6 +1131,7 @@ func findOrder(aa []orders.Order, name, rig string) (orders.Order, bool) {
 func bdCursor(store beads.Store, orderName string) (uint64, error) {
 	beadList, err := store.List(beads.ListQuery{
 		Label:         "order:" + orderName,
+		Limit:         1,
 		IncludeClosed: true,
 		Sort:          beads.SortCreatedDesc,
 	})

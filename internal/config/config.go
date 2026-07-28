@@ -1980,20 +1980,31 @@ func (a *Agent) EffectiveWorkQuery() string {
 	if a.PoolName != "" {
 		target = a.PoolName
 	}
+	cityStoreUnsetEnv := `env -u BEADS_DIR -u GC_STORE_ROOT -u GC_STORE_SCOPE -u GC_BEADS_PREFIX -u GC_RIG -u GC_RIG_ROOT`
 	legacyTarget := legacyWorkflowControlQualifiedName(target)
 	if legacyTarget == "" {
 		return `sh -c '` +
 			// Tier 1: in_progress assigned to any of my identifiers (crash recovery)
 			`for id in "$GC_SESSION_ID" "$GC_SESSION_NAME" "$GC_ALIAS"; do ` +
 			`[ -z "$id" ] && continue; ` +
-			`r=$(bd list --status in_progress --assignee="$id" --json --limit=1 2>/dev/null); ` +
+			`r=$(bd list --status in_progress --assignee="$id" --include-infra --json --limit=1 2>/dev/null); ` +
 			`[ -n "$r" ] && [ "$r" != "[]" ] && printf "%s" "$r" && exit 0; ` +
+			`if [ -n "$GC_CITY" ]; then ` +
+			`r=$(cd "$GC_CITY" && ` + cityStoreUnsetEnv + ` bd list --status in_progress --assignee="$id" --include-infra --json --limit=1 2>/dev/null); ` +
+			`[ -n "$r" ] && [ "$r" != "[]" ] && printf "%s" "$r" && exit 0; ` +
+			`fi; ` +
 			`done; ` +
 			// Tier 2: ready assigned to any of my identifiers (pre-assigned)
 			`for id in "$GC_SESSION_ID" "$GC_SESSION_NAME" "$GC_ALIAS"; do ` +
 			`[ -z "$id" ] && continue; ` +
 			`r=$(bd ready --assignee="$id" --json --limit=1 2>/dev/null); ` +
 			`[ -n "$r" ] && [ "$r" != "[]" ] && printf "%s" "$r" && exit 0; ` +
+			`r=$(bd ready --assignee="$id" --include-ephemeral --type molecule --json --limit=1 2>/dev/null); ` +
+			`[ -n "$r" ] && [ "$r" != "[]" ] && printf "%s" "$r" && exit 0; ` +
+			`if [ -n "$GC_CITY" ]; then ` +
+			`r=$(cd "$GC_CITY" && ` + cityStoreUnsetEnv + ` bd ready --assignee="$id" --include-ephemeral --type molecule --json --limit=1 2>/dev/null); ` +
+			`[ -n "$r" ] && [ "$r" != "[]" ] && printf "%s" "$r" && exit 0; ` +
+			`fi; ` +
 			`done; ` +
 			// Tier 3: ready unassigned routed to this config (shared routed queue).
 			// Only ephemeral sessions and controller probes consume generic config demand.
@@ -2015,8 +2026,12 @@ func (a *Agent) EffectiveWorkQuery() string {
 		`legacy=""; case "$id" in *control-dispatcher) legacy="${id%control-dispatcher}workflow-control";; esac; ` +
 		`for cand in "$id" "$legacy"; do ` +
 		`[ -z "$cand" ] && continue; ` +
-		`r=$(bd list --status in_progress --assignee="$cand" --json --limit=1 2>/dev/null); ` +
+		`r=$(bd list --status in_progress --assignee="$cand" --include-infra --json --limit=1 2>/dev/null); ` +
 		`[ -n "$r" ] && [ "$r" != "[]" ] && printf "%s" "$r" && exit 0; ` +
+		`if [ -n "$GC_CITY" ]; then ` +
+		`r=$(cd "$GC_CITY" && ` + cityStoreUnsetEnv + ` bd list --status in_progress --assignee="$cand" --include-infra --json --limit=1 2>/dev/null); ` +
+		`[ -n "$r" ] && [ "$r" != "[]" ] && printf "%s" "$r" && exit 0; ` +
+		`fi; ` +
 		`done; ` +
 		`done; ` +
 		// Tier 2: ready assigned to any of my identifiers (pre-assigned)
@@ -2027,6 +2042,12 @@ func (a *Agent) EffectiveWorkQuery() string {
 		`[ -z "$cand" ] && continue; ` +
 		`r=$(bd ready --assignee="$cand" --json --limit=1 2>/dev/null); ` +
 		`[ -n "$r" ] && [ "$r" != "[]" ] && printf "%s" "$r" && exit 0; ` +
+		`r=$(bd ready --assignee="$cand" --include-ephemeral --type molecule --json --limit=1 2>/dev/null); ` +
+		`[ -n "$r" ] && [ "$r" != "[]" ] && printf "%s" "$r" && exit 0; ` +
+		`if [ -n "$GC_CITY" ]; then ` +
+		`r=$(cd "$GC_CITY" && ` + cityStoreUnsetEnv + ` bd ready --assignee="$cand" --include-ephemeral --type molecule --json --limit=1 2>/dev/null); ` +
+		`[ -n "$r" ] && [ "$r" != "[]" ] && printf "%s" "$r" && exit 0; ` +
+		`fi; ` +
 		`done; ` +
 		`done; ` +
 		// Tier 3: ready unassigned routed to this config (shared routed queue),

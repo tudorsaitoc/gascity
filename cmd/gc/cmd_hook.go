@@ -13,10 +13,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/gastownhall/gascity/internal/config"
+	"github.com/gastownhall/gascity/internal/shellquote"
 )
 
 func newHookCmd(stdout, stderr io.Writer) *cobra.Command {
 	var inject bool
+	var claim bool
+	var jsonOutput bool
 	var hookFormat string
 	cmd := &cobra.Command{
 		Use:   "hook [agent]",
@@ -29,13 +32,20 @@ With --inject: silent legacy Stop-hook compatibility; skips the work query and a
 		The agent is determined from $GC_AGENT or a positional argument.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			if cmdHookWithFormat(args, inject, hookFormat, stdout, stderr) != 0 {
+			if cmdHookWithOptions(args, hookOptions{
+				inject:     inject,
+				claim:      claim,
+				jsonOutput: jsonOutput,
+				hookFormat: hookFormat,
+			}, stdout, stderr) != 0 {
 				return errExit
 			}
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&inject, "inject", false, "silent legacy Stop-hook compatibility; skip work query and exit 0")
+	cmd.Flags().BoolVar(&claim, "claim", false, "claim a returned candidate before printing it")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "print JSON work items")
 	cmd.Flags().StringVar(&hookFormat, "hook-format", "", "format hook output for a provider")
 	if flag := cmd.Flags().Lookup("hook-format"); flag != nil {
 		flag.Hidden = true
@@ -51,12 +61,30 @@ func cmdHook(args []string, stdout, stderr io.Writer) int {
 }
 
 func cmdHookWithFormat(args []string, inject bool, hookFormat string, stdout, stderr io.Writer) int {
+	return cmdHookWithOptions(args, hookOptions{
+		inject:     inject,
+		hookFormat: hookFormat,
+	}, stdout, stderr)
+}
+
+type hookOptions struct {
+	inject     bool
+	claim      bool
+	jsonOutput bool
+	hookFormat string
+}
+
+func cmdHookWithOptions(args []string, opts hookOptions, stdout, stderr io.Writer) int {
+	inject := opts.inject
 	if inject {
 		return 0
 	}
 	// Accepted for compatibility with installed hook commands; non-inject
 	// gc hook output is intentionally raw regardless of provider format.
-	_ = hookFormat
+	_ = opts.hookFormat
+	// --json is a compatibility promise for claim-mode startup prompts. The
+	// configured work_query already controls the concrete output format.
+	_ = opts.jsonOutput
 
 	agentName := os.Getenv("GC_ALIAS")
 	if agentName == "" {
@@ -155,7 +183,13 @@ func cmdHookWithFormat(args []string, inject bool, hookFormat string, stdout, st
 	runner := func(command, dir string) (string, error) {
 		return shellWorkQueryWithEnv(command, dir, queryEnv)
 	}
-	return doHook(workQuery, workDir, inject, runner, stdout, stderr)
+	var claimRunner HookClaimRunner
+	if (opts.claim || (len(args) == 0 && sessionTemplateContext)) && len(args) == 0 {
+		claimRunner = func(id, dir string) (string, error) {
+			return shellWorkQueryWithEnv(hookClaimCommand(id), dir, queryEnv)
+		}
+	}
+	return doHookWithCandidateClaim(workQuery, workDir, inject, runner, claimRunner, hookCurrentIDsFromEnv(queryEnv), stdout, stderr)
 }
 
 // hookQueryEnv returns the full work-query environment for a hook subprocess.
@@ -173,6 +207,12 @@ func hookQueryEnv(cityPath string, cfg *config.City, a *config.Agent) map[string
 // WorkQueryRunner runs a work query command and returns its stdout.
 // dir sets the command's working directory.
 type WorkQueryRunner func(command, dir string) (string, error)
+
+// HookClaimRunner atomically claims a candidate bead ID and returns fresh JSON
+// for the claimed bead. Claim failures are treated as lost races by the hook
+// path, so callers should return an error when the candidate is no longer
+// claimable.
+type HookClaimRunner func(id, dir string) (string, error)
 
 // shellWorkQueryWithEnv runs a work query command via sh -c and returns
 // stdout. If env is non-nil it is used as the subprocess environment
@@ -215,29 +255,204 @@ func workQueryEnvForDir(env []string, dir string) []string {
 // results based on mode. Without inject: prints raw output, returns 0 if
 // work, 1 if empty. With inject: skips the work query and returns 0.
 func doHook(workQuery, dir string, inject bool, runner WorkQueryRunner, stdout, stderr io.Writer) int {
+	return doHookWithCandidateClaim(workQuery, dir, inject, runner, nil, nil, stdout, stderr)
+}
+
+func doHookWithCandidateClaim(
+	workQuery, dir string,
+	inject bool,
+	runner WorkQueryRunner,
+	claimRunner HookClaimRunner,
+	currentIDs map[string]bool,
+	stdout, stderr io.Writer,
+) int {
 	if inject {
 		return 0
 	}
 
-	output, err := runner(workQuery, dir)
-	if err != nil {
-		fmt.Fprintf(stderr, "gc hook: %v\n", err) //nolint:errcheck // best-effort stderr
-		return 1
+	attempts := 1
+	if claimRunner != nil && len(currentIDs) > 0 {
+		attempts = 3
 	}
-
-	trimmed := strings.TrimSpace(output)
-	normalized := normalizeWorkQueryOutput(trimmed)
-	hasWork := workQueryHasReadyWork(normalized)
-
-	// Non-inject mode: print raw output. Return 0 only when work exists.
-	if !hasWork {
-		if normalized != "" {
-			fmt.Fprint(stdout, normalized) //nolint:errcheck // best-effort stdout
+	for attempt := 0; attempt < attempts; attempt++ {
+		output, err := runner(workQuery, dir)
+		if err != nil {
+			fmt.Fprintf(stderr, "gc hook: %v\n", err) //nolint:errcheck // best-effort stderr
+			return 1
 		}
-		return 1
+
+		trimmed := strings.TrimSpace(output)
+		normalized := normalizeWorkQueryOutput(trimmed)
+		hasWork := workQueryHasReadyWork(normalized)
+
+		if hasWork && claimRunner != nil && len(currentIDs) > 0 {
+			if claimed, handled := resolveHookCandidateOutput(normalized, dir, claimRunner, currentIDs); handled {
+				if workQueryHasReadyWork(claimed) {
+					fmt.Fprint(stdout, claimed) //nolint:errcheck // best-effort stdout
+					return 0
+				}
+				continue
+			}
+		}
+
+		// Non-inject mode: print raw output. Return 0 only when work exists.
+		if !hasWork {
+			if normalized != "" {
+				fmt.Fprint(stdout, normalized) //nolint:errcheck // best-effort stdout
+			}
+			return 1
+		}
+		fmt.Fprint(stdout, normalized) //nolint:errcheck // best-effort stdout
+		return 0
 	}
-	fmt.Fprint(stdout, normalized) //nolint:errcheck // best-effort stdout
-	return 0
+	if claimRunner != nil {
+		fmt.Fprint(stdout, "[]") //nolint:errcheck // best-effort stdout
+	}
+	return 1
+}
+
+type hookCandidate struct {
+	ID       string         `json:"id"`
+	Status   string         `json:"status"`
+	Assignee string         `json:"assignee"`
+	Type     string         `json:"issue_type"`
+	Metadata map[string]any `json:"metadata"`
+	raw      json.RawMessage
+}
+
+func resolveHookCandidateOutput(output, dir string, claimRunner HookClaimRunner, currentIDs map[string]bool) (string, bool) {
+	candidates, ok := parseHookCandidates(output)
+	if !ok {
+		return output, false
+	}
+	if len(candidates) == 0 {
+		return "[]", true
+	}
+	recognized := false
+	for _, candidate := range candidates {
+		if !candidate.looksLikeBead() {
+			continue
+		}
+		recognized = true
+		if candidate.ownedBy(currentIDs) && strings.EqualFold(candidate.Status, "in_progress") {
+			return marshalHookCandidates([]hookCandidate{candidate}), true
+		}
+		if candidate.claimableBy(currentIDs) {
+			claimed, err := claimRunner(candidate.ID, dir)
+			if err != nil {
+				continue
+			}
+			normalized := normalizeWorkQueryOutput(strings.TrimSpace(claimed))
+			claimedCandidates, ok := parseHookCandidates(normalized)
+			if !ok {
+				continue
+			}
+			for _, claimedCandidate := range claimedCandidates {
+				if claimedCandidate.ID == candidate.ID && claimedCandidate.ownedBy(currentIDs) {
+					return marshalHookCandidates([]hookCandidate{claimedCandidate}), true
+				}
+			}
+		}
+	}
+	if !recognized {
+		return output, false
+	}
+	return "[]", true
+}
+
+func parseHookCandidates(output string) ([]hookCandidate, bool) {
+	output = strings.TrimSpace(output)
+	if output == "" {
+		return nil, false
+	}
+	var rawItems []json.RawMessage
+	if err := json.Unmarshal([]byte(output), &rawItems); err != nil {
+		var rawItem json.RawMessage
+		if err := json.Unmarshal([]byte(output), &rawItem); err != nil {
+			return nil, false
+		}
+		rawItems = []json.RawMessage{rawItem}
+	}
+	candidates := make([]hookCandidate, 0, len(rawItems))
+	for _, raw := range rawItems {
+		var candidate hookCandidate
+		if err := json.Unmarshal(raw, &candidate); err != nil {
+			return nil, false
+		}
+		candidate.ID = strings.TrimSpace(candidate.ID)
+		candidate.Status = strings.TrimSpace(candidate.Status)
+		candidate.Assignee = strings.TrimSpace(candidate.Assignee)
+		candidate.Type = strings.TrimSpace(candidate.Type)
+		candidate.raw = append(candidate.raw[:0], raw...)
+		candidates = append(candidates, candidate)
+	}
+	return candidates, true
+}
+
+func marshalHookCandidates(candidates []hookCandidate) string {
+	rawItems := make([]json.RawMessage, 0, len(candidates))
+	for _, candidate := range candidates {
+		if len(candidate.raw) > 0 {
+			rawItems = append(rawItems, candidate.raw)
+			continue
+		}
+		raw, err := json.Marshal(candidate)
+		if err == nil {
+			rawItems = append(rawItems, raw)
+		}
+	}
+	out, err := json.Marshal(rawItems)
+	if err != nil {
+		return "[]"
+	}
+	return string(out)
+}
+
+func (c hookCandidate) looksLikeBead() bool {
+	return c.ID != "" && (c.Status != "" || c.Assignee != "" || c.Type != "" || len(c.Metadata) > 0)
+}
+
+func (c hookCandidate) ownedBy(currentIDs map[string]bool) bool {
+	return currentIDs[strings.TrimSpace(c.Assignee)]
+}
+
+func (c hookCandidate) claimableBy(currentIDs map[string]bool) bool {
+	if c.ID == "" {
+		return false
+	}
+	assignee := strings.TrimSpace(c.Assignee)
+	if assignee != "" && !currentIDs[assignee] {
+		return false
+	}
+	status := strings.ToLower(strings.TrimSpace(c.Status))
+	return status == "" || status == "open"
+}
+
+func hookClaimCommand(id string) string {
+	quotedID := shellquote.Quote(id)
+	actor := `BEADS_ACTOR="${GC_ALIAS:-${GC_SESSION_NAME:-$GC_AGENT}}"`
+	return "(" + actor + " bd update " + quotedID + " --claim >/dev/null 2>&1 || " + actor +
+		" gc --city \"$GC_CITY\" bd update " + quotedID + " --claim >/dev/null 2>&1) && (bd show " + quotedID +
+		" --json 2>/dev/null || gc --city \"$GC_CITY\" bd show " + quotedID + " --json)"
+}
+
+func hookCurrentIDsFromEnv(env []string) map[string]bool {
+	values := map[string]string{}
+	for _, item := range env {
+		key, value, ok := strings.Cut(item, "=")
+		if !ok {
+			continue
+		}
+		values[key] = value
+	}
+	ids := map[string]bool{}
+	for _, key := range []string{"GC_SESSION_ID", "GC_SESSION_NAME", "GC_ALIAS", "GC_AGENT"} {
+		value := strings.TrimSpace(values[key])
+		if value != "" {
+			ids[value] = true
+		}
+	}
+	return ids
 }
 
 func workQueryHasReadyWork(output string) bool {
