@@ -2809,6 +2809,60 @@ func TestReconcileSessionBeads_DrainAckedOrphanCanceledForAssignedWork(t *testin
 	}
 }
 
+func TestSessionHasOpenAssignedWorkInStore_RecognizesCurrentPoolAlias(t *testing.T) {
+	store := beads.NewMemStore()
+	session := beads.Bead{
+		ID: "session-bead-id",
+		Metadata: map[string]string{
+			"session_name": "polecat-sc-wisp-u39yp",
+			"alias":        "saitoc/furiosa",
+		},
+	}
+	if _, err := store.Create(beads.Bead{
+		Title:    "assigned through stable pool alias",
+		Type:     "task",
+		Status:   "in_progress",
+		Assignee: "saitoc/furiosa",
+	}); err != nil {
+		t.Fatalf("Create work bead: %v", err)
+	}
+
+	hasWork, err := sessionHasOpenAssignedWorkInStore(store, session)
+	if err != nil {
+		t.Fatalf("sessionHasOpenAssignedWorkInStore: %v", err)
+	}
+	if !hasWork {
+		t.Fatal("current pool alias assignment must cancel orphan drain")
+	}
+}
+
+func TestSessionHasOpenAssignedWorkInStore_IgnoresRetiredPoolAlias(t *testing.T) {
+	store := beads.NewMemStore()
+	session := beads.Bead{
+		ID: "session-bead-id",
+		Metadata: map[string]string{
+			"alias":         "saitoc/furiosa",
+			"alias_history": "saitoc/nux",
+		},
+	}
+	if _, err := store.Create(beads.Bead{
+		Title:    "work owned by a reassigned historical alias",
+		Type:     "task",
+		Status:   "in_progress",
+		Assignee: "saitoc/nux",
+	}); err != nil {
+		t.Fatalf("Create work bead: %v", err)
+	}
+
+	hasWork, err := sessionHasOpenAssignedWorkInStore(store, session)
+	if err != nil {
+		t.Fatalf("sessionHasOpenAssignedWorkInStore: %v", err)
+	}
+	if hasWork {
+		t.Fatal("retired alias must not keep its former owner alive")
+	}
+}
+
 func TestReconcileSessionBeads_RecoveredDrainAckedOrphanCanceledForAssignedWork(t *testing.T) {
 	env := newReconcilerTestEnv()
 	env.cfg = &config.City{}

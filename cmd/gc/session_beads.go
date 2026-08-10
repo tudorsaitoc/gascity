@@ -505,6 +505,9 @@ func sessionAssignmentIdentifiers(sessionBead beads.Bead) []string {
 		strings.TrimSpace(sessionBead.ID),
 		strings.TrimSpace(sessionBead.Metadata["session_name"]),
 		strings.TrimSpace(sessionBead.Metadata[namedSessionIdentityMetadata]),
+		// Pool work is assigned through the session's current stable alias.
+		// Do not include alias_history: a retired alias may have a new owner.
+		strings.TrimSpace(sessionBead.Metadata["alias"]),
 	}
 	seen := make(map[string]struct{}, len(raw))
 	identifiers := make([]string, 0, len(raw))
