@@ -80,6 +80,36 @@ func TestFilterAssignedWorkBeadsForPoolDemandKeepsDirectAssigneeAfterTemplateFal
 	}
 }
 
+func TestAssignedWorkScopeRecognizesQualifiedAliasHistory(t *testing.T) {
+	cfg := &config.City{Agents: []config.Agent{{Name: "codex", Dir: "saitoc"}}}
+	sessions := []beads.Bead{{
+		ID:     "session-1",
+		Status: "open",
+		Type:   sessionBeadType,
+		Metadata: map[string]string{
+			"template":      "saitoc/codex",
+			"session_name":  "polecat-sc-wisp-p8pfg",
+			"alias":         "saitoc/slit",
+			"alias_history": "saitoc/furiosa",
+		},
+	}}
+	work := []beads.Bead{{
+		ID:       "canary",
+		Status:   "in_progress",
+		Assignee: "saitoc/furiosa",
+		Metadata: map[string]string{},
+	}}
+
+	pool := filterAssignedWorkBeadsForPoolDemand(cfg, "", sessions, work, []string{""})
+	if len(pool) != 1 || pool[0].ID != "canary" {
+		t.Fatalf("pool work = %#v, want alias-history-owned canary", pool)
+	}
+	wake := filterAssignedWorkBeadsForSessionWake(cfg, "", sessions, work, []string{""})
+	if len(wake) != 1 || wake[0].ID != "canary" {
+		t.Fatalf("wake work = %#v, want alias-history-owned canary", wake)
+	}
+}
+
 func TestFilterAssignedWorkBeadsForPoolDemandDropsDirectAssigneeFromUnreachableStore(t *testing.T) {
 	cityPath := t.TempDir()
 	rigPath := filepath.Join(cityPath, "riga")

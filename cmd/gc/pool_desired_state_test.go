@@ -138,6 +138,43 @@ func TestComputePoolDesiredStates_ResumeBeatsNew(t *testing.T) {
 	}
 }
 
+func TestComputePoolDesiredStates_ResumeResolvesQualifiedAlias(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		alias   string
+		history string
+	}{
+		{name: "current alias", alias: "saitoc/furiosa"},
+		{name: "prior alias", alias: "saitoc/slit", history: "saitoc/furiosa"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.City{Agents: []config.Agent{poolAgent("codex", "saitoc", intPtr(1), 0)}}
+			work := []beads.Bead{workBead("canary", "saitoc/codex", "saitoc/furiosa", "in_progress", 1)}
+			sessions := []beads.Bead{{
+				ID:     "session-1",
+				Status: "open",
+				Type:   sessionBeadType,
+				Metadata: map[string]string{
+					"session_name":         "polecat-sc-wisp-p8pfg",
+					"alias":                tc.alias,
+					"alias_history":        tc.history,
+					"template":             "saitoc/codex",
+					poolManagedMetadataKey: boolMetadata(true),
+				},
+			}}
+
+			result := ComputePoolDesiredStates(cfg, work, sessions, nil)
+			if len(result) != 1 || len(result[0].Requests) != 1 {
+				t.Fatalf("result = %#v, want one resume request", result)
+			}
+			request := result[0].Requests[0]
+			if request.Tier != "resume" || request.SessionBeadID != "session-1" || request.WorkBeadID != "canary" {
+				t.Fatalf("request = %#v, want canary resume for session-1", request)
+			}
+		})
+	}
+}
+
 func TestComputePoolDesiredStates_MaxCapsTotal(t *testing.T) {
 	cfg := &config.City{
 		Agents: []config.Agent{poolAgent("claude", "rig", intPtr(2), 0)},

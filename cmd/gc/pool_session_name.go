@@ -9,7 +9,32 @@ import (
 	"github.com/gastownhall/gascity/internal/agent"
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/config"
+	"github.com/gastownhall/gascity/internal/session"
 )
+
+// sessionBeadAssigneeIdentities returns every identifier under which work may
+// be assigned to a live session. Pool workers claim through stable aliases,
+// while their runtime session names are transient, so both current and prior
+// aliases must participate in ownership and demand checks.
+func sessionBeadAssigneeIdentities(sb beads.Bead) []string {
+	identities := make([]string, 0, 5)
+	for _, value := range []string{
+		sb.ID,
+		sb.Metadata["session_name"],
+		sb.Metadata["configured_named_identity"],
+		sb.Metadata["alias"],
+	} {
+		if value = strings.TrimSpace(value); value != "" {
+			identities = append(identities, value)
+		}
+	}
+	for _, prior := range session.AliasHistory(sb.Metadata) {
+		if prior = strings.TrimSpace(prior); prior != "" {
+			identities = append(identities, prior)
+		}
+	}
+	return identities
+}
 
 type releasedPoolAssignment struct {
 	ID    string
@@ -91,19 +116,13 @@ func releaseOrphanedPoolAssignments(
 	}
 
 	openIdentifiers := makeOpenSessionStoreRefIndex(cityPath, cfg, openSessionBeads, storeRefAware)
-	legacyOpenIdentifiers := make(map[string]struct{}, len(openSessionBeads)*3)
+	legacyOpenIdentifiers := make(map[string]struct{}, len(openSessionBeads)*5)
 	for _, sb := range openSessionBeads {
 		if sb.Status == "closed" {
 			continue
 		}
-		if id := strings.TrimSpace(sb.ID); id != "" {
+		for _, id := range sessionBeadAssigneeIdentities(sb) {
 			legacyOpenIdentifiers[id] = struct{}{}
-		}
-		if sn := strings.TrimSpace(sb.Metadata["session_name"]); sn != "" {
-			legacyOpenIdentifiers[sn] = struct{}{}
-		}
-		if ni := strings.TrimSpace(sb.Metadata["configured_named_identity"]); ni != "" {
-			legacyOpenIdentifiers[ni] = struct{}{}
 		}
 	}
 
@@ -162,7 +181,7 @@ func releaseOrphanedPoolAssignments(
 const unresolvedOpenSessionStoreRef = "\x00unresolved"
 
 func makeOpenSessionStoreRefIndex(cityPath string, cfg *config.City, openSessionBeads []beads.Bead, storeRefAware bool) map[string]map[string]struct{} {
-	index := make(map[string]map[string]struct{}, len(openSessionBeads)*3)
+	index := make(map[string]map[string]struct{}, len(openSessionBeads)*5)
 	if !storeRefAware {
 		return index
 	}
@@ -174,9 +193,9 @@ func makeOpenSessionStoreRefIndex(cityPath string, cfg *config.City, openSession
 		if !ok {
 			storeRef = unresolvedOpenSessionStoreRef
 		}
-		addOpenSessionStoreRef(index, sb.ID, storeRef)
-		addOpenSessionStoreRef(index, sb.Metadata["session_name"], storeRef)
-		addOpenSessionStoreRef(index, sb.Metadata["configured_named_identity"], storeRef)
+		for _, id := range sessionBeadAssigneeIdentities(sb) {
+			addOpenSessionStoreRef(index, id, storeRef)
+		}
 	}
 	return index
 }

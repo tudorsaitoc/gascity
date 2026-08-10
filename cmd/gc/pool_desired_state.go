@@ -82,8 +82,9 @@ func computePoolDesiredStates(
 	scaleCheckCounts map[string]int,
 	trace *sessionReconcilerTraceCycle,
 ) []PoolDesiredState {
-	// Build reverse lookup: any identifier → session bead ID.
-	// Assignee on work beads may be a bead ID, session name, or alias.
+	// Build reverse lookup: any identifier → session bead ID. A work bead
+	// may be assigned through the session ID, runtime name, stable alias, or a
+	// prior alias preserved during rotation.
 	assigneeToSessionBeadID := make(map[string]string)
 	sessionBeadTemplate := make(map[string]string)
 	for _, sb := range sessionBeads {
@@ -94,12 +95,8 @@ func computePoolDesiredStates(
 		if template != "" {
 			sessionBeadTemplate[sb.ID] = template
 		}
-		assigneeToSessionBeadID[sb.ID] = sb.ID
-		if sn := strings.TrimSpace(sb.Metadata["session_name"]); sn != "" {
-			assigneeToSessionBeadID[sn] = sb.ID
-		}
-		if ni := strings.TrimSpace(sb.Metadata["configured_named_identity"]); ni != "" {
-			assigneeToSessionBeadID[ni] = sb.ID
+		for _, id := range sessionBeadAssigneeIdentities(sb) {
+			assigneeToSessionBeadID[id] = sb.ID
 		}
 	}
 

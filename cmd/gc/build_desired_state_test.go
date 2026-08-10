@@ -1025,6 +1025,41 @@ func TestReadyAssignedWorkAssigneesExcludeBroadIdentities(t *testing.T) {
 	}
 }
 
+func TestReadyAssignedWorkAssigneesIncludeQualifiedAliases(t *testing.T) {
+	snapshot := newSessionBeadSnapshot([]beads.Bead{{
+		ID:     "session-1",
+		Status: "open",
+		Type:   sessionBeadType,
+		Metadata: map[string]string{
+			"session_name":  "polecat-sc-wisp-p8pfg",
+			"alias":         "saitoc/slit",
+			"alias_history": "saitoc/furiosa",
+		},
+	}})
+
+	got := readyAssignedWorkAssignees(&config.City{}, snapshot, nil)
+	for _, want := range []string{"saitoc/slit", "saitoc/furiosa"} {
+		found := false
+		for _, value := range got {
+			if value == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("ready assignees = %#v, want %q", got, want)
+		}
+	}
+
+	skip := map[string]struct{}{"saitoc/furiosa": {}}
+	expandSkipAssigneesWithSessionIdentities(skip, snapshot)
+	for _, want := range []string{"session-1", "polecat-sc-wisp-p8pfg", "saitoc/slit", "saitoc/furiosa"} {
+		if _, ok := skip[want]; !ok {
+			t.Fatalf("expanded skip = %#v, want %q", skip, want)
+		}
+	}
+}
+
 func TestCollectAssignedWorkBeadsWithStores_TracksRigStore(t *testing.T) {
 	cityStore := beads.NewMemStore()
 	rigStore := beads.NewMemStore()

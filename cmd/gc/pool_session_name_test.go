@@ -7,6 +7,36 @@ import (
 	"github.com/gastownhall/gascity/internal/config"
 )
 
+func TestSessionBeadAssigneeIdentitiesIncludesQualifiedAliasHistory(t *testing.T) {
+	bead := beads.Bead{
+		ID: "session-1",
+		Metadata: map[string]string{
+			"session_name":              "polecat-sc-wisp-p8pfg",
+			"configured_named_identity": "saitoc/polecat",
+			"alias":                     "saitoc/furiosa",
+			"alias_history":             "saitoc/nux, saitoc/slit",
+		},
+	}
+	want := []string{
+		"session-1",
+		"polecat-sc-wisp-p8pfg",
+		"saitoc/polecat",
+		"saitoc/furiosa",
+		"saitoc/nux",
+		"saitoc/slit",
+	}
+
+	got := sessionBeadAssigneeIdentities(bead)
+	if len(got) != len(want) {
+		t.Fatalf("identities = %#v, want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("identity[%d] = %q, want %q; all=%#v", i, got[i], want[i], got)
+		}
+	}
+}
+
 func TestPoolSessionName(t *testing.T) {
 	tests := []struct {
 		template string
@@ -558,6 +588,73 @@ func TestReleaseOrphanedPoolAssignments_KeepsOpenSessionOwnership(t *testing.T) 
 	}
 	if got.Assignee != "worker-live" {
 		t.Fatalf("assignee = %q, want worker-live", got.Assignee)
+	}
+}
+
+func TestReleaseOrphanedPoolAssignments_KeepsQualifiedAliasOwnership(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		alias    string
+		history  string
+		assignee string
+	}{
+		{name: "current alias", alias: "saitoc/furiosa", assignee: "saitoc/furiosa"},
+		{name: "prior alias", alias: "saitoc/slit", history: "saitoc/furiosa", assignee: "saitoc/furiosa"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := beads.NewMemStore()
+			session, err := store.Create(beads.Bead{
+				Title:  "polecat",
+				Type:   sessionBeadType,
+				Status: "open",
+				Metadata: map[string]string{
+					"session_name":         "polecat-sc-wisp-p8pfg",
+					"alias":                tc.alias,
+					"alias_history":        tc.history,
+					"template":             "saitoc/codex",
+					poolManagedMetadataKey: boolMetadata(true),
+				},
+			})
+			if err != nil {
+				t.Fatalf("Create session bead: %v", err)
+			}
+			work, err := store.Create(beads.Bead{
+				Title:    "claimed canary",
+				Assignee: tc.assignee,
+				Metadata: map[string]string{"gc.routed_to": "saitoc/codex"},
+			})
+			if err != nil {
+				t.Fatalf("Create work bead: %v", err)
+			}
+			if err := store.Update(work.ID, beads.UpdateOpts{Status: stringPtr("in_progress")}); err != nil {
+				t.Fatalf("Set work status: %v", err)
+			}
+			work, err = store.Get(work.ID)
+			if err != nil {
+				t.Fatalf("Reload work bead: %v", err)
+			}
+
+			released := releaseOrphanedPoolAssignments(
+				store,
+				&config.City{Agents: []config.Agent{{Name: "codex", Dir: "saitoc", MinActiveSessions: intPtr(0), MaxActiveSessions: intPtr(1)}}},
+				"",
+				[]beads.Bead{session},
+				[]beads.Bead{work},
+				[]beads.Store{store},
+				nil,
+				nil,
+			)
+			if len(released) != 0 {
+				t.Fatalf("released = %v, want none for live alias owner", released)
+			}
+			got, err := store.Get(work.ID)
+			if err != nil {
+				t.Fatalf("Get work bead: %v", err)
+			}
+			if got.Status != "in_progress" || got.Assignee != tc.assignee {
+				t.Fatalf("work = status %q assignee %q, want in_progress/%q", got.Status, got.Assignee, tc.assignee)
+			}
+		})
 	}
 }
 
