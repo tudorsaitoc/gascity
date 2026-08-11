@@ -18,6 +18,12 @@ func (c *CachingStore) Create(b Bead) (Bead, error) {
 func (c *CachingStore) CreateWithStorage(b Bead, storage StorageClass) (Bead, error) {
 	storageBacking, ok := c.backing.(StorageCreateStore)
 	if !ok {
+		ephemeral, noHistory, err := effectiveStorageFlags(b, storage)
+		if err != nil {
+			return Bead{}, fmt.Errorf("caching create-with-storage: %w", err)
+		}
+		b.Ephemeral = ephemeral
+		b.NoHistory = noHistory
 		return c.Create(b)
 	}
 	return c.createWith(func() (Bead, error) {

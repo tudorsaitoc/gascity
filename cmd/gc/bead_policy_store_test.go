@@ -434,6 +434,29 @@ func TestBeadPolicyGraphStorePreservesGraphApplyThroughCachingStore(t *testing.T
 	assertStorageClass(t, backing.storage, beadStorageEphemeral)
 }
 
+func TestBeadPolicyStorePersistsNoHistoryThroughCachingFallback(t *testing.T) {
+	backing := beads.NewMemStore()
+	cache := beads.NewCachingStoreForTest(backing, nil)
+	store := wrapStoreWithBeadPolicies(cache, &config.City{})
+
+	for _, bead := range []beads.Bead{
+		{Title: "session", Type: session.BeadType, Labels: []string{session.LabelSession}},
+		{Title: "order tracking", Labels: []string{labelOrderTracking}},
+	} {
+		created, err := store.Create(bead)
+		if err != nil {
+			t.Fatalf("Create(%q): %v", bead.Title, err)
+		}
+		persisted, err := backing.Get(created.ID)
+		if err != nil {
+			t.Fatalf("backing Get(%q): %v", created.ID, err)
+		}
+		if !persisted.NoHistory || persisted.Ephemeral {
+			t.Fatalf("persisted %q storage = ephemeral:%v no_history:%v, want no-history", bead.Title, persisted.Ephemeral, persisted.NoHistory)
+		}
+	}
+}
+
 func TestBeadPolicyGraphStoreRejectsNoHistoryWispOverride(t *testing.T) {
 	backing := &captureGraphStore{Store: beads.NewMemStore()}
 	store := wrapStoreWithBeadPolicies(backing, &config.City{
