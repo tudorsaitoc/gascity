@@ -2420,7 +2420,7 @@ func cmdSessionKill(args []string, stdout, stderr io.Writer, jsonOutput ...bool)
 	// handle.Kill -> Manager.Kill) keeps owning its own lifecycle state.
 	if infoErr == nil {
 		now := time.Now().UTC()
-		patch := session.SleepPatch(now, "killed")
+		patch := session.SleepPatch(now, string(session.SleepReasonKilled))
 		patch["synced_at"] = now.Format(time.RFC3339)
 		if err := sessStore.SetMetadataBatch(sessionID, patch); err != nil {
 			fmt.Fprintf(stderr, "gc session kill: warning: syncing session %s to asleep: %v\n", sessionID, err) //nolint:errcheck // best-effort stderr

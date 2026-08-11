@@ -19,6 +19,7 @@ func TestSleepReasonConstantValues(t *testing.T) {
 		SleepReasonFailedCreate:          "failed-create",
 		SleepReasonProviderTerminalError: "provider-terminal-error",
 		SleepReasonRuntimeMissing:        "runtime-missing",
+		SleepReasonKilled:                "killed",
 		SleepReasonQuarantine:            "quarantine",
 		SleepReasonContextChurn:          "context-churn",
 		SleepReasonMaxSessionAge:         "max-session-age",

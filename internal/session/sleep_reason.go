@@ -31,6 +31,7 @@ const (
 	SleepReasonFailedCreate          SleepReason = "failed-create"
 	SleepReasonProviderTerminalError SleepReason = "provider-terminal-error"
 	SleepReasonRuntimeMissing        SleepReason = SleepReason(LifecycleReasonRuntimeMissing)
+	SleepReasonKilled                SleepReason = "killed"
 	SleepReasonQuarantine            SleepReason = "quarantine"
 	SleepReasonContextChurn          SleepReason = "context-churn"
 	SleepReasonMaxSessionAge         SleepReason = "max-session-age"
@@ -54,7 +55,7 @@ func IsDeliberateSleepReason(reason string) bool {
 	case SleepReasonIdle, SleepReasonIdleTimeout, SleepReasonNoWakeReason,
 		SleepReasonConfigDrift, SleepReasonDrained, SleepReasonCityStop,
 		SleepReasonUserHold, SleepReasonWaitHold, SleepReasonRateLimit,
-		SleepReasonFailedCreate, SleepReasonProviderTerminalError:
+		SleepReasonFailedCreate, SleepReasonProviderTerminalError, SleepReasonKilled:
 		return true
 	default:
 		return false
