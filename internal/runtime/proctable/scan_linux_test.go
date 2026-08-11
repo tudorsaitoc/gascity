@@ -3,9 +3,12 @@
 package proctable
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
+	"syscall"
 	"testing"
 )
 
@@ -169,5 +172,94 @@ func TestScanWithRootMissingEnvironSkipped(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Fatalf("got %d entries, want 0", len(got))
+	}
+}
+
+func TestBenignProcReadError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil", err: nil, want: false},
+		{name: "not exist", err: fs.ErrNotExist, want: true},
+		{name: "permission", err: fs.ErrPermission, want: true},
+		{name: "eacces", err: syscall.EACCES, want: true},
+		{name: "esrch", err: syscall.ESRCH, want: true},
+		{
+			name: "wrapped esrch",
+			err:  &fs.PathError{Op: "read", Path: "/proc/123/environ", Err: syscall.ESRCH},
+			want: true,
+		},
+		{name: "real io error", err: syscall.EIO, want: false},
+		{name: "unrelated error", err: errors.New("broken proc mount"), want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := benignProcReadError(tt.err); got != tt.want {
+				t.Fatalf("benignProcReadError(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestProcReadersPreserveNonBenignAndMalformedErrors(t *testing.T) {
+	t.Run("environ io error", func(t *testing.T) {
+		path := t.TempDir()
+		if _, err := parseEnvironFile(path); !errors.Is(err, syscall.EISDIR) {
+			t.Fatalf("parseEnvironFile(directory) error = %v, want EISDIR", err)
+		}
+	})
+
+	t.Run("parent pid io error", func(t *testing.T) {
+		path := t.TempDir()
+		if _, _, err := readParentPID(path); !errors.Is(err, syscall.EISDIR) {
+			t.Fatalf("readParentPID(directory) error = %v, want EISDIR", err)
+		}
+	})
+
+	t.Run("malformed parent pid", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "stat")
+		if err := os.WriteFile(path, []byte("123 malformed"), 0o644); err != nil {
+			t.Fatalf("write malformed stat: %v", err)
+		}
+		if _, _, err := readParentPID(path); err == nil {
+			t.Fatal("readParentPID(malformed stat) error = nil, want malformed error")
+		}
+	})
+}
+
+func TestScanWithRootPreservesDiscoveryAndPIDOrderAroundBenignRaces(t *testing.T) {
+	root := t.TempDir()
+	buildFakeProc(t, root, 200, map[string]string{"GC_SESSION_ID": "ga-later"})
+	buildFakeProc(t, root, 20, map[string]string{"GC_SESSION_ID": "ga-earlier"})
+
+	missingEnviron := filepath.Join(root, "100")
+	if err := os.MkdirAll(missingEnviron, 0o755); err != nil {
+		t.Fatalf("mkdir missing-environ process: %v", err)
+	}
+
+	missingStat := filepath.Join(root, "150")
+	if err := os.MkdirAll(missingStat, 0o755); err != nil {
+		t.Fatalf("mkdir missing-stat process: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(missingStat, "environ"),
+		[]byte("GC_SESSION_ID=ga-vanished\x00"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write vanished-process environ: %v", err)
+	}
+
+	got, err := scanWithRoot(root, "")
+	if err != nil {
+		t.Fatalf("scanWithRoot error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("scanWithRoot = %v, want two valid runtimes", got)
+	}
+	if got[0].PID != 20 || got[1].PID != 200 {
+		t.Fatalf("scanWithRoot PID order = [%d %d], want [20 200]", got[0].PID, got[1].PID)
 	}
 }
