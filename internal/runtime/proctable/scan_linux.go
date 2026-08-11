@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/gastownhall/gascity/internal/runtime"
 )
@@ -130,10 +131,17 @@ func mergeCurrentEnv(env map[string]string) map[string]string {
 	return env
 }
 
+func benignProcReadError(err error) bool {
+	return errors.Is(err, fs.ErrNotExist) ||
+		errors.Is(err, fs.ErrPermission) ||
+		os.IsPermission(err) ||
+		errors.Is(err, syscall.ESRCH)
+}
+
 func parseEnvironFile(path string) (map[string]string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, fs.ErrPermission) || os.IsPermission(err) {
+		if benignProcReadError(err) {
 			return nil, nil
 		}
 		return nil, err
@@ -187,7 +195,7 @@ func isInfrastructureParent(root string, pid int) bool {
 func readParentPID(path string) (int, bool, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, fs.ErrPermission) || os.IsPermission(err) {
+		if benignProcReadError(err) {
 			return 0, false, nil
 		}
 		return 0, false, err
