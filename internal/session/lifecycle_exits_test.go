@@ -201,7 +201,7 @@ func TestIsDeliberateSleepReason(t *testing.T) {
 	deliberate := []string{
 		"idle", "idle-timeout", "no-wake-reason", "config-drift", "drained",
 		"city-stop", "user-hold", "wait-hold", "rate_limit", "failed-create",
-		"provider-terminal-error",
+		"provider-terminal-error", "killed",
 		" idle ",
 	}
 	for _, reason := range deliberate {
