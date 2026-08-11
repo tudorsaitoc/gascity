@@ -92,6 +92,30 @@ func TestCachingStoreCreateWithStorageForwardsPolicyStorageAndCachesResult(t *te
 	}
 }
 
+func TestCachingStoreCreateWithStorageAppliesPolicyWhenBackingLacksCapability(t *testing.T) {
+	backing := NewMemStore()
+	cache := NewCachingStoreForTest(backing, nil)
+
+	created, err := cache.CreateWithStorage(Bead{Title: "session"}, StorageNoHistory)
+	if err != nil {
+		t.Fatalf("CreateWithStorage: %v", err)
+	}
+	if !created.NoHistory || created.Ephemeral {
+		t.Fatalf("created storage = ephemeral:%v no_history:%v, want no-history", created.Ephemeral, created.NoHistory)
+	}
+	persisted, err := backing.Get(created.ID)
+	if err != nil {
+		t.Fatalf("backing Get: %v", err)
+	}
+	if !persisted.NoHistory || persisted.Ephemeral {
+		t.Fatalf("persisted storage = ephemeral:%v no_history:%v, want no-history", persisted.Ephemeral, persisted.NoHistory)
+	}
+
+	if _, err := cache.CreateWithStorage(Bead{Title: "invalid"}, StorageClass("unknown")); err == nil {
+		t.Fatal("CreateWithStorage with unknown storage class succeeded, want error")
+	}
+}
+
 func TestCachingStoreGraphApplyHandleForwardsStorageAndCachesResult(t *testing.T) {
 	backing := &storageGraphApplyRecordingStore{Store: NewMemStore()}
 	cache := NewCachingStoreForTest(backing, nil)
