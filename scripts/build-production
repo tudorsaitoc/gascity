@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# Build gc with one stable compiler profile and emit a machine-readable receipt.
+set -euo pipefail
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+output=${1:-"$repo_root/bin/gc"}
+ldflags=${2:-}
+
+if [[ ${GOCACHE+x} && -z ${GOCACHE} ]]; then
+  echo "build-production: refusing an explicitly empty GOCACHE" >&2
+  exit 2
+fi
+cache_root=${GOCACHE:-"${XDG_CACHE_HOME:-$HOME/.cache}/gascity/go-build"}
+cache_root=$(realpath -m "$cache_root")
+case "$cache_root" in
+  /tmp|/tmp/*|/var/tmp|/var/tmp/*|/dev/shm|/dev/shm/*)
+    echo "build-production: refusing temporary GOCACHE: $cache_root" >&2
+    exit 2
+    ;;
+esac
+if [[ -n ${XDG_RUNTIME_DIR:-} ]]; then
+  runtime_root=$(realpath -m "$XDG_RUNTIME_DIR")
+  case "$cache_root" in
+    "$runtime_root"|"$runtime_root"/*)
+      echo "build-production: refusing temporary GOCACHE under XDG_RUNTIME_DIR: $cache_root" >&2
+      exit 2
+      ;;
+  esac
+fi
+if [[ "$cache_root" != /* ]]; then
+  echo "build-production: GOCACHE must be an absolute persistent path: $cache_root" >&2
+  exit 2
+fi
+mkdir -p "$cache_root"
+mkdir -p "$(dirname "$output")"
+
+# A production build must not share a cache writer.  Go's cache is safe for
+# normal concurrent use, but this entrypoint also measures and bounds it.
+# Serialize here so every receipt describes one attributable build.
+exec 9>"$cache_root/.build-production.lock"
+if ! flock -n 9; then
+  echo "build-production: another measured build holds $cache_root" >&2
+  exit 75
+fi
+
+cache_max_bytes=${GC_BUILD_CACHE_MAX_BYTES:-3221225472} # 3 GiB
+gotmp_max_bytes=${GC_BUILD_GOTMP_MAX_BYTES:-536870912} # 512 MiB
+for limit_name in cache_max_bytes gotmp_max_bytes; do
+  limit=${!limit_name}
+  if ! [[ $limit =~ ^[0-9]+$ ]] || (( limit == 0 )); then
+    echo "build-production: $limit_name must be a positive byte count" >&2
+    exit 2
+  fi
+done
+
+runtime_root=${GC_BUILD_RUNTIME_DIR:-"$repo_root/.cache/build-runtime"}
+mkdir -p "$runtime_root"
+time_file=$(mktemp "$runtime_root/build-time.XXXXXX")
+gotmp_dir=$(mktemp -d "$runtime_root/gotmp.XXXXXX")
+trap 'rm -f "$time_file"; rm -rf "$gotmp_dir"' EXIT
+
+cache_metrics() {
+  local bytes files
+  bytes=$(du -sb "$cache_root" | awk '{print $1}')
+  files=$(find "$cache_root" -type f -print | wc -l | tr -d ' ')
+  printf '%s %s\n' "$bytes" "$files"
+}
+
+read -r cache_bytes_before cache_files_before < <(cache_metrics)
+if (( cache_bytes_before > cache_max_bytes )); then
+  echo "build-production: refusing cache above ${cache_max_bytes} bytes: ${cache_bytes_before}" >&2
+  exit 2
+fi
+class=cold
+if (( cache_files_before > 0 )); then class=warm; fi
+
+# Keep this digest limited to the stable compiler profile. The ldflags digest
+# remains separate so receipts can diagnose intentional provenance changes.
+compiler_flags="-trimpath -buildvcs=false"
+flags_digest=$(printf '%s' "$compiler_flags" | sha256sum | awk '{print $1}')
+ldflags_digest=$(printf '%s' "$ldflags" | sha256sum | awk '{print $1}')
+receipt_dir=${GC_BUILD_RECEIPT_DIR:-"$repo_root/.cache/build-receipts"}
+mkdir -p "$receipt_dir"
+receipt="$receipt_dir/$(date -u +%Y%m%dT%H%M%SZ)-$$.json"
+gotmp_peak_bytes=0
+cache_peak_bytes=$cache_bytes_before
+sample_build_peaks() {
+  while kill -0 "$build_pid" 2>/dev/null; do
+    current_gotmp=$(du -sb "$gotmp_dir" 2>/dev/null | awk '{print $1}')
+    current_cache=$(du -sb "$cache_root" 2>/dev/null | awk '{print $1}')
+    if [[ ${current_gotmp:-0} -gt $gotmp_peak_bytes ]]; then gotmp_peak_bytes=$current_gotmp; fi
+    if [[ ${current_cache:-0} -gt $cache_peak_bytes ]]; then cache_peak_bytes=$current_cache; fi
+    if (( ${current_gotmp:-0} > gotmp_max_bytes )); then
+      touch "$gotmp_dir/.limit-exceeded"
+      kill "$build_pid" 2>/dev/null || true
+      return
+    fi
+    if (( ${current_cache:-0} > cache_max_bytes )); then
+      touch "$gotmp_dir/.cache-limit-exceeded"
+      kill "$build_pid" 2>/dev/null || true
+      return
+    fi
+    sleep 0.25
+  done
+}
+set +e
+GOCACHE="$cache_root" GOTMPDIR="$gotmp_dir" /usr/bin/time -f '%e %U %S %M' -o "$time_file" \
+  go build -trimpath -buildvcs=false -ldflags "$ldflags" -o "$output" ./cmd/gc &
+build_pid=$!
+sample_build_peaks &
+sampler_pid=$!
+wait "$build_pid"
+build_status=$?
+wait "$sampler_pid" || true
+set -e
+read -r wall user sys rss < "$time_file"
+if (( build_status != 0 )); then
+  echo "build-production: go build failed after ${wall:-unknown}s" >&2
+  exit "$build_status"
+fi
+if [[ -e "$gotmp_dir/.limit-exceeded" ]]; then
+  echo "build-production: temporary workspace exceeded ${gotmp_max_bytes} bytes" >&2
+  exit 2
+fi
+if [[ -e "$gotmp_dir/.cache-limit-exceeded" ]]; then
+  echo "build-production: cache exceeded ${cache_max_bytes} bytes during build" >&2
+  exit 2
+fi
+
+read -r cache_bytes_after cache_files_after < <(cache_metrics)
+if (( cache_bytes_after > cache_max_bytes )); then
+  echo "build-production: cache exceeded ${cache_max_bytes} bytes: ${cache_bytes_after}" >&2
+  exit 2
+fi
+artifact_sha=$(sha256sum "$output" | awk '{print $1}')
+commit=$(git -C "$repo_root" rev-parse HEAD)
+go_version=$(go version)
+printf '{"go_version":"%s","commit":"%s","flags_digest":"%s","ldflags_digest":"%s","gocache":"%s","class":"%s","wall_seconds":%s,"user_seconds":%s,"sys_seconds":%s,"max_rss_kib":%s,"gotmp_peak_bytes":%s,"gotmp_max_bytes":%s,"cache_peak_bytes":%s,"cache_max_bytes":%s,"artifact_sha256":"%s","cache_bytes_before":%s,"cache_bytes_after":%s,"cache_files_before":%s,"cache_files_after":%s}\n' \
+  "$go_version" "$commit" "$flags_digest" "$ldflags_digest" "$cache_root" "$class" "$wall" "$user" "$sys" "$rss" "$gotmp_peak_bytes" "$gotmp_max_bytes" "$cache_peak_bytes" "$cache_max_bytes" "$artifact_sha" "$cache_bytes_before" "$cache_bytes_after" "$cache_files_before" "$cache_files_after" | tee "$receipt"

@@ -46,12 +46,48 @@ func readMakefile(t *testing.T) string {
 // competing stamps in the binary, one of which can describe another project.
 func TestBuildTargetDisablesToolchainVCSStamping(t *testing.T) {
 	recipe := buildRecipe(t, readMakefile(t))
-	if !strings.Contains(recipe, "go build") {
-		t.Fatalf("build recipe does not invoke go build:\n%s", recipe)
+	if !strings.Contains(recipe, "build-production") {
+		t.Fatalf("build recipe does not invoke the shared production entrypoint:\n%s", recipe)
 	}
-	if !strings.Contains(recipe, "-buildvcs=false") {
-		t.Fatalf("build recipe must pass -buildvcs=false so the Go toolchain cannot stamp an "+
-			"enclosing repository's commit into gc when built from a git worktree (ga-u7fb):\n%s", recipe)
+	script, err := os.ReadFile(filepath.Join(repoRoot(t), "scripts", "build-production"))
+	if err != nil {
+		t.Fatalf("read production build script: %v", err)
+	}
+	if !strings.Contains(string(script), "-buildvcs=false") {
+		t.Fatalf("production build script must pass -buildvcs=false so the Go toolchain cannot stamp an "+
+			"enclosing repository's commit into gc when built from a git worktree (ga-u7fb):\n%s", script)
+	}
+}
+
+func TestBuildUsesMeasuredProductionEntrypoint(t *testing.T) {
+	makefile := readMakefile(t)
+	if !strings.Contains(makefile, "scripts/build-production") {
+		t.Fatal("make build must delegate to scripts/build-production")
+	}
+
+	script, err := os.ReadFile(filepath.Join(repoRoot(t), "scripts", "build-production"))
+	if err != nil {
+		t.Fatalf("read production build script: %v", err)
+	}
+	for _, want := range []string{"GOCACHE", "GOTMPDIR", "flock", "GC_BUILD_CACHE_MAX_BYTES", "GC_BUILD_GOTMP_MAX_BYTES", "-trimpath", "-buildvcs=false", "flags_digest", "artifact_sha256", "max_rss_kib", "gotmp_peak_bytes", "cache_peak_bytes", "cache_bytes_after", "/dev/shm", "XDG_RUNTIME_DIR"} {
+		if !strings.Contains(string(script), want) {
+			t.Errorf("production build script must record/enforce %q", want)
+		}
+	}
+}
+
+func TestProductionBuildTestKeepsTimingReceipts(t *testing.T) {
+	script, err := os.ReadFile(filepath.Join(repoRoot(t), "scripts", "build-production-test"))
+	if err != nil {
+		t.Fatalf("read production build test script: %v", err)
+	}
+	if strings.Contains(string(script), "mktemp -d)") {
+		t.Fatal("production build timing receipts must not be created in an unbounded temporary directory")
+	}
+	for _, want := range []string{".cache/build-production-test", "GC_BUILD_RECEIPT_DIR"} {
+		if !strings.Contains(string(script), want) {
+			t.Errorf("production build test script must retain timing receipt evidence at %q", want)
+		}
 	}
 }
 
@@ -85,5 +121,20 @@ func TestBuildStampsWorkingTreeDirtiness(t *testing.T) {
 	}
 	if !strings.Contains(commitFlag[1], "$(DIRTY)") {
 		t.Fatalf("main.commit must carry $(DIRTY) so a modified tree is visible in `gc version --long`, got: %s", commitFlag[1])
+	}
+}
+
+func TestBuildTimestampIsStableForACommit(t *testing.T) {
+	makefile := readMakefile(t)
+
+	buildTime := regexp.MustCompile(`(?m)^BUILD_TIME\s*:?=\s*(.+)$`).FindStringSubmatch(makefile)
+	if len(buildTime) != 2 {
+		t.Fatal("Makefile has no BUILD_TIME variable")
+	}
+	if strings.Contains(buildTime[1], "date -u") {
+		t.Fatalf("BUILD_TIME must not use the wall clock because it changes the Go linker action on every production build: %s", buildTime[1])
+	}
+	if !strings.Contains(buildTime[1], "git show") {
+		t.Fatalf("BUILD_TIME must derive from the commit so unchanged production builds share a linker action: %s", buildTime[1])
 	}
 }

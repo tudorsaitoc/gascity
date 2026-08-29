@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Exercise the production entrypoint three times and enforce bounded warm runs.
+set -euo pipefail
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+receipt_root=${GC_BUILD_TIMING_ARTIFACT_DIR:-"$repo_root/.cache/build-production-test"}
+receipt_dir="$receipt_root/$(date -u +%Y%m%dT%H%M%SZ)-$$"
+mkdir -p "$receipt_dir"
+# Prime the production linker profile first. The three receipts below are all
+# warm builds, so the p50/max contract is measured against exactly the class
+# it promises.
+GC_BUILD_RECEIPT_DIR="$receipt_dir" make -C "$repo_root" build >/dev/null
+for run in 1 2 3; do
+  GC_BUILD_RECEIPT_DIR="$receipt_dir" make -C "$repo_root" build
+done
+python3 - "$receipt_dir" <<'PY'
+import json, pathlib, statistics, sys
+rows = [json.loads(p.read_text()) for p in sorted(pathlib.Path(sys.argv[1]).glob('*.json'))]
+assert len(rows) == 4, f"expected a prime plus three receipts, got {len(rows)}"
+warm_rows = rows[-3:]
+assert all(row['class'] == 'warm' for row in warm_rows), f"expected three warm receipts, got {[row['class'] for row in warm_rows]}"
+warm = [row['wall_seconds'] for row in warm_rows]
+assert statistics.median(warm) <= 10, f"warm p50 {statistics.median(warm):.3f}s exceeds 10s"
+assert max(warm) <= 15, f"warm max {max(warm):.3f}s exceeds 15s"
+assert warm_rows[-1]['cache_bytes_after'] == warm_rows[-1]['cache_bytes_before'], "last warm build grew GOCACHE"
+assert warm_rows[-1]['cache_files_after'] == warm_rows[-1]['cache_files_before'], "last warm build grew GOCACHE file count"
+assert all(row['cache_bytes_after'] <= row['cache_max_bytes'] for row in rows), "a build exceeded its cache cap"
+assert all(row['cache_peak_bytes'] <= row['cache_max_bytes'] for row in rows), "a build exceeded its cache cap during compilation"
+assert all(row['gotmp_peak_bytes'] <= row['gotmp_max_bytes'] for row in rows), "a build exceeded its temporary-workspace cap"
+assert len({row['flags_digest'] for row in rows}) == 1, "stable compiler flags digest changed"
+assert all('gotmp_peak_bytes' in row for row in rows), "receipts omit GOTMPDIR peak"
+PY
