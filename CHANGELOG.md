@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Guarded control preserves the durable source goal and first terminal
+  receipt.** Dispatch activation refuses unsupported stores before materializing
+  a graph; standalone graphs retain an explicit source root. Ready output and
+  infra migration carry acceptance criteria. The writer uses the maintained
+  Beads SDK fork `v1.1.3`; isolated Dolt 2.2.1 and installed CLI mutation probes
+  preserve the first terminal clock and reject invalid-clock writes atomically.
+- **Unavailable native runtime observations remain unknown, not empty.**
+  A responsive empty tmux server can clear stale liveness, while transport and
+  malformed snapshots retain last-known-good state. Managed Dolt launch accepts
+  one exact validated PID/port and does not fall through to a second shell owner
+  after the configured native helper fails. Opt-in Linux cgroup placement binds
+  both SQL and its watchdog from process birth; canonical adoption requires a
+  separate pre-production lifecycle receipt.
+
 - **The dolt pack's `run_bounded` python3 fallback now sends SIGTERM before
   SIGKILL, matching its documented contract.** The fallback (used when
   neither `timeout` nor `gtimeout` is on `PATH`, the default on stock macOS)

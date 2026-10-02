@@ -1573,8 +1573,7 @@ wait_for_managed_pid_ready() {
 }
 
 load_start_managed_from_gc() {
-    local gc_bin host output key value status parsed=false
-    host=$(connect_host)
+    local gc_bin output key value status port_reported=false
     gc_bin=$(resolve_gc_helper_bin)
     GC_START_MANAGED_USED="false"
     GC_START_READY="false"
@@ -1583,35 +1582,39 @@ load_start_managed_from_gc() {
     GC_START_ADDRESS_IN_USE="false"
     [ -n "$gc_bin" ] || return 1
     GC_START_MANAGED_USED="true"
-    output=$("$gc_bin" dolt-state start-managed --city "$GC_CITY_PATH" --host "$DOLT_HOST" --port "$DOLT_PORT" --user "$DOLT_USER" --log-level "$DOLT_LOGLEVEL" --timeout-ms 30000 9>&- </dev/null 2>/dev/null)
-    status=$?
+    if output=$("$gc_bin" dolt-state start-managed --city "$GC_CITY_PATH" --host "$DOLT_HOST" --port "$DOLT_PORT" --user "$DOLT_USER" --log-level "$DOLT_LOGLEVEL" --timeout-ms 30000 9>&- </dev/null); then
+        status=0
+    else
+        status=$?
+    fi
     while IFS="$(printf '	')" read -r key value; do
         case "$key" in
             ready)
                 GC_START_READY="$value"
-                parsed=true
                 ;;
             pid)
                 [ "$value" != "0" ] && GC_START_PID="$value"
-                parsed=true
                 ;;
             port)
-                [ -n "$value" ] && GC_START_PORT="$value"
-                parsed=true
+                if [ -n "$value" ]; then
+                    GC_START_PORT="$value"
+                    port_reported=true
+                fi
                 ;;
             address_in_use)
                 GC_START_ADDRESS_IN_USE="$value"
-                parsed=true
                 ;;
         esac
     done <<EOF
 $output
 EOF
-    if [ "$status" -ne 0 ] && [ "$parsed" != "true" ]; then
-        GC_START_MANAGED_USED="false"
-        return 1
-    fi
-    [ "$status" -eq 0 ]
+    # A configured native helper owns startup, including failures. Never
+    # launch a second server because its report is missing or unready.
+    [ "$status" -eq 0 ] && [ "$GC_START_READY" = "true" ] &&
+        [ "$port_reported" = "true" ] &&
+        [ "$GC_START_PID" -gt 0 ] 2>/dev/null &&
+        [ "$GC_START_PORT" -gt 0 ] 2>/dev/null &&
+        [ "$GC_START_PORT" -le 65535 ] 2>/dev/null
 }
 
 wait_for_concurrent_start_ready() {

@@ -18,6 +18,17 @@ import (
 	"time"
 )
 
+// Resolve the interpreter while the host PATH still contains any pyenv shim
+// dependencies. A shim cannot run after the fallback fixture restricts PATH.
+func realPython3Path(t *testing.T) string {
+	t.Helper()
+	out, err := exec.Command("python3", "-c", "import os, sys; print(os.path.realpath(sys.executable))").Output()
+	if err != nil {
+		t.Fatalf("resolve python3 interpreter: %v", err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
 // runRunBoundedUnderPython3Fallback sources runtime.sh with a PATH
 // that exposes only python3 (no timeout/gtimeout), so run_bounded is
 // forced onto the fallback branch under test, then invokes
@@ -32,10 +43,7 @@ import (
 func runRunBoundedUnderPython3Fallback(t *testing.T, childScript string, extraEnv ...string) (int, string) {
 	t.Helper()
 
-	python3Path, err := exec.LookPath("python3")
-	if err != nil {
-		t.Skip("python3 not installed; cannot exercise run_bounded's python3 fallback")
-	}
+	python3Path := realPython3Path(t)
 	bin := t.TempDir()
 	if err := os.Symlink(python3Path, filepath.Join(bin, "python3")); err != nil {
 		t.Fatalf("symlink python3: %v", err)

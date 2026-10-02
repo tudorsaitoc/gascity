@@ -19,6 +19,7 @@ import (
 	"github.com/gastownhall/gascity/internal/events"
 	"github.com/gastownhall/gascity/internal/formula"
 	"github.com/gastownhall/gascity/internal/formulatest"
+	"github.com/gastownhall/gascity/internal/fsys"
 	"github.com/gastownhall/gascity/internal/sourceworkflow"
 )
 
@@ -1013,12 +1014,13 @@ func TestFormulaCookHonorsFormulaV2DisabledCityBeforeCreatingBeads(t *testing.T)
 	if err := os.MkdirAll(formulaDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cityToml := `[workspace]
+	cityToml := withBuiltinProviderAliasesTOMLForTest(`[workspace]
 name = "test-city"
+provider = "claude"
 
 [daemon]
 formula_v2 = false
-`
+`, "claude") + testControlDispatcherAgentTOML("")
 	if err := os.WriteFile(filepath.Join(cityDir, "city.toml"), []byte(cityToml), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1036,6 +1038,14 @@ title = "Do work"
 		t.Fatal(err)
 	}
 
+	seedCLIStorageRoutes(t, cityDir, nil)
+	store := formulaCookMemStoreForTest(t, cityDir, cityDir)
+	query := beads.ListQuery{AllowScan: true, IncludeClosed: true, TierMode: beads.TierBoth}
+	before, err := store.List(query)
+	if err != nil {
+		t.Fatalf("list before disabled cook: %v", err)
+	}
+
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"--city", cityDir, "formula", "cook", "graph-work"}, &stdout, &stderr)
 	if code != 1 {
@@ -1044,24 +1054,38 @@ title = "Do work"
 	if stdout.Len() != 0 {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "formula_v2 is disabled") {
-		t.Fatalf("stderr missing formula_v2 diagnostic:\n%s", stderr.String())
+
+	after, err := store.List(query)
+	if err != nil {
+		t.Fatalf("list after disabled cook: %v", err)
+	}
+	if !reflect.DeepEqual(after, before) {
+		t.Fatalf("disabled cook changed inventory: before=%+v after=%+v", before, after)
 	}
 
-	store, err := openStoreAtForCity(cityDir, cityDir)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
+	enabledCityToml := strings.Replace(cityToml, "formula_v2 = false", "formula_v2 = true", 1)
+	if err := os.WriteFile(filepath.Join(cityDir, "city.toml"), []byte(enabledCityToml), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	items, err := store.List(beads.ListQuery{
-		AllowScan:     true,
-		IncludeClosed: true,
-		TierMode:      beads.TierBoth,
-	})
-	if err != nil {
-		t.Fatalf("store.List(): %v", err)
+	stdout.Reset()
+	stderr.Reset()
+	if code := run([]string{"--city", cityDir, "formula", "cook", "graph-work", "--json"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("enabled gc formula cook = %d, want 0; stdout: %s stderr: %s", code, stdout.String(), stderr.String())
 	}
-	if len(items) != 0 {
-		t.Fatalf("created %d bead(s), want none: %#v", len(items), items)
+	var result formulaCookJSONResult
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("parse enabled cook json: %v", err)
+	}
+	root, err := store.Get(result.RootID)
+	if err != nil {
+		t.Fatalf("get enabled workflow root: %v", err)
+	}
+	step, err := store.Get(result.IDMapping["graph-work.step"])
+	if err != nil {
+		t.Fatalf("get enabled workflow step: %v", err)
+	}
+	if root.Metadata[beadmeta.KindMetadataKey] != beadmeta.KindWorkflow || step.Title != "Do work" || step.Metadata[beadmeta.RootBeadIDMetadataKey] != root.ID {
+		t.Fatalf("enabled cook did not materialize the requested workflow: root=%+v step=%+v", root, step)
 	}
 }
 
@@ -1081,6 +1105,102 @@ func runGitForFormulaTest(t *testing.T, dir string, args ...string) {
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
+	}
+}
+
+func formulaCookMemStoreForTest(t *testing.T, storeRoot, cityPath string) *beads.MemStore {
+	t.Helper()
+	store := beads.NewMemStore()
+	previous := formulaCookOpenStoreAtForCity
+	formulaCookOpenStoreAtForCity = func(root, city string) (beads.Store, error) {
+		if root != storeRoot || city != cityPath {
+			return nil, fmt.Errorf("unexpected formula store scope %q in city %q", root, city)
+		}
+		return store, nil
+	}
+	t.Cleanup(func() { formulaCookOpenStoreAtForCity = previous })
+	return store
+}
+
+func TestFormulaCookGraphV2RefusesUnsupportedStoreBeforeCreatingBeads(t *testing.T) {
+	for _, attach := range []bool{false, true} {
+		name := "standalone"
+		if attach {
+			name = "attach"
+		}
+		t.Run(name, func(t *testing.T) {
+			formulatest.EnableV2ForTest(t)
+			cityDir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(cityDir, "city.toml"), []byte(withBuiltinProviderAliasesTOMLForTest(`
+[workspace]
+name = "my-city"
+provider = "claude"
+
+[daemon]
+formula_v2 = true
+`, "claude")+testControlDispatcherAgentTOML("")), 0o644); err != nil {
+				t.Fatalf("write city.toml: %v", err)
+			}
+			writeFormulaTestFile(t, filepath.Join(cityDir, "formulas"), "graph-work", `
+formula = "graph-work"
+version = 2
+contract = "graph.v2"
+
+[[steps]]
+id = "step"
+title = "Do work"
+`)
+			formulatest.SetupHermeticCookEnv(t, cityDir, cityDir)
+			store, err := openStoreAtForCity(cityDir, cityDir)
+			if err != nil {
+				t.Fatalf("open file store: %v", err)
+			}
+			source, err := store.Create(beads.Bead{
+				Title:              "Original goal",
+				Description:        "Keep the original requested work",
+				AcceptanceCriteria: "Deliver the original outcome",
+				Type:               "task",
+				Assignee:           "owner",
+				Labels:             []string{"held"},
+				Metadata:           map[string]string{"handoff.conflict_state": "hold"},
+			})
+			if err != nil {
+				t.Fatalf("create source: %v", err)
+			}
+			query := beads.ListQuery{AllowScan: true, IncludeClosed: true, TierMode: beads.TierBoth}
+			before, err := store.List(query)
+			if err != nil {
+				t.Fatalf("list before cook: %v", err)
+			}
+			depsBefore, err := store.DepList(source.ID, "down")
+			if err != nil {
+				t.Fatalf("deps before cook: %v", err)
+			}
+			var stdout, stderr bytes.Buffer
+			cmd := newFormulaCookCmd(&stdout, &stderr)
+			args := []string{"graph-work", "--json"}
+			if attach {
+				args = append(args, "--attach", source.ID)
+			}
+			cmd.SetArgs(args)
+			if err := cmd.Execute(); !errors.Is(err, beads.ErrConditionalWriteUnsupported) {
+				t.Fatalf("unsupported cook = %v, want capability refusal; stdout=%s stderr=%s", err, stdout.String(), stderr.String())
+			}
+			after, err := store.List(query)
+			if err != nil {
+				t.Fatalf("list after cook: %v", err)
+			}
+			if !reflect.DeepEqual(after, before) {
+				t.Fatalf("unsupported cook changed beads or created orphan work/graph: before=%+v after=%+v", before, after)
+			}
+			depsAfter, err := store.DepList(source.ID, "down")
+			if err != nil {
+				t.Fatalf("deps after cook: %v", err)
+			}
+			if !reflect.DeepEqual(depsAfter, depsBefore) {
+				t.Fatalf("unsupported cook changed source dependencies: before=%+v after=%+v", depsBefore, depsAfter)
+			}
+		})
 	}
 }
 
@@ -1120,11 +1240,8 @@ title = "Do work for {{convoy_id}}"
 	}
 	t.Chdir(cityDir)
 	t.Setenv("GC_CITY_PATH", cityDir)
-	store, err := openStoreAtForCity(cityDir, cityDir)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	source, err := store.Create(beads.Bead{Title: "target", Type: "task"})
+	store := formulaCookMemStoreForTest(t, cityDir, cityDir)
+	source, err := store.Create(beads.Bead{Title: "target", Description: "Preserve the original work", AcceptanceCriteria: "Original outcome delivered", Type: "task"})
 	if err != nil {
 		t.Fatalf("create source: %v", err)
 	}
@@ -1195,6 +1312,11 @@ title = "Do work for {{convoy_id}}"
 			t.Fatalf("execution events for root %s missing attached work or graph step: %#v", root.ID, recorded)
 		}
 	}
+	if sourceAfterGoal, err := store.Get(source.ID); err != nil {
+		t.Fatalf("get source goal: %v", err)
+	} else if sourceAfterGoal.Title != source.Title || sourceAfterGoal.Description != source.Description || sourceAfterGoal.AcceptanceCriteria != source.AcceptanceCriteria {
+		t.Fatalf("source goal changed: before=%+v after=%+v", source, sourceAfterGoal)
+	}
 	sourceAfter, err := store.Get(source.ID)
 	if err != nil {
 		t.Fatalf("get source: %v", err)
@@ -1241,12 +1363,8 @@ title = "Do work"
 `), 0o644); err != nil {
 		t.Fatalf("write formula: %v", err)
 	}
-	// Env + cwd setup lives in an out-of-package helper so its t.Setenv/t.Chdir
-	// call sites are not counted by the cmd/gc resource-census ratchet (sr-xz9f
-	// review, quad341): the "cmd/gc+untagged" scope only counts *_test.go call
-	// sites beneath cmd/gc, so routing through internal/formulatest keeps the
-	// env/cwd baselines flat with no policy change.
 	formulatest.SetupHermeticCookEnv(t, cityDir, cityDir)
+	store := formulaCookMemStoreForTest(t, cityDir, cityDir)
 
 	var stdout, stderr bytes.Buffer
 	cmd := newFormulaCookCmd(&stdout, &stderr)
@@ -1260,10 +1378,6 @@ title = "Do work"
 		t.Fatalf("parse cook json %q: %v", stdout.String(), err)
 	}
 
-	store, err := openStoreAtForCity(cityDir, cityDir)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
 	root, err := store.Get(res.RootID)
 	if err != nil {
 		t.Fatalf("get root %s: %v", res.RootID, err)
@@ -1304,9 +1418,12 @@ provider = "claude"
 
 [daemon]
 formula_v2 = true
-`, "claude") + testControlDispatcherAgentTOML("myrig") + fmt.Sprintf("\n[[rigs]]\nname = \"myrig\"\npath = %q\n", rigDir)
+`, "claude") + testControlDispatcherAgentTOML("myrig") + "\n[[rigs]]\nname = \"myrig\"\n"
 	if err := os.WriteFile(filepath.Join(cityDir, "city.toml"), []byte(cityTOML), 0o644); err != nil {
 		t.Fatalf("write city.toml: %v", err)
+	}
+	if err := config.PersistRigSiteBindings(fsys.OSFS{}, cityDir, []config.Rig{{Name: "myrig", Path: rigDir}}); err != nil {
+		t.Fatalf("register rig: %v", err)
 	}
 	formulaDir := filepath.Join(cityDir, "formulas")
 	if err := os.MkdirAll(formulaDir, 0o755); err != nil {
@@ -1323,13 +1440,9 @@ title = "Do work"
 `), 0o644); err != nil {
 		t.Fatalf("write formula: %v", err)
 	}
-	// Select the rig scope via cwd (enclosing-rig resolution in
-	// resolveFormulaScope), which reads the rig from city.toml's [[rigs]] — no
-	// site-registry registration needed, unlike the --rig flag path. The helper
-	// chdirs into the rig dir while pointing GC_CITY_PATH at cityDir directly,
-	// so the enclosing-rig cwd lookup still sees the rig dir while city
-	// resolution itself no longer depends on an ambient upward walk.
+	// Select the registered rig scope through the invocation's cwd.
 	formulatest.SetupHermeticCookEnv(t, rigDir, cityDir)
+	store := formulaCookMemStoreForTest(t, rigDir, cityDir)
 
 	var stdout, stderr bytes.Buffer
 	cmd := newFormulaCookCmd(&stdout, &stderr)
@@ -1345,10 +1458,6 @@ title = "Do work"
 
 	// The rig-rooted run root lives in the rig store; its store-ref must resolve
 	// to rig:myrig, not city:*.
-	store, err := openStoreAtForCity(rigDir, cityDir)
-	if err != nil {
-		t.Fatalf("open rig store: %v", err)
-	}
 	root, err := store.Get(res.RootID)
 	if err != nil {
 		t.Fatalf("get root %s: %v", res.RootID, err)
@@ -1399,10 +1508,7 @@ title = "Do work for {{convoy_id}}"
 	}
 	t.Chdir(cityDir)
 	t.Setenv("GC_CITY_PATH", cityDir)
-	store, err := openStoreAtForCity(cityDir, cityDir)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
+	store := formulaCookMemStoreForTest(t, cityDir, cityDir)
 	source, err := store.Create(beads.Bead{Title: "target", Type: "task"})
 	if err != nil {
 		t.Fatalf("create source: %v", err)
@@ -1467,10 +1573,7 @@ title = "Do work for {{convoy_id}}"
 	}
 	t.Chdir(cityDir)
 	t.Setenv("GC_CITY_PATH", cityDir)
-	store, err := openStoreAtForCity(cityDir, cityDir)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
+	store := formulaCookMemStoreForTest(t, cityDir, cityDir)
 	source, err := store.Create(beads.Bead{Title: "target", Type: "task"})
 	if err != nil {
 		t.Fatalf("create source: %v", err)
@@ -1543,10 +1646,7 @@ title = "Do work for {{convoy_id}}"
 	}
 	t.Chdir(cityDir)
 	t.Setenv("GC_CITY_PATH", cityDir)
-	store, err := openStoreAtForCity(cityDir, cityDir)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
+	store := formulaCookMemStoreForTest(t, cityDir, cityDir)
 	source, err := store.Create(beads.Bead{Title: "target", Type: "task"})
 	if err != nil {
 		t.Fatalf("create source: %v", err)

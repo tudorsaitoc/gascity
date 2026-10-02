@@ -953,12 +953,16 @@ func doSessionListFallback(stateFilter, templateFilter string, jsonOutput bool, 
 		}()
 	}
 
-	// One union scan feeds the whole command: the provider snapshot, the typed
-	// session list, and the raw-bead index the reason projection still reads.
-	// loadSessionBeadSnapshot routes the type+label union through the session
-	// snapshot loader (front-door migration keeps ListAllSessionBeads out of the
-	// CLI); it loads unsorted, so restore the created-desc order below.
-	sessionBeads, err := loadSessionBeadSnapshot(sessStore)
+	// One type+label union feeds both the runtime identity snapshot and listing.
+	// Runtime indexes remain open-only; explicit all/closed filters retain history.
+	listOptions := session.ListAllOptions{IncludeClosed: stateFilter == "all"}
+	for _, filter := range strings.Split(stateFilter, ",") {
+		if filter == "closed" {
+			listOptions.IncludeClosed = true
+			break
+		}
+	}
+	infos, err := sessionFrontDoor(sessStore).ListAll(listOptions)
 	if err != nil {
 		if jsonOutput {
 			return writeJSONError(stdout, stderr, "session_list_failed", fmt.Sprintf("gc session list: listing sessions: %v", err), 1)
@@ -966,6 +970,7 @@ func doSessionListFallback(stateFilter, templateFilter string, jsonOutput bool, 
 		fmt.Fprintf(stderr, "gc session list: listing sessions: %v\n", err) //nolint:errcheck // best-effort stderr
 		return 1
 	}
+	sessionBeads := newSessionBeadSnapshotFromInfos(infos)
 
 	sp, err := withSessionProviderConstructionContext(
 		newSessionProviderFromContext(providerCtx, sessionBeads),
@@ -986,21 +991,16 @@ func doSessionListFallback(stateFilter, templateFilter string, jsonOutput bool, 
 		fmt.Fprintf(stderr, "gc session list: %v\n", err) //nolint:errcheck // best-effort stderr
 		return 1
 	}
-	sessions := catalog.ListFromInfos(sessionBeads.OpenInfos(), stateFilter, templateFilter)
+	sessions := catalog.ListFromInfos(infos, stateFilter, templateFilter)
 	sortSessionsCreatedDesc(sessions)
 
 	if jsonOutput {
 		return writeSessionListJSON(sessions, stateFilter, templateFilter, stdout, stderr)
 	}
 
-	// Build the per-session reason-projection index from the one snapshot (no
-	// duplicate query). WI-6 R5: the whole reason projection — the wake-reason
-	// classifiers AND LifecycleDisplayReasonWithLivenessInfo — now reads the typed
-	// Info snapshot (infoIndex, from OpenInfos), so the raw bead index is gone
-	// (Info.SessionCircuitState carries the last field the display reason needed).
-	openInfos := sessionBeads.OpenInfos()
-	infoIndex := make(map[string]session.Info, len(openInfos))
-	for _, in := range openInfos {
+	// Retain the persisted projections for every displayed row, including history.
+	infoIndex := make(map[string]session.Info, len(infos))
+	for _, in := range infos {
 		infoIndex[in.ID] = in
 	}
 

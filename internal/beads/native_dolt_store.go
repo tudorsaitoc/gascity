@@ -957,32 +957,44 @@ func (s *NativeDoltStore) Update(id string, opts UpdateOpts) error {
 // shared by the standalone Update (one op, one commit) and the multi-write
 // Store.Tx path (many ops, one commit) so both routes have identical semantics.
 func (s *NativeDoltStore) applyUpdateInTx(ctx context.Context, tx beadslib.Transaction, id string, opts UpdateOpts) error {
+	updates, err := s.nativeUpdates(ctx, tx, id, opts)
+	if err != nil {
+		return err
+	}
+	return s.applyNativeUpdatesInTx(ctx, tx, id, opts, updates, s.actor, false)
+}
+
+func (s *NativeDoltStore) applyNativeUpdatesInTx(ctx context.Context, tx beadslib.Transaction, id string, opts UpdateOpts, updates map[string]interface{}, actor string, emitEvents bool) error {
 	if opts.ParentID != nil {
 		if err := s.validateUpdateParent(ctx, tx, *opts.ParentID); err != nil {
 			return err
 		}
 	}
-	updates, err := s.nativeUpdates(ctx, tx, id, opts)
-	if err != nil {
-		return err
-	}
 	if len(updates) > 0 {
-		if err := tx.UpdateIssue(ctx, id, updates, s.actor); err != nil {
+		if emitEvents {
+			writer, ok := tx.(nativeTransactionEventWriter)
+			if !ok {
+				return fmt.Errorf("native transaction cannot record guarded update history: %w", ErrConditionalWriteUnsupported)
+			}
+			if err := writer.UpdateIssueWithEvents(ctx, id, updates, actor); err != nil {
+				return nativeStoreError(id, err)
+			}
+		} else if err := tx.UpdateIssue(ctx, id, updates, actor); err != nil {
 			return nativeStoreError(id, err)
 		}
 	}
 	for _, label := range opts.Labels {
-		if err := tx.AddLabel(ctx, id, label, s.actor); err != nil {
+		if err := tx.AddLabel(ctx, id, label, actor); err != nil {
 			return nativeStoreError(id, err)
 		}
 	}
 	for _, label := range opts.RemoveLabels {
-		if err := tx.RemoveLabel(ctx, id, label, s.actor); err != nil {
+		if err := tx.RemoveLabel(ctx, id, label, actor); err != nil {
 			return nativeStoreError(id, err)
 		}
 	}
 	if opts.ParentID != nil {
-		if err := s.updateParentInTransaction(ctx, tx, id, *opts.ParentID); err != nil {
+		if err := s.updateParentInTransaction(ctx, tx, id, *opts.ParentID, actor); err != nil {
 			return err
 		}
 	}
@@ -992,7 +1004,7 @@ func (s *NativeDoltStore) applyUpdateInTx(ctx context.Context, tx beadslib.Trans
 // applySetMetadataBatchInTx merges metadata onto a bead within an open
 // transaction. Mirrors SetMetadataBatch, sharing the read-modify-write path so
 // the Store.Tx route coalesces with sibling writes into a single commit.
-func (s *NativeDoltStore) applySetMetadataBatchInTx(ctx context.Context, tx beadslib.Transaction, id string, kvs map[string]string) error {
+func (s *NativeDoltStore) applySetMetadataBatchInTx(ctx context.Context, tx beadslib.Transaction, id string, kvs map[string]string, emitEvents bool) error {
 	if len(kvs) == 0 {
 		return nil
 	}
@@ -1010,12 +1022,17 @@ func (s *NativeDoltStore) applySetMetadataBatchInTx(ctx context.Context, tx bead
 	if metadata == nil {
 		metadata = make(map[string]string, len(kvs))
 	}
-	for k, v := range kvs {
-		metadata[k] = v
-	}
+	mergeUpdateMetadata(metadata, kvs)
 	raw, err := metadataRawFromMap(metadata)
 	if err != nil {
 		return err
+	}
+	if emitEvents {
+		writer, ok := tx.(nativeTransactionEventWriter)
+		if !ok {
+			return fmt.Errorf("native transaction cannot record metadata update history: %w", ErrConditionalWriteUnsupported)
+		}
+		return nativeStoreError(id, writer.UpdateIssueWithEvents(ctx, id, map[string]interface{}{"metadata": raw}, s.actor))
 	}
 	return nativeStoreError(id, tx.UpdateIssue(ctx, id, map[string]interface{}{"metadata": raw}, s.actor))
 }
@@ -1405,28 +1422,9 @@ func (s *NativeDoltStore) SetMetadataBatch(id string, kvs map[string]string) err
 // A retry must call this whole operation again so metadata committed by the
 // competing transaction is included rather than overwritten from a stale read.
 func (s *NativeDoltStore) setMetadataBatchOnce(ctx context.Context, storage beadslib.Storage, id string, kvs map[string]string) error {
-	issue, err := storage.GetIssue(ctx, id)
-	if err != nil {
-		return nativeStoreError(id, err)
-	}
-	if issue == nil {
-		return fmt.Errorf("bead %q: %w", id, ErrNotFound)
-	}
-	metadata, err := metadataMapFromNative(issue.Metadata)
-	if err != nil {
-		return fmt.Errorf("parsing metadata for bead %q: %w", id, err)
-	}
-	if metadata == nil {
-		metadata = make(map[string]string, len(kvs))
-	}
-	for k, v := range kvs {
-		metadata[k] = v
-	}
-	raw, err := metadataRawFromMap(metadata)
-	if err != nil {
-		return err
-	}
-	return nativeStoreError(id, storage.UpdateIssue(ctx, id, map[string]interface{}{"metadata": raw}, s.actor))
+	return storage.RunInTransaction(ctx, fmt.Sprintf("gc: set metadata on bead %s", id), func(tx beadslib.Transaction) error {
+		return s.applySetMetadataBatchInTx(ctx, tx, id, kvs, true)
+	})
 }
 
 // isNativeDoltSerializationConflict reports only Dolt/MySQL transaction
@@ -1434,6 +1432,10 @@ func (s *NativeDoltStore) setMetadataBatchOnce(ctx context.Context, storage bead
 // to retry. Ambiguous connection failures intentionally remain fail-fast.
 func isNativeDoltSerializationConflict(err error) bool {
 	if err == nil {
+		return false
+	}
+	var committed interface{ SQLCommitted() bool }
+	if errors.As(err, &committed) && committed.SQLCommitted() {
 		return false
 	}
 	msg := strings.ToLower(err.Error())
@@ -1465,10 +1467,9 @@ func (s *NativeDoltStore) GetLocalString(id, key string) (string, error) {
 	return value, nil
 }
 
-// Tx executes fn inside a single native Dolt transaction so every write in the
-// callback shares one DOLT_COMMIT. This is the coalescing path that lets a
-// caller (e.g. an extmsg bind) issue several bead writes at the cost of one
-// commit instead of one per write.
+// Tx preserves the legacy transaction/coalescing path. Its callback-error
+// rollback covers both tiers, but commits use separate durable/wisp sessions.
+// Mixed-tier atomic owner writes must use the optional TxSingle capability.
 func (s *NativeDoltStore) Tx(commitMsg string, fn func(Tx) error) error {
 	if fn == nil {
 		return errors.New("beads tx: nil callback")
@@ -1488,8 +1489,8 @@ func (s *NativeDoltStore) Tx(commitMsg string, fn func(Tx) error) error {
 	})
 }
 
-// AtomicTx reports that Tx is backed by a native Dolt transaction that rolls
-// back every write when the callback returns an error.
+// AtomicTx preserves the legacy callback-error rollback capability. It is not
+// evidence of a single SQL commit across tiers; use SingleTransactionStoreFor.
 func (s *NativeDoltStore) AtomicTx() bool { return true }
 
 // nativeDoltTx adapts the Store.Tx write surface onto an open beadslib
@@ -1513,7 +1514,7 @@ func (t *nativeDoltTx) Update(id string, opts UpdateOpts) error {
 }
 
 func (t *nativeDoltTx) SetMetadataBatch(id string, kvs map[string]string) error {
-	return t.store.applySetMetadataBatchInTx(t.ctx, t.tx, id, kvs)
+	return t.store.applySetMetadataBatchInTx(t.ctx, t.tx, id, kvs, false)
 }
 
 func (t *nativeDoltTx) Close(id string) error {
@@ -1666,9 +1667,7 @@ func (s *NativeDoltStore) nativeUpdates(ctx context.Context, storage nativeIssue
 		if metadata == nil {
 			metadata = make(map[string]string, len(opts.Metadata))
 		}
-		for k, v := range opts.Metadata {
-			metadata[k] = v
-		}
+		mergeUpdateMetadata(metadata, opts.Metadata)
 		raw, err := metadataRawFromMap(metadata)
 		if err != nil {
 			return nil, err
@@ -1692,7 +1691,7 @@ func (s *NativeDoltStore) validateUpdateParent(ctx context.Context, storage nati
 	return nil
 }
 
-func (s *NativeDoltStore) updateParentInTransaction(ctx context.Context, tx beadslib.Transaction, id, parentID string) error {
+func (s *NativeDoltStore) updateParentInTransaction(ctx context.Context, tx beadslib.Transaction, id, parentID, actor string) error {
 	if strings.TrimSpace(parentID) != "" {
 		issue, err := tx.GetIssue(ctx, parentID)
 		if err != nil {
@@ -1710,7 +1709,7 @@ func (s *NativeDoltStore) updateParentInTransaction(ctx context.Context, tx bead
 		if dep == nil || dep.Type != beadslib.DepParentChild {
 			continue
 		}
-		if err := tx.RemoveDependency(ctx, id, dep.DependsOnID, s.actor); err != nil {
+		if err := tx.RemoveDependency(ctx, id, dep.DependsOnID, actor); err != nil {
 			return nativeStoreError(id, err)
 		}
 	}
@@ -1721,7 +1720,7 @@ func (s *NativeDoltStore) updateParentInTransaction(ctx context.Context, tx bead
 		IssueID:     id,
 		DependsOnID: parentID,
 		Type:        beadslib.DepParentChild,
-	}, s.actor); err != nil {
+	}, actor); err != nil {
 		return nativeStoreError(id, err)
 	}
 	return nil
@@ -1890,18 +1889,19 @@ func nativeIssueFromBead(b Bead) (*beadslib.Issue, error) {
 		issueType = "task"
 	}
 	issue := &beadslib.Issue{
-		ID:          b.ID,
-		Title:       b.Title,
-		Description: b.Description,
-		Status:      beadslib.Status(status),
-		IssueType:   beadslib.IssueType(issueType),
-		Assignee:    b.Assignee,
-		Sender:      b.From,
-		CreatedAt:   b.CreatedAt,
-		Labels:      append([]string(nil), b.Labels...),
-		Ephemeral:   b.Ephemeral,
-		NoHistory:   b.NoHistory,
-		DeferUntil:  cloneTimePtr(b.DeferUntil),
+		ID:                 b.ID,
+		Title:              b.Title,
+		Description:        b.Description,
+		AcceptanceCriteria: b.AcceptanceCriteria,
+		Status:             beadslib.Status(status),
+		IssueType:          beadslib.IssueType(issueType),
+		Assignee:           b.Assignee,
+		Sender:             b.From,
+		CreatedAt:          b.CreatedAt,
+		Labels:             append([]string(nil), b.Labels...),
+		Ephemeral:          b.Ephemeral,
+		NoHistory:          b.NoHistory,
+		DeferUntil:         cloneTimePtr(b.DeferUntil),
 	}
 	if b.Priority != nil {
 		issue.Priority = *b.Priority
@@ -1952,20 +1952,21 @@ func beadFromNativeIssue(issue *beadslib.Issue) (Bead, error) {
 		return Bead{}, fmt.Errorf("parsing metadata for bead %q: %w: %w", issue.ID, errNativeIssueMetadataParse, err)
 	}
 	b := Bead{
-		ID:          issue.ID,
-		Title:       issue.Title,
-		Status:      mapBdStatus(string(issue.Status)),
-		Type:        string(issue.IssueType),
-		Priority:    nativePriorityFromIssue(issue),
-		CreatedAt:   issue.CreatedAt,
-		Assignee:    issue.Assignee,
-		From:        issue.Sender,
-		Description: issue.Description,
-		Labels:      append([]string(nil), issue.Labels...),
-		Metadata:    metadata,
-		Ephemeral:   issue.Ephemeral,
-		NoHistory:   issue.NoHistory,
-		DeferUntil:  cloneTimePtr(issue.DeferUntil),
+		ID:                 issue.ID,
+		Title:              issue.Title,
+		Status:             mapBdStatus(string(issue.Status)),
+		Type:               string(issue.IssueType),
+		Priority:           nativePriorityFromIssue(issue),
+		CreatedAt:          issue.CreatedAt,
+		Assignee:           issue.Assignee,
+		From:               issue.Sender,
+		Description:        issue.Description,
+		AcceptanceCriteria: issue.AcceptanceCriteria,
+		Labels:             append([]string(nil), issue.Labels...),
+		Metadata:           metadata,
+		Ephemeral:          issue.Ephemeral,
+		NoHistory:          issue.NoHistory,
+		DeferUntil:         cloneTimePtr(issue.DeferUntil),
 	}
 	for _, dep := range issue.Dependencies {
 		if dep == nil {

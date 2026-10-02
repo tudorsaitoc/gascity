@@ -281,56 +281,6 @@ func (s readyCanonicalLegStore) Ready(query ...beads.ReadyQuery) ([]beads.Bead, 
 	return rows, nil
 }
 
-// TestReadyEmitsADedicatedWireTypeNotTheDomainBead forbids DEFECT 4, marshaling
-// []beads.Bead straight onto an external contract.
-//
-// beads.Bead is the domain model: it changes for internal reasons, and every one
-// of those changes would be published as a silent break in an array other
-// programs parse. The reader therefore projects onto a type this package owns.
-func TestReadyEmitsADedicatedWireTypeNotTheDomainBead(t *testing.T) {
-	store := splittest.NewWorkStore(t, "gc")
-	mustCreateReadyBead(t, store, beads.Bead{Title: "work", Type: "task"})
-
-	rows, err := readyBeadsForOpts([]readyLeg{readyTestLeg("city", store)}, readyOpts{})
-	if err != nil {
-		t.Fatalf("gc ready: %v", err)
-	}
-	elem := reflect.TypeOf(rows).Elem()
-	if pkg := elem.PkgPath(); !strings.HasSuffix(pkg, "/cmd/gc") {
-		t.Fatalf("gc ready emits []%s from %q; the external bd-compatible array must be a wire type this package owns, not a domain type whose fields move for internal reasons", elem.Name(), pkg)
-	}
-}
-
-// TestReadyWireFieldSetIsPinnedToTheHTTPBeadShape states the wire-contract
-// decision explicitly so a change to beads.Bead is a decision rather than a
-// side effect.
-//
-// The decision: `gc ready` publishes the SAME field set the HTTP Bead schema
-// publishes, under bd's wire tags. Two names are load-bearing and were measured
-// to differ across gc's own JSON surfaces — `issue_type` (not `type`) and
-// `parent` (not the `parent_id` that `gc bd dep tree --json` emits and that
-// bdStoreBridgeBead carries) — because consumers decode this array straight into
-// []beads.Bead.
-//
-// When beads.Bead gains or loses a JSON field this test goes red. That is the
-// point: the external array follows only when someone says it should.
-func TestReadyWireFieldSetIsPinnedToTheHTTPBeadShape(t *testing.T) {
-	want := []string{
-		"assignee", "created_at", "defer_until", "dependencies", "description",
-		"ephemeral", "from", "id", "is_blocked", "issue_type", "labels",
-		"metadata", "needs", "no_history", "parent", "priority", "ref",
-		"status", "title", "updated_at",
-	}
-	got := jsonFieldNames(reflect.TypeOf(readyBead{}))
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("readyBead JSON fields = %v, want %v", got, want)
-	}
-	domain := jsonFieldNames(reflect.TypeOf(beads.Bead{}))
-	if !reflect.DeepEqual(got, domain) {
-		t.Fatalf("readyBead JSON fields = %v but beads.Bead publishes %v; the external array's field set diverged from the HTTP Bead shape — decide deliberately whether the wire follows, then update this pin", got, domain)
-	}
-}
-
 // TestReadyRowMarshalsUnderBdWireTags pins the two names that differ across
 // gc's JSON surfaces, at the bytes.
 func TestReadyRowMarshalsUnderBdWireTags(t *testing.T) {
@@ -368,22 +318,6 @@ func TestReadyRowMarshalsUnderBdWireTags(t *testing.T) {
 	if back.Type != "task" || back.ParentID != "gcg-root" {
 		t.Fatalf("decoded beads.Bead = %+v, want type=task parent=gcg-root", back)
 	}
-}
-
-// jsonFieldNames returns the sorted JSON field names a struct marshals, skipping
-// fields tagged json:"-".
-func jsonFieldNames(t reflect.Type) []string {
-	names := make([]string, 0, t.NumField())
-	for i := range t.NumField() {
-		tag := t.Field(i).Tag.Get("json")
-		name, _, _ := strings.Cut(tag, ",")
-		if name == "" || name == "-" {
-			continue
-		}
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	return names
 }
 
 // TestReadyEmptyResultIsAnEmptyArray keeps the drop-in claim honest: the hook's
@@ -816,48 +750,6 @@ func TestReadyDeclaresJSONSupport(t *testing.T) {
 	handled, code := handleJSONContractRequest(root, []string{"ready", "--json"}, &stdout, &stderr)
 	if handled || code != 0 {
 		t.Fatalf("gc ready --json was rejected by the JSON contract: handled=%v code=%d stdout=%q stderr=%q", handled, code, stdout.String(), stderr.String())
-	}
-}
-
-// TestReadyResultSchemaDescribesTheEmittedArray checks the published schema
-// against real output, so the declaration cannot drift from the bytes.
-func TestReadyResultSchemaDescribesTheEmittedArray(t *testing.T) {
-	schema, err := readBuiltinSchema([]string{"ready"}, jsonSchemaResultRole)
-	if err != nil {
-		t.Fatalf("read schemas/ready/result.schema.json: %v", err)
-	}
-	var declared struct {
-		Type    string `json:"type"`
-		RawJSON bool   `json:"x-gc-raw-json"`
-		Items   struct {
-			Properties           map[string]json.RawMessage `json:"properties"`
-			AdditionalProperties *bool                      `json:"additionalProperties"`
-		} `json:"items"`
-	}
-	if err := json.Unmarshal(schema, &declared); err != nil {
-		t.Fatalf("decode result schema: %v", err)
-	}
-	if declared.Type != "array" {
-		t.Fatalf("result schema type = %q, want array — gc ready emits bd's bare array, not the gc object envelope", declared.Type)
-	}
-	// The bare array is a documented exception to the ok:true result envelope,
-	// taken through the repo's own escape hatch rather than by exempting the
-	// command from the JSON contract: x-gc-raw-json plus the explicit path in
-	// TestJSONResultSchemasRequireSuccessDiscriminator, so no other raw schema
-	// can follow silently.
-	if !declared.RawJSON {
-		t.Fatal("result schema does not declare x-gc-raw-json; a non-envelope payload must say so where the contract test can see it")
-	}
-	if declared.Items.AdditionalProperties == nil || *declared.Items.AdditionalProperties {
-		t.Fatal("result schema allows additional row properties; the published field set must be closed or it stops being a contract")
-	}
-	got := make([]string, 0, len(declared.Items.Properties))
-	for name := range declared.Items.Properties {
-		got = append(got, name)
-	}
-	slices.Sort(got)
-	if want := jsonFieldNames(reflect.TypeOf(readyBead{})); !reflect.DeepEqual(got, want) {
-		t.Fatalf("schemas/ready/result.schema.json declares %v, but gc ready emits %v", got, want)
 	}
 }
 

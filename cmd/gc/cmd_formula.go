@@ -603,6 +603,8 @@ func formulaShowJSONFromRecipe(recipe *formula.Recipe, cityPath string, scope fo
 	return out
 }
 
+var formulaCookOpenStoreAtForCity = openStoreAtForCity
+
 func newFormulaCookCmd(stdout, stderr io.Writer) *cobra.Command {
 	var title string
 	var vars []string
@@ -651,7 +653,7 @@ cross-class. Attach a v1 formula to that bead instead.`,
 			if err != nil {
 				return formulaCommandError(stderr, "gc formula cook", jsonOutput, err)
 			}
-			store, err := openStoreAtForCity(scope.storeRoot, cityPath)
+			store, err := formulaCookOpenStoreAtForCity(scope.storeRoot, cityPath)
 			if err != nil {
 				return formulaCommandError(stderr, "gc formula cook", jsonOutput, err)
 			}
@@ -754,6 +756,11 @@ cross-class. Attach a v1 formula to that bead instead.`,
 						return formulaCommandError(stderr, "gc formula cook", jsonOutput, fmt.Errorf(
 							"--attach %s: %s is owned by the relocated class binding, and a graph.v2 formula's synthetic input convoy is a work bead — it can live neither there (a work-class bead in the infra ledger) nor in the work ledger (its `tracks` edge to %s would be cross-class, which convoy.TrackItemIn refuses); grafting a graph.v2 formula onto a class-owned bead needs a cross-class membership edge: ga-2orlf. A v1 formula attaches to %s today",
 							attach, attach, attach, attach))
+					}
+					// Preparing a bare target creates its input convoy. Refuse before
+					// that write, not after a graph candidate fails activation.
+					if _, ok := beads.GuardedUpdateWriterFor(store); !ok {
+						return formulaCommandError(stderr, "gc formula cook", jsonOutput, fmt.Errorf("graph.v2 cook requires guarded activation: %w", beads.ErrConditionalWriteUnsupported))
 					}
 					// Past the refusal attachStore IS store, so this arm runs
 					// on the one store it always did and its execution-fact
@@ -935,6 +942,11 @@ cross-class. Attach a v1 formula to that bead instead.`,
 			isGraphFormula, _, err := graphv2.IsGraphV2Formula(args[0], scope.searchPaths)
 			if err != nil {
 				return formulaCommandError(stderr, "gc formula cook", jsonOutput, fmt.Errorf("load formula %q: %w", args[0], err))
+			}
+			if isGraphFormula {
+				if _, ok := beads.GuardedUpdateWriterFor(graphStore); !ok {
+					return formulaCommandError(stderr, "gc formula cook", jsonOutput, fmt.Errorf("graph.v2 cook requires guarded activation: %w", beads.ErrConditionalWriteUnsupported))
+				}
 			}
 			inv, err := graphv2.PrepareInvocation(cmd.Context(), store, args[0], scope.searchPaths, "", cookVars)
 			if err != nil {

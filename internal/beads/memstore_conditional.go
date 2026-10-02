@@ -2,6 +2,8 @@ package beads
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 )
 
@@ -121,4 +123,75 @@ func (m *MemStore) CompareAndSetMetadataKey(id, key, expected, next string) (boo
 	m.beads[i].UpdatedAt = time.Now()
 	m.beads[i].Revision++
 	return true, nil
+}
+
+// UpdateGuarded models the native field fence in the in-memory test double.
+func (m *MemStore) UpdateGuarded(id string, opts UpdateOpts, conditions UpdateConditions) (bool, error) {
+	for key := range conditions.SetMetadataIfAbsent {
+		if _, exists := opts.Metadata[key]; exists {
+			return false, fmt.Errorf("metadata key %q has both a set and an if-absent write", key)
+		}
+	}
+	for _, key := range conditions.UnsetMetadata {
+		if _, exists := opts.Metadata[key]; exists {
+			return false, fmt.Errorf("metadata key %q has both a set and an unset write", key)
+		}
+		if _, exists := conditions.SetMetadataIfAbsent[key]; exists {
+			return false, fmt.Errorf("metadata key %q has both an if-absent and an unset write", key)
+		}
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.DisableConditionalWrites {
+		return false, ErrConditionalWriteUnsupported
+	}
+	i := m.indexOfLocked(id)
+	if i < 0 {
+		return false, fmt.Errorf("updating bead %q: %w", id, ErrNotFound)
+	}
+	current := m.beads[i]
+	if conditions.Status != nil && current.Status != *conditions.Status ||
+		conditions.Assignee != nil && current.Assignee != *conditions.Assignee ||
+		conditions.Title != nil && current.Title != *conditions.Title ||
+		conditions.Description != nil && current.Description != *conditions.Description ||
+		conditions.AcceptanceCriteria != nil && current.AcceptanceCriteria != *conditions.AcceptanceCriteria {
+		return false, nil
+	}
+	if conditions.Labels != nil {
+		if len(current.Labels) != len(*conditions.Labels) {
+			return false, nil
+		}
+		for _, label := range current.Labels {
+			if !slices.Contains(*conditions.Labels, label) {
+				return false, nil
+			}
+		}
+	}
+	for key, expected := range conditions.Metadata {
+		if current.Metadata[key] != expected {
+			return false, nil
+		}
+	}
+	if len(conditions.SetMetadataIfAbsent) != 0 {
+		opts.Metadata = maps.Clone(opts.Metadata)
+		if opts.Metadata == nil {
+			opts.Metadata = make(map[string]string, len(conditions.SetMetadataIfAbsent))
+		}
+		for key, value := range conditions.SetMetadataIfAbsent {
+			if current.Metadata[key] == "" {
+				opts.Metadata[key] = value
+			}
+		}
+	}
+	m.applyUpdateLocked(i, opts)
+	for _, key := range conditions.UnsetMetadata {
+		if key != RefineryDecisionAtKey || m.beads[i].Metadata[key] == "" {
+			delete(m.beads[i].Metadata, key)
+		}
+	}
+	return true, nil
+}
+
+func (fs *FileStore) UpdateGuarded(_ string, _ UpdateOpts, _ UpdateConditions) (bool, error) {
+	return false, ErrConditionalWriteUnsupported
 }

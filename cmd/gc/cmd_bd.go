@@ -359,6 +359,23 @@ func doBd(args []string, stdout, stderr io.Writer) int {
 	if runWorkRecordCloseGate(bdArgs, target.ScopeRoot, cityPath, cfg, guardStore, guardBeads, stderr) {
 		return 1
 	}
+	if nativeBdUpdateRequested(bdArgs) {
+		op, rejected, ok := parseNativeBdUpdate(bdArgs)
+		if !ok {
+			fmt.Fprintf(stderr, "gc bd update: unsupported or invalid transactional update argument %q; refusing unchecked mutation\n", rejected) //nolint:errcheck
+			return 1
+		}
+		store := guardStore
+		if store == nil {
+			var err error
+			store, err = openStoreAtForCityWithConfig(target.ScopeRoot, cityPath, cfg)
+			if err != nil {
+				fmt.Fprintf(stderr, "gc bd update: opening guarded store: %v\n", err) //nolint:errcheck
+				return 1
+			}
+		}
+		return doBdGuardedUpdate(store, op, "", stdout, stderr)
+	}
 
 	reapStaleBdExportJSONL(target.ScopeRoot)
 	warnExternalBdOverrideDrift(stderr, cityPath, target)

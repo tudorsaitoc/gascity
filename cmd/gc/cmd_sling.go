@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -74,6 +75,9 @@ func newSlingCmd(stdout, stderr io.Writer) *cobra.Command {
 	var scopeKind string
 	var scopeRef string
 	var jsonOutput bool
+	var ifStatus, ifAssignee, ifLabelsJSON string
+	var ifTitle, ifDescription, ifAcceptance string
+	var ifMetadata []string
 	cmd := &cobra.Command{
 		Use:   "sling [target] <bead-or-formula-or-text>",
 		Short: "Route work to a session config or agent",
@@ -105,7 +109,7 @@ Examples:
   gc sling mayor code-review --formula      # instantiate formula, route its root
   echo "fix login" | gc sling mayor --stdin # read bead text from stdin`,
 		Args: cobra.ArbitraryArgs,
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			argError := func(message string) error {
 				if jsonOutput {
 					return exitForCode(writeJSONError(stdout, stderr, "invalid_arguments", message, 1))
@@ -132,24 +136,50 @@ Examples:
 			if scopeKind != "" && scopeKind != "city" && scopeKind != "rig" {
 				return argError("gc sling: --scope-kind must be city or rig")
 			}
-			code := 0
-			if jsonOutput {
-				code = cmdSlingWithJSON(args, formula, nudge, force, title, vars, merge, noConvoy, owned, reassign, onFormula, noFormula, fromStdin, dryRun, scopeKind, scopeRef, true, stdout, stderr)
-			} else {
-				code = cmdSling(args, formula, nudge, force, title, vars, merge, noConvoy, owned, reassign, onFormula, noFormula, fromStdin, dryRun, scopeKind, scopeRef, stdout, stderr)
+			var conditions *beads.UpdateConditions
+			if cmd.Flags().Changed("if-status") || cmd.Flags().Changed("if-assignee") || cmd.Flags().Changed("if-title") || cmd.Flags().Changed("if-description") || cmd.Flags().Changed("if-acceptance") || cmd.Flags().Changed("if-labels-json") || len(ifMetadata) != 0 {
+				conditions = &beads.UpdateConditions{}
+				if cmd.Flags().Changed("if-status") {
+					conditions.Status = &ifStatus
+				}
+				if cmd.Flags().Changed("if-assignee") {
+					conditions.Assignee = &ifAssignee
+				}
+				if cmd.Flags().Changed("if-title") {
+					conditions.Title = &ifTitle
+				}
+				if cmd.Flags().Changed("if-description") {
+					conditions.Description = &ifDescription
+				}
+				if cmd.Flags().Changed("if-acceptance") {
+					conditions.AcceptanceCriteria = &ifAcceptance
+				}
+				if cmd.Flags().Changed("if-labels-json") {
+					var labels []string
+					if err := json.Unmarshal([]byte(ifLabelsJSON), &labels); err != nil || labels == nil {
+						return argError("gc sling: --if-labels-json requires an exact JSON string array")
+					}
+					conditions.Labels = &labels
+				}
+				var err error
+				conditions.Metadata, err = parseSlingVars(ifMetadata)
+				if err != nil {
+					return argError("gc sling: --if-metadata: " + err.Error())
+				}
 			}
+			code := cmdSlingWithJSON(args, formula, nudge, force, title, vars, merge, noConvoy, owned, reassign, onFormula, noFormula, fromStdin, dryRun, scopeKind, scopeRef, jsonOutput, conditions, stdout, stderr)
 			return exitForCode(code)
 		},
 	}
 	cmd.Flags().BoolVarP(&formula, "formula", "f", false, "treat argument as formula name")
 	cmd.Flags().BoolVar(&nudge, "nudge", false, "nudge target after routing")
-	cmd.Flags().BoolVar(&force, "force", false, "suppress warnings, allow cross-rig routing, allow formulas v2 workflow replacement, and for direct bead routes dispatch even if the bead does not resolve in the local store")
+	cmd.Flags().BoolVar(&force, "force", false, "allow cross-rig routing and graph workflow replacement; never bypass current holds or ownership conditions")
 	cmd.Flags().StringVarP(&title, "title", "t", "", "wisp root bead title (with --formula or --on)")
 	cmd.Flags().StringArrayVar(&vars, "var", nil, "variable substitution for formula (key=value, repeatable)")
 	cmd.Flags().StringVar(&merge, "merge", "", "merge strategy: direct, mr, or local")
 	cmd.Flags().BoolVar(&noConvoy, "no-convoy", false, "skip auto-convoy creation")
 	cmd.Flags().BoolVar(&owned, "owned", false, "mark auto-convoy as owned (skip auto-close)")
-	cmd.Flags().BoolVar(&reassign, "reassign", false, "clear any existing human assignee before routing (for human→pool handoff)")
+	cmd.Flags().BoolVar(&reassign, "reassign", false, "clear the current assignee in the guarded route commit (for human→pool handoff)")
 	cmd.Flags().StringVar(&onFormula, "on", "", "attach wisp from formula to bead before routing")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "show what would be done without executing")
 	cmd.Flags().BoolVar(&noFormula, "no-formula", false, "suppress default formula (route raw bead)")
@@ -157,6 +187,13 @@ Examples:
 	cmd.Flags().StringVar(&scopeKind, "scope-kind", "", "logical workflow scope kind for formulas v2 launches")
 	cmd.Flags().StringVar(&scopeRef, "scope-ref", "", "logical workflow scope ref for formulas v2 launches")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output dispatch result in JSON format")
+	cmd.Flags().StringVar(&ifStatus, "if-status", "", "require this exact canonical status at route commit")
+	cmd.Flags().StringVar(&ifAssignee, "if-assignee", "", "require this exact canonical assignee at route commit (empty is meaningful)")
+	cmd.Flags().StringArrayVar(&ifMetadata, "if-metadata", nil, "require canonical metadata key=value at route commit (repeatable; empty matches absent)")
+	cmd.Flags().StringVar(&ifLabelsJSON, "if-labels-json", "", "require this exact unordered canonical label snapshot as a JSON string array")
+	cmd.Flags().StringVar(&ifTitle, "if-title", "", "require this exact original source title at route commit")
+	cmd.Flags().StringVar(&ifDescription, "if-description", "", "require this exact original source description at route commit")
+	cmd.Flags().StringVar(&ifAcceptance, "if-acceptance", "", "require these exact original native acceptance criteria at route commit")
 	cmd.MarkFlagsMutuallyExclusive("formula", "on")
 	cmd.MarkFlagsMutuallyExclusive("no-formula", "formula")
 	cmd.MarkFlagsMutuallyExclusive("no-formula", "on")
@@ -173,6 +210,7 @@ var (
 	slingPokeController        = pokeController
 	slingPokeControlDispatcher = pokeControlDispatch
 	slingOpenCityStore         = openCityStoreAt
+	slingOpenStoreAtForCity    = openAuthoritativeStoreAtForCity
 )
 
 // slingDeps is an alias for sling.SlingDeps.
@@ -284,7 +322,7 @@ func readSlingStdinBead() (title, description, errCode, errMsg string) {
 // cmdSlingWithJSON. On failure it returns a non-empty (errCode, errMsg) pair.
 func openSlingStore(cfg *config.City, cityPath, beadOrFormula string, sourceBead existingSlingSourceBead, a config.Agent) (storeDir string, store beads.Store, errCode, errMsg string) {
 	if sourceBead.exists {
-		s, err := openAuthoritativeStoreAtForCity(sourceBead.storeDir, cityPath)
+		s, err := slingOpenStoreAtForCity(sourceBead.storeDir, cityPath)
 		if err != nil {
 			return "", nil, "store_open_failed", fmt.Sprintf("gc sling: opening store %s: %v", sourceBead.storeDir, err)
 		}
@@ -368,10 +406,10 @@ func resolveSlingTargetAndBead(cfg *config.City, cityPath string, args []string,
 
 // cmdSling is the CLI entry point for gc sling.
 func cmdSling(args []string, isFormula, doNudge, force bool, title string, vars []string, merge string, noConvoy, owned, reassign bool, onFormula string, noFormula, fromStdin, dryRun bool, scopeKind, scopeRef string, stdout, stderr io.Writer) int {
-	return cmdSlingWithJSON(args, isFormula, doNudge, force, title, vars, merge, noConvoy, owned, reassign, onFormula, noFormula, fromStdin, dryRun, scopeKind, scopeRef, false, stdout, stderr)
+	return cmdSlingWithJSON(args, isFormula, doNudge, force, title, vars, merge, noConvoy, owned, reassign, onFormula, noFormula, fromStdin, dryRun, scopeKind, scopeRef, false, nil, stdout, stderr)
 }
 
-func cmdSlingWithJSON(args []string, isFormula, doNudge, force bool, title string, vars []string, merge string, noConvoy, owned, reassign bool, onFormula string, noFormula, fromStdin, dryRun bool, scopeKind, scopeRef string, jsonOutput bool, stdout, stderr io.Writer) int {
+func cmdSlingWithJSON(args []string, isFormula, doNudge, force bool, title string, vars []string, merge string, noConvoy, owned, reassign bool, onFormula string, noFormula, fromStdin, dryRun bool, scopeKind, scopeRef string, jsonOutput bool, conditions *beads.UpdateConditions, stdout, stderr io.Writer) int {
 	humanStdout := stdout
 	if jsonOutput {
 		humanStdout = io.Discard
@@ -397,7 +435,7 @@ func cmdSlingWithJSON(args []string, isFormula, doNudge, force bool, title strin
 		return fail("city_resolve_failed", fmt.Sprintf("gc sling: %v", rerr))
 	}
 	if isRemote {
-		return cmdSlingRemote(remoteC, remoteTgt, args, isFormula, doNudge, force, title, vars, merge, noConvoy, owned, reassign, onFormula, noFormula, fromStdin, dryRun, scopeKind, scopeRef, jsonOutput, stdout, stderr)
+		return cmdSlingRemote(remoteC, remoteTgt, args, isFormula, doNudge, force, title, vars, merge, noConvoy, owned, reassign, onFormula, noFormula, fromStdin, dryRun, scopeKind, scopeRef, jsonOutput, conditions, stdout, stderr)
 	}
 	// --stdin: read bead text from stdin early (before city resolution)
 	// so errors are reported immediately. First line = title, rest = description.
@@ -456,6 +494,14 @@ func cmdSlingWithJSON(args []string, isFormula, doNudge, force bool, title strin
 		fmt.Fprintf(stderr, "gc sling: building store env: %v\n", err) //nolint:errcheck // best-effort stderr
 		return 1
 	}
+	if conditions != nil {
+		if isFormula || fromStdin {
+			return fail("invalid_arguments", "guarded dispatch requires an existing receipt bead; attach formulas with --on")
+		}
+		if _, err := beads.HandlesFor(store).Live.Get(beadOrFormula); err != nil {
+			return fail("receipt_bead_unreadable", fmt.Sprintf("guarded dispatch receipt bead: %v", err))
+		}
+	}
 	var inlineText bool
 	beadOrFormula, inlineText, errCode, errMsg = applySlingInlineBead(cfg, beadOrFormula, isFormula, dryRun, sourceBead, store, storeRef, stdinDescription, humanStdout, stderr)
 	if errCode != "" {
@@ -480,6 +526,7 @@ func cmdSlingWithJSON(args []string, isFormula, doNudge, force bool, title strin
 		InlineText:    inlineText,
 		ScopeKind:     scopeKind,
 		ScopeRef:      scopeRef,
+		Conditions:    conditions,
 	}
 	runner := SlingRunner(shellSlingRunner)
 	if len(storeEnv) > 0 {
@@ -511,7 +558,7 @@ func cmdSlingWithJSON(args []string, isFormula, doNudge, force bool, title strin
 			stores, skips, err := openSourceWorkflowStoresWithProvider(cfg, cityPath, "", func(scopeRoot string) string {
 				return authoritativeBeadsProviderForScope(scopeRoot, cityPath)
 			}, func(dir string) (beads.Store, error) {
-				return openAuthoritativeStoreAtForCity(dir, cityPath)
+				return slingOpenStoreAtForCity(dir, cityPath)
 			})
 			unscannedSkips, selectedRecovered := unscannedSourceWorkflowStoreSkips(cfg, cityPath, storeRef, skips)
 			if err != nil && !selectedRecovered {
@@ -633,7 +680,7 @@ func resolveSlingStoreRoot(cfg *config.City, cityPath, beadOrFormula string, a c
 
 func openSlingStoreForSource(cfg *config.City, cityPath, beadOrFormula string, a config.Agent) (string, beads.Store, error) {
 	storeDir := resolveSlingStoreRoot(cfg, cityPath, beadOrFormula, a)
-	store, err := openAuthoritativeStoreAtForCity(storeDir, cityPath)
+	store, err := slingOpenStoreAtForCity(storeDir, cityPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("opening store %s: %w", storeDir, err)
 	}
@@ -652,7 +699,7 @@ func probeExistingSlingSourceBead(cfg *config.City, cityPath, beadID string) (ex
 	if !ok {
 		return existingSlingSourceBead{}, nil
 	}
-	store, err := openAuthoritativeStoreAtForCity(storeDir, cityPath)
+	store, err := slingOpenStoreAtForCity(storeDir, cityPath)
 	if err != nil {
 		return existingSlingSourceBead{}, fmt.Errorf("opening store %s: %w", storeDir, err)
 	}
@@ -752,31 +799,11 @@ type cliBeadRouter struct {
 	deps *slingDeps
 }
 
-func (r cliBeadRouter) Route(_ context.Context, req sling.RouteRequest) error {
+func (r cliBeadRouter) Route(ctx context.Context, req sling.RouteRequest) error {
 	if r.deps == nil {
 		return fmt.Errorf("sling router: missing dependencies")
 	}
-	if r.deps.Cfg != nil {
-		if agentCfg, ok := findAgentByQualified(r.deps.Cfg, req.Target); ok && isCustomSlingQuery(agentCfg) {
-			if r.deps.Runner == nil {
-				return fmt.Errorf("custom sling_query requires a runner")
-			}
-			slingCmd, _ := sling.BuildSlingCommandForAgent("sling_query", agentCfg.EffectiveSlingQuery(), req.BeadID, r.deps.CityPath, r.deps.CityName, agentCfg, r.deps.Cfg.Rigs)
-			_, err := r.deps.Runner(req.WorkDir, slingCmd, req.Env)
-			return err
-		}
-	}
-	if r.deps.Store == nil {
-		return fmt.Errorf("built-in sling routing requires a store")
-	}
-	routedTo := req.Target
-	if r.deps.Cfg != nil {
-		routedTo = agentutil.NormalizePoolRouteTarget(r.deps.Cfg, req.Target)
-	}
-	if err := r.deps.Store.SetMetadata(req.BeadID, beadmeta.RoutedToMetadataKey, routedTo); err != nil {
-		return fmt.Errorf("setting gc.routed_to on %s: %w", req.BeadID, err)
-	}
-	return nil
+	return sling.CommitRoute(ctx, r.deps.Store, r.deps.Cfg, r.deps.CityPath, req)
 }
 
 // printSlingWarnings prints only warnings from a SlingResult to stderr.
@@ -940,6 +967,11 @@ func doSling(opts slingOpts, deps slingDeps, querier BeadQuerier, stdout, stderr
 	// even when the operation fails -- they provide context for the error.
 	printSlingWarnings(result, stderr)
 	if err != nil {
+		var routeConflict *sling.RouteConflictError
+		if errors.As(err, &routeConflict) {
+			fmt.Fprintln(stderr, err) //nolint:errcheck
+			return 13
+		}
 		var conflictErr *sourceworkflow.ConflictError
 		if errors.As(err, &conflictErr) {
 			printSourceWorkflowConflict(stderr, conflictErr, deps.StoreRef)
@@ -998,6 +1030,7 @@ func doSlingBatchWithJSON(opts slingOpts, deps slingDeps, querier BeadChildQueri
 			DryRun:     opts.DryRun,
 			InlineText: opts.InlineText,
 			NoFormula:  opts.NoFormula,
+			Conditions: opts.Conditions,
 		}, querier)
 	}
 	// Print warnings before error check so they're visible on failure.
@@ -1012,6 +1045,17 @@ func doSlingBatchWithJSON(opts slingOpts, deps slingDeps, querier BeadChildQueri
 		}
 	}
 	if err != nil {
+		var routeConflict *sling.RouteConflictError
+		if errors.As(err, &routeConflict) {
+			if jsonOutput {
+				return writeJSONError(jsonStdout, stderr, "route_conflict", err.Error(), 13)
+			}
+			fmt.Fprintln(stderr, err) //nolint:errcheck
+			return 13
+		}
+		if jsonOutput && errors.Is(err, beads.ErrConditionalWriteUnsupported) {
+			return writeJSONError(jsonStdout, stderr, "guard_unsupported", err.Error(), 1)
+		}
 		// Batch can surface multiple typed conflicts (one per conflicted
 		// child) via errors.Join. Walking the tree renders a cleanup
 		// hint per affected source bead so a user with N conflicting

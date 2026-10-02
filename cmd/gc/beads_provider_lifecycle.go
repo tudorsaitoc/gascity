@@ -1518,14 +1518,11 @@ func managedDoltRuntimeProcessOwned(state doltRuntimeState, layout managedDoltRu
 	if holderPID > 0 && holderPID != state.PID {
 		return false
 	}
-	owned, deleted := inspectManagedDoltOwnership(state.PID, layout)
-	if deleted {
-		return false
-	}
 	if holderPID == state.PID {
-		return true
+		return !processHasDeletedDataInodes(state.PID, layout.DataDir)
 	}
-	return owned
+	owned, deleted := inspectManagedDoltOwnership(state.PID, layout)
+	return owned && !deleted
 }
 
 func pidAlive(pid int) bool {

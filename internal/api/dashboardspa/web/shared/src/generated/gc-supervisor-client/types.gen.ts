@@ -273,6 +273,7 @@ export type BackendCredentialResolvedPayload = {
 };
 
 export type Bead = {
+    acceptance_criteria?: string;
     assignee?: string;
     created_at: string;
     defer_until?: string;
@@ -4445,13 +4446,43 @@ export type SlingInputBody = {
      */
     bead?: string;
     /**
-     * Bypass cross-rig guards; for direct bead routes, also bypass missing-bead validation. Formula-backed graph routes may replace existing live workflow roots but still require the source bead to exist.
+     * Allow cross-rig routing and graph workflow replacement without bypassing current holds, unreadable receipt beads, or ownership conditions.
      */
     force?: boolean;
     /**
      * Formula name for workflow launch.
      */
     formula?: string;
+    /**
+     * Exact original native acceptance criteria required at route commit.
+     */
+    if_acceptance?: string;
+    /**
+     * Exact canonical assignee required at route commit; an empty string requires unowned work.
+     */
+    if_assignee?: string;
+    /**
+     * Exact original canonical description required at route commit.
+     */
+    if_description?: string;
+    /**
+     * Exact unordered canonical label snapshot required by the same route transaction; an empty array requires no labels.
+     */
+    if_labels?: Array<string>;
+    /**
+     * Canonical metadata equality predicates consumed by the same route transaction; an empty value matches absent.
+     */
+    if_metadata?: {
+        [key: string]: string;
+    };
+    /**
+     * Exact canonical status required at the native route commit.
+     */
+    if_status?: string;
+    /**
+     * Exact original canonical title required at route commit.
+     */
+    if_title?: string;
     /**
      * Merge strategy: direct, mr, or local.
      */
@@ -4469,7 +4500,7 @@ export type SlingInputBody = {
      */
     owned?: boolean;
     /**
-     * Clear any existing human assignee on the bead before routing, so a bead claimed via bd update --claim is handed to the target's pool.
+     * Clear the current assignee in the guarded route transaction, handing the bead to the target's claim path.
      */
     reassign?: boolean;
     /**
@@ -17881,6 +17912,10 @@ export type PostV0CityByCityNameSlingErrors = {
      * Internal Server Error
      */
     500: ErrorModel;
+    /**
+     * Service Unavailable
+     */
+    503: ErrorModel;
 };
 
 export type PostV0CityByCityNameSlingError = PostV0CityByCityNameSlingErrors[keyof PostV0CityByCityNameSlingErrors];

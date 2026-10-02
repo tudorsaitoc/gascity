@@ -23,11 +23,18 @@ type SlingInput struct {
 		Vars           map[string]string `json:"vars,omitempty" doc:"Formula variables."`
 		ScopeKind      string            `json:"scope_kind,omitempty" doc:"Scope kind (city or rig)."`
 		ScopeRef       string            `json:"scope_ref,omitempty" doc:"Scope reference."`
-		Force          bool              `json:"force,omitempty" doc:"Bypass cross-rig guards; for direct bead routes, also bypass missing-bead validation. Formula-backed graph routes may replace existing live workflow roots but still require the source bead to exist."`
-		Reassign       bool              `json:"reassign,omitempty" doc:"Clear any existing human assignee on the bead before routing, so a bead claimed via bd update --claim is handed to the target's pool."`
+		Force          bool              `json:"force,omitempty" doc:"Allow cross-rig routing and graph workflow replacement without bypassing current holds, unreadable receipt beads, or ownership conditions."`
+		Reassign       bool              `json:"reassign,omitempty" doc:"Clear the current assignee in the guarded route transaction, handing the bead to the target's claim path."`
 		Merge          string            `json:"merge,omitempty" doc:"Merge strategy: direct, mr, or local."`
 		NoConvoy       bool              `json:"no_convoy,omitempty" doc:"Do not create an auto-convoy for the routed bead."`
 		Owned          bool              `json:"owned,omitempty" doc:"Mark the routed bead as owned by the target."`
 		NoFormula      bool              `json:"no_formula,omitempty" doc:"Suppress the target's default_sling_formula even when configured."`
+		IfStatus       *string           `json:"if_status,omitempty" doc:"Exact canonical status required at the native route commit."`
+		IfAssignee     *string           `json:"if_assignee,omitempty" doc:"Exact canonical assignee required at route commit; an empty string requires unowned work."`
+		IfMetadata     map[string]string `json:"if_metadata,omitempty" doc:"Canonical metadata equality predicates consumed by the same route transaction; an empty value matches absent."`
+		IfLabels       *[]string         `json:"if_labels,omitempty" doc:"Exact unordered canonical label snapshot required by the same route transaction; an empty array requires no labels."`
+		IfTitle        *string           `json:"if_title,omitempty" doc:"Exact original canonical title required at route commit."`
+		IfDescription  *string           `json:"if_description,omitempty" doc:"Exact original canonical description required at route commit."`
+		IfAcceptance   *string           `json:"if_acceptance,omitempty" doc:"Exact original native acceptance criteria required at route commit."`
 	}
 }

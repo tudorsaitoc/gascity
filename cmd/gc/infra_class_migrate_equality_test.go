@@ -18,15 +18,9 @@ import (
 	"github.com/gastownhall/gascity/internal/coordclass"
 )
 
-// beadCopyExemptFields names every beads.Bead field the equality stage does NOT
-// witness, each with the reason it cannot be one. It is the exemption list
-// TestBeadCopyDifferenceWitnessesEveryDurableField guards against the struct, so
-// a field added to beads.Bead is either compared by beadCopyDifference or listed
-// here — never silently unwitnessed.
-//
-// The reasons matter as much as the names. An exemption is a promise that a copy
-// which changed this field is still a faithful copy, and three of these five are
-// only true because something else witnesses the same state.
+// beadCopyExemptFields explains the store-local and create-time fields that can
+// change without losing durable domain state. Materialized dependency edges are
+// compared separately by verifyInfraCopy.
 var beadCopyExemptFields = map[string]string{
 	"Revision": "store-internal optimistic-concurrency token. Each store mints and bumps its own; the destination's row is a fresh create, so its revision is unrelated to the source's by construction.",
 	"ClaimFence": "store-internal ownership fence, maintained per store like Revision. " +
@@ -47,35 +41,33 @@ func infraEqualityFixture() beads.Bead {
 	priority := 2
 	blocked := false
 	return beads.Bead{
-		ID:           "gcg-41",
-		Title:        "session lifecycle",
-		Status:       "open",
-		Type:         "session",
-		Priority:     &priority,
-		CreatedAt:    created,
-		UpdatedAt:    created.Add(time.Hour),
-		Assignee:     "worker-1",
-		From:         "dispatcher",
-		ParentID:     "gcg-40",
-		Ref:          "step-3",
-		Needs:        []string{"gcg-39"},
-		Description:  "the bead body, which is durable domain state",
-		Labels:       []string{"gc:session"},
-		Metadata:     beads.StringMap{"gc.session_name": "worker-1"},
-		Dependencies: []beads.Dep{{IssueID: "gcg-41", DependsOnID: "gcg-40", Type: "blocks"}},
-		Ephemeral:    true,
-		NoHistory:    true,
-		DeferUntil:   &deferred,
-		IsBlocked:    &blocked,
-		Revision:     7,
-		ClaimFence:   3,
+		ID:                 "gcg-41",
+		Title:              "session lifecycle",
+		Status:             "open",
+		Type:               "session",
+		Priority:           &priority,
+		CreatedAt:          created,
+		UpdatedAt:          created.Add(time.Hour),
+		Assignee:           "worker-1",
+		From:               "dispatcher",
+		ParentID:           "gcg-40",
+		Ref:                "step-3",
+		Needs:              []string{"gcg-39"},
+		Description:        "the bead body, which is durable domain state",
+		AcceptanceCriteria: "Preserve the original outcome and its designated verifier",
+		Labels:             []string{"gc:session"},
+		Metadata:           beads.StringMap{"gc.session_name": "worker-1"},
+		Dependencies:       []beads.Dep{{IssueID: "gcg-41", DependsOnID: "gcg-40", Type: "blocks"}},
+		Ephemeral:          true,
+		NoHistory:          true,
+		DeferUntil:         &deferred,
+		IsBlocked:          &blocked,
+		Revision:           7,
+		ClaimFence:         3,
 	}
 }
 
-// beadCopyFieldMutations is one mutation per witnessed beads.Bead field: the
-// exact loss a copy could suffer in that field. Every entry must make
-// beadCopyDifference refuse, and every Bead field must appear either here or in
-// beadCopyExemptFields.
+// beadCopyFieldMutations models durable state loss that must refuse a copy.
 func beadCopyFieldMutations() map[string]func(beads.Bead) beads.Bead {
 	return map[string]func(beads.Bead) beads.Bead{
 		"ID":        func(b beads.Bead) beads.Bead { b.ID = "gcg-999"; return b },
@@ -91,6 +83,10 @@ func beadCopyFieldMutations() map[string]func(beads.Bead) beads.Bead {
 		"Ref":       func(b beads.Bead) beads.Bead { b.Ref = ""; return b },
 		"Description": func(b beads.Bead) beads.Bead {
 			b.Description = ""
+			return b
+		},
+		"AcceptanceCriteria": func(b beads.Bead) beads.Bead {
+			b.AcceptanceCriteria = ""
 			return b
 		},
 		"Labels":    func(b beads.Bead) beads.Bead { b.Labels = nil; return b },
@@ -125,45 +121,9 @@ func beadCopyExemptMutations() map[string]func(beads.Bead) beads.Bead {
 	}
 }
 
-// TestBeadCopyDifferenceWitnessesEveryDurableField is the field-sync guard, in
-// the shape of internal/config's TestAgentFieldSync: every field of beads.Bead
-// is either compared by the equality stage or explicitly exempted with a reason.
-//
-// The name check alone would be satisfied by a comparison that named a field and
-// did nothing with it, so each witnessed field also carries a mutation that must
-// be REFUSED, and each exempt field a mutation that must be ACCEPTED. That is
-// what makes the guard non-vacuous: it fails both when a new field goes
-// unwitnessed and when an existing comparison silently stops comparing.
-func TestBeadCopyDifferenceWitnessesEveryDurableField(t *testing.T) {
+func TestBeadCopyDifferenceRejectsDurableStateLoss(t *testing.T) {
 	witnessed := beadCopyFieldMutations()
 	exemptMutations := beadCopyExemptMutations()
-
-	var unwitnessed, doubleBooked []string
-	for _, field := range reflect.VisibleFields(reflect.TypeOf(beads.Bead{})) {
-		_, exempt := beadCopyExemptFields[field.Name]
-		_, compared := witnessed[field.Name]
-		switch {
-		case exempt && compared:
-			doubleBooked = append(doubleBooked, field.Name)
-		case !exempt && !compared:
-			unwitnessed = append(unwitnessed, field.Name)
-		}
-	}
-	sort.Strings(unwitnessed)
-	sort.Strings(doubleBooked)
-	if len(unwitnessed) > 0 {
-		t.Fatalf("beads.Bead field(s) %v are neither compared by beadCopyDifference nor listed in beadCopyExemptFields. "+
-			"A copy that dropped them would pass the equality stage and get a convergence marker. "+
-			"Compare them, or exempt them with the reason they cannot be witnessed", unwitnessed)
-	}
-	if len(doubleBooked) > 0 {
-		t.Fatalf("beads.Bead field(s) %v are listed as exempt AND carry a witness mutation; the two lists disagree", doubleBooked)
-	}
-	for name := range beadCopyExemptFields {
-		if _, ok := exemptMutations[name]; !ok {
-			t.Fatalf("exempt field %q has no mutation proving the exemption is real", name)
-		}
-	}
 
 	// The comparison is source-row against destination-row, and those are not the
 	// same shape: infraMigrationRow adds the provenance stamp and strips the

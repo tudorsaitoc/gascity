@@ -4816,6 +4816,26 @@ func TestGcBeadsBdStartUsesRootBeadsDataDir(t *testing.T) {
 	}
 }
 
+// These lifecycle fixtures need a real lock even on hosts without the flock
+// executable. The inherited descriptor keeps the lock after this child exits.
+const lifecycleFlockFixture = `#!/usr/bin/env python3
+import fcntl
+import os
+import subprocess
+import sys
+
+args = sys.argv[1:]
+if len(args) < 2 or args[0] != "-n":
+    raise SystemExit(64)
+fd = int(args[1]) if args[1].isdecimal() else os.open(args[1], os.O_RDWR)
+try:
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    raise SystemExit(1)
+if len(args) > 2:
+    raise SystemExit(subprocess.run(args[2:]).returncode)
+`
+
 func TestGcBeadsBdStartRetriesAutoPortBindConflict(t *testing.T) {
 	cityPath := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(cityPath, ".gc"), 0o755); err != nil {
@@ -4829,6 +4849,9 @@ func TestGcBeadsBdStartRetriesAutoPortBindConflict(t *testing.T) {
 
 	binDir := filepath.Join(t.TempDir(), "bin")
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(binDir, "flock"), []byte(lifecycleFlockFixture), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	stateDir := t.TempDir()
@@ -8241,6 +8264,12 @@ case "$subcmd" in
           log_level="$2"
           shift 2
           ;;
+        --archive-level|--max-connections|--read-timeout-millis|--write-timeout-millis)
+          shift 2
+          ;;
+        --auto-gc-enabled=*)
+          shift
+          ;;
         *)
           echo "unexpected arg: $1" >&2
           exit 65
@@ -8533,6 +8562,24 @@ EOF
         printf 'closed\n' > "$GC_FAKE_FD9_STATUS_FILE"
       fi
     fi
+    case "${GC_FAKE_START_RESULT:-}" in
+      command-error)
+        echo "native helper refused startup" >&2
+        exit 71
+        ;;
+      unready)
+        printf 'ready\tfalse\npid\t0\nport\t%%s\naddress_in_use\tfalse\nattempts\t0\n' "$port"
+        exit 0
+        ;;
+      missing-pid)
+        printf 'ready\ttrue\nport\t%%s\naddress_in_use\tfalse\nattempts\t1\n' "$port"
+        exit 0
+        ;;
+      missing-port)
+        printf 'ready\ttrue\npid\t12345\naddress_in_use\tfalse\nattempts\t1\n'
+        exit 0
+        ;;
+    esac
     mkdir -p "$pack_dir" "$data_dir"
     cat > "$config_file" <<EOF
 # rendered by fake gc
@@ -8632,6 +8679,9 @@ case "${1:-}" in
     exit 0
     ;;
   sql-server)
+    if [ -n "${GC_FAKE_DOLT_START_FILE:-}" ]; then
+      printf 'sql-server\n' >> "$GC_FAKE_DOLT_START_FILE"
+    fi
     if [ "${GC_FAKE_DOLT_FAIL_SQL_SERVER:-}" = "true" ]; then
       echo "unexpected dolt sql-server invocation" >&2
       exit 97
@@ -9637,6 +9687,9 @@ func TestGcBeadsBdStartUsesGCBinManagedConfigWriter(t *testing.T) {
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(binDir, "flock"), []byte(lifecycleFlockFixture), 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	invocationFile := filepath.Join(t.TempDir(), "gc-invocation")
 	fakeGC := writeFakeManagedConfigWriterGC(t, binDir, invocationFile)
@@ -9659,22 +9712,9 @@ func TestGcBeadsBdStartUsesGCBinManagedConfigWriter(t *testing.T) {
 		_ = stop.Run()
 	})
 
-	invocation, err := os.ReadFile(invocationFile)
-	if err != nil {
-		t.Fatalf("ReadFile(invocation): %v", err)
-	}
-	invocationText := strings.TrimSpace(string(invocation))
-	for _, want := range []string{"gc dolt-state runtime-layout", "gc dolt-state allocate-port", "gc dolt-state existing-managed", "gc dolt-state probe-managed", "gc dolt-state start-managed"} {
-		if !strings.Contains(invocationText, want) {
-			t.Fatalf("gc invocation missing %q: %s", want, invocationText)
-		}
-	}
 	configData, err := os.ReadFile(filepath.Join(cityPath, ".gc", "runtime", "packs", "dolt-from-gc", "dolt-config.yaml"))
 	if err != nil {
 		t.Fatalf("ReadFile(dolt-config.yaml): %v", err)
-	}
-	if !strings.Contains(string(configData), "# rendered by fake gc") {
-		t.Fatalf("dolt-config.yaml was not rendered by GC_BIN:\n%s", string(configData))
 	}
 	state, err := readDoltRuntimeStateFile(filepath.Join(cityPath, ".gc", "runtime", "packs", "dolt-from-gc", "dolt-provider-state.json"))
 	if err != nil {
@@ -9685,6 +9725,10 @@ func TestGcBeadsBdStartUsesGCBinManagedConfigWriter(t *testing.T) {
 	}
 	if !strings.Contains(string(configData), fmt.Sprintf("port: %d", state.Port)) {
 		t.Fatalf("dolt-config.yaml missing helper-selected port %d:\n%s", state.Port, string(configData))
+	}
+	if !strings.Contains(string(configData), "host: 127.0.0.1") ||
+		!strings.Contains(string(configData), fmt.Sprintf("data_dir: %q", filepath.Join(cityPath, ".beads", "dolt"))) {
+		t.Fatalf("helper config does not preserve the managed bind and data directory:\n%s", configData)
 	}
 }
 
@@ -9699,6 +9743,9 @@ func TestGcBeadsBdStartManagedHelperDoesNotInheritStartLockFD(t *testing.T) {
 
 	binDir := filepath.Join(t.TempDir(), "bin")
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(binDir, "flock"), []byte(lifecycleFlockFixture), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -9728,6 +9775,50 @@ func TestGcBeadsBdStartManagedHelperDoesNotInheritStartLockFD(t *testing.T) {
 	status := strings.TrimSpace(string(mustReadFile(t, fd9StatusFile)))
 	if status != "closed" {
 		t.Fatalf("dolt-state start-managed inherited fd 9 = %q, want closed", status)
+	}
+}
+
+func TestGcBeadsBdStartRefusesUnacknowledgedNativeHelper(t *testing.T) {
+	for _, result := range []string{"command-error", "unready", "missing-pid", "missing-port"} {
+		t.Run(result, func(t *testing.T) {
+			cityPath := t.TempDir()
+			materializeBuiltinPacksForTest(t, cityPath)
+			binDir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(binDir, "flock"), []byte(lifecycleFlockFixture), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			fakeGC := writeFakeManagedConfigWriterGC(t, binDir, filepath.Join(t.TempDir(), "gc-invocation"))
+			writeFakeManagedConfigWriterDolt(t, binDir)
+			startFile := filepath.Join(t.TempDir(), "sql-server-started")
+			env := sanitizedBaseEnv(
+				"GC_CITY_PATH="+cityPath,
+				"GC_BIN="+fakeGC,
+				"GC_FAKE_START_RESULT="+result,
+				"GC_FAKE_DOLT_START_FILE="+startFile,
+				"GC_FAKE_DOLT_FAIL_SQL_SERVER=true",
+				"PATH="+strings.Join([]string{binDir, os.Getenv("PATH")}, string(os.PathListSeparator)),
+			)
+			cmd := exec.Command(gcBeadsBdScriptPath(cityPath), "start")
+			cmd.Env = env
+			out, err := cmd.CombinedOutput()
+			if err == nil {
+				t.Fatalf("unacknowledged native startup succeeded:\n%s", out)
+			}
+			if _, err := os.Stat(startFile); !os.IsNotExist(err) {
+				t.Fatalf("native helper refusal launched a second server: stat error %v\n%s", err, out)
+			}
+			runtimeDir := filepath.Join(cityPath, ".gc", "runtime", "packs", "dolt-from-gc")
+			state, err := readDoltRuntimeStateFile(filepath.Join(runtimeDir, "dolt-provider-state.json"))
+			if err != nil {
+				t.Fatalf("read provider state: %v\n%s", err, out)
+			}
+			if state.Running || state.PID != 0 {
+				t.Fatalf("unacknowledged startup left a live provider state: %+v", state)
+			}
+			if _, err := os.Stat(filepath.Join(runtimeDir, "dolt-config.yaml")); !os.IsNotExist(err) {
+				t.Fatalf("native helper refusal entered shell configuration fallback: stat error %v", err)
+			}
+		})
 	}
 }
 

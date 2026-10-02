@@ -251,9 +251,7 @@ func (m *MemStore) applyUpdateLocked(i int, opts UpdateOpts) {
 		if m.beads[i].Metadata == nil {
 			m.beads[i].Metadata = make(map[string]string, len(opts.Metadata))
 		}
-		for k, v := range opts.Metadata {
-			m.beads[i].Metadata[k] = v
-		}
+		mergeUpdateMetadata(m.beads[i].Metadata, opts.Metadata)
 	}
 	if len(opts.Labels) > 0 {
 		m.beads[i].Labels = append(m.beads[i].Labels, opts.Labels...)
@@ -575,6 +573,9 @@ func (m *MemStore) SetMetadata(id, key, value string) error {
 	defer m.mu.Unlock()
 	for i, b := range m.beads {
 		if b.ID == id {
+			if key == RefineryDecisionAtKey && b.Metadata[key] != "" {
+				return nil
+			}
 			if b.Metadata == nil {
 				m.beads[i].Metadata = make(map[string]string)
 			}
@@ -599,9 +600,7 @@ func (m *MemStore) SetMetadataBatch(id string, kvs map[string]string) error {
 			if b.Metadata == nil {
 				m.beads[i].Metadata = make(map[string]string)
 			}
-			for k, v := range kvs {
-				m.beads[i].Metadata[k] = v
-			}
+			mergeUpdateMetadata(m.beads[i].Metadata, kvs)
 			m.beads[i].UpdatedAt = time.Now()
 			m.beads[i].Revision++
 			return nil

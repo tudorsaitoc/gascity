@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gastownhall/gascity/internal/agentutil"
-	"github.com/gastownhall/gascity/internal/beadmeta"
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/execenv"
@@ -38,18 +36,26 @@ type slingBody struct {
 	NoConvoy       bool              `json:"no_convoy"`
 	Owned          bool              `json:"owned"`
 	NoFormula      bool              `json:"no_formula"`
+	IfStatus       *string           `json:"if_status"`
+	IfAssignee     *string           `json:"if_assignee"`
+	IfMetadata     map[string]string `json:"if_metadata"`
+	IfLabels       *[]string         `json:"if_labels"`
+	IfTitle        *string           `json:"if_title"`
+	IfDescription  *string           `json:"if_description"`
+	IfAcceptance   *string           `json:"if_acceptance"`
 }
 
 // routeOptsFromBody builds the domain RouteOpts from the wire body for a plain
 // bead route (direct or default-formula), carrying every server-expressible flag.
 func routeOptsFromBody(body slingBody) sling.RouteOpts {
 	return sling.RouteOpts{
-		Force:     body.Force,
-		Reassign:  body.Reassign,
-		Merge:     body.Merge,
-		NoConvoy:  body.NoConvoy,
-		Owned:     body.Owned,
-		NoFormula: body.NoFormula,
+		Force:      body.Force,
+		Conditions: slingConditionsFromBody(body),
+		Reassign:   body.Reassign,
+		Merge:      body.Merge,
+		NoConvoy:   body.NoConvoy,
+		Owned:      body.Owned,
+		NoFormula:  body.NoFormula,
 	}
 }
 
@@ -68,6 +74,13 @@ type slingResponse struct {
 }
 
 var apiSlingStderr = func() io.Writer { return os.Stderr }
+
+func slingConditionsFromBody(body slingBody) *beads.UpdateConditions {
+	if body.IfStatus == nil && body.IfAssignee == nil && body.IfLabels == nil && body.IfTitle == nil && body.IfDescription == nil && body.IfAcceptance == nil && len(body.IfMetadata) == 0 {
+		return nil
+	}
+	return &beads.UpdateConditions{Status: body.IfStatus, Assignee: body.IfAssignee, Title: body.IfTitle, Description: body.IfDescription, AcceptanceCriteria: body.IfAcceptance, Labels: body.IfLabels, Metadata: body.IfMetadata}
+}
 
 // execSling calls the intent-based Sling API directly. The Huma handler
 // humaHandleSling performs all validation before calling this.
@@ -167,15 +180,16 @@ func (s *Server) execSling(ctx context.Context, body slingBody, _ string) (*slin
 	}
 
 	formulaOpts := sling.FormulaOpts{
-		Title:     strings.TrimSpace(body.Title),
-		Vars:      varSlice,
-		ScopeKind: body.ScopeKind,
-		ScopeRef:  body.ScopeRef,
-		Force:     body.Force,
-		Reassign:  body.Reassign,
-		Merge:     body.Merge,
-		NoConvoy:  body.NoConvoy,
-		Owned:     body.Owned,
+		Title:      strings.TrimSpace(body.Title),
+		Vars:       varSlice,
+		ScopeKind:  body.ScopeKind,
+		ScopeRef:   body.ScopeRef,
+		Force:      body.Force,
+		Reassign:   body.Reassign,
+		Merge:      body.Merge,
+		NoConvoy:   body.NoConvoy,
+		Owned:      body.Owned,
+		Conditions: slingConditionsFromBody(body),
 	}
 
 	// Dispatch to the right intent-based method.
@@ -210,6 +224,13 @@ func (s *Server) execSling(ctx context.Context, body slingBody, _ string) (*slin
 	}
 
 	if err != nil {
+		var routeConflict *sling.RouteConflictError
+		if errors.As(err, &routeConflict) {
+			return nil, http.StatusConflict, "route_conflict", err.Error(), nil
+		}
+		if errors.Is(err, beads.ErrConditionalWriteUnsupported) {
+			return nil, http.StatusServiceUnavailable, "guard_unsupported", err.Error(), nil
+		}
 		var conflictErr *sourceworkflow.ConflictError
 		if errors.As(err, &conflictErr) {
 			return nil, http.StatusConflict, "conflict", err.Error(), conflictErr
@@ -249,6 +270,13 @@ func (s *Server) execSling(ctx context.Context, body slingBody, _ string) (*slin
 		Mode:     mode,
 		Warnings: warnings,
 	}
+	if result.WorkflowID != "" {
+		resp.WorkflowID, resp.RootBeadID = result.WorkflowID, result.WorkflowID
+		workflowLaunch = true
+		if formulaName == "" {
+			formulaName = result.FormulaName
+		}
+	}
 	if !workflowLaunch {
 		return resp, http.StatusOK, "", "", nil
 	}
@@ -257,7 +285,9 @@ func (s *Server) execSling(ctx context.Context, body slingBody, _ string) (*slin
 	resp.AttachedBeadID = attachedBeadID
 	// Use structured result fields directly -- no stdout parsing needed.
 	resp.WorkflowID = result.WorkflowID
-	resp.RootBeadID = result.BeadID
+	if resp.RootBeadID == "" {
+		resp.RootBeadID = result.BeadID
+	}
 	if resp.WorkflowID == "" && resp.RootBeadID == "" {
 		return nil, http.StatusInternalServerError, "internal", "sling did not produce a workflow or bead id", nil
 	}
@@ -481,37 +511,10 @@ type apiBeadRouter struct {
 	store  beads.Store
 }
 
-func (r apiBeadRouter) Route(_ context.Context, req sling.RouteRequest) error {
+func (r apiBeadRouter) Route(ctx context.Context, req sling.RouteRequest) error {
 	if r.server == nil {
 		return fmt.Errorf("sling router: missing server")
 	}
 	cfg := r.server.state.Config()
-	if cfg != nil {
-		if agentCfg, ok := findAgentByQualifiedTemplate(cfg, req.Target); ok && sling.IsCustomSlingQuery(agentCfg) {
-			runner := r.server.slingRunner()
-			if runner == nil {
-				return fmt.Errorf("custom sling_query requires a runner")
-			}
-			slingCmd, slingWarn := sling.BuildSlingCommandForAgent("sling_query", agentCfg.EffectiveSlingQuery(), req.BeadID, r.server.state.CityPath(), r.server.state.CityName(), agentCfg, cfg.Rigs)
-			if slingWarn != "" {
-				fmt.Fprintf(apiSlingStderr(), "gc api sling: %s\n", slingWarn) //nolint:errcheck
-			}
-			_, err := runner(req.WorkDir, slingCmd, req.Env)
-			return err
-		}
-	}
-	if r.store == nil {
-		return fmt.Errorf("built-in sling routing requires a store")
-	}
-	routedTo := req.Target
-	if cfg != nil {
-		routedTo = agentutil.NormalizePoolRouteTarget(cfg, req.Target)
-	}
-	if err := r.store.SetMetadata(req.BeadID, beadmeta.RoutedToMetadataKey, routedTo); err != nil {
-		if req.Force && errors.Is(err, beads.ErrNotFound) {
-			return nil
-		}
-		return fmt.Errorf("setting gc.routed_to on %s: %w", req.BeadID, err)
-	}
-	return nil
+	return sling.CommitRoute(ctx, r.store, cfg, r.server.state.CityPath(), req)
 }

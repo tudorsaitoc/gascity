@@ -47,6 +47,7 @@ func (s *NativeDoltStore) CompareAndSetMetadataKey(id, key, expected, next strin
 	swapped := false
 	commitMsg := fmt.Sprintf("gc: compare-and-set metadata %s on bead %s", key, id)
 	err = storage.RunInTransaction(ctx, commitMsg, func(tx beadslib.Transaction) error {
+		swapped = false // RunInTransaction may replay after a row_lock conflict.
 		issue, err := tx.GetIssue(ctx, id)
 		if err != nil {
 			return nativeStoreError(id, err)
@@ -61,6 +62,9 @@ func (s *NativeDoltStore) CompareAndSetMetadataKey(id, key, expected, next strin
 		if metadata[key] != expected {
 			// A genuine lost race. Returning nil commits an empty transaction
 			// and leaves swapped false, which the caller reads as (false, nil).
+			return nil
+		}
+		if key == RefineryDecisionAtKey && metadata[key] != "" && metadata[key] != next {
 			return nil
 		}
 		if metadata == nil {

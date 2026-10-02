@@ -1001,6 +1001,10 @@ github.com/tklauser/go-sysconf v0.3.16 h1:frioLaCQSsF5Cy1jgRBrzr6t502KIIwQ0MArYI
 github.com/tklauser/go-sysconf v0.3.16/go.mod h1:/qNL9xxDhc7tx3HSRsLWNnuzbVfh3e7gh/BmM179nYI=
 github.com/tklauser/numcpus v0.11.0 h1:nSTwhKH5e1dMNsCdVBukSZrURJRoHbSEQjdEbY+9RXw=
 github.com/tklauser/numcpus v0.11.0/go.mod h1:z+LwcLq54uWZTX0u/bGobaV34u6V7KNlTZejzM6/3MQ=
+github.com/tudorsaitoc/beads v1.1.1-0.20261001225536-5ab7c9b8f9db h1:bf1raYZpHBQX/fm8h4/hrHi6GHz6BUuHklUNsxqJGx8=
+github.com/tudorsaitoc/beads v1.1.1-0.20261001225536-5ab7c9b8f9db/go.mod h1:Oc1mmnPRCF8e/caG1Wkw8FsVXWtGBD+64QGHNW1xCyI=
+github.com/tudorsaitoc/beads v1.1.3 h1:oQAZSt3dvfXJ1eYMFdr+4YU9Nb9vudBJLyW8xah0r4k=
+github.com/tudorsaitoc/beads v1.1.3/go.mod h1:Oc1mmnPRCF8e/caG1Wkw8FsVXWtGBD+64QGHNW1xCyI=
 github.com/ugorji/go v1.1.7/go.mod h1:kZn38zHttfInRq0xu/PH0az30d+z6vm202qpg1oXVMw=
 github.com/ugorji/go/codec v1.1.7/go.mod h1:Ax+UKWsSmolVDwsd+7N3ZtXu+yMGCf907BLYF3GoBXY=
 github.com/vbauerster/mpb/v8 v8.7.2 h1:SMJtxhNho1MV3OuFgS1DAzhANN1Ejc5Ct+0iSaIkB14=

@@ -389,6 +389,9 @@ func conditionalWriteBackoff(attempt int) time.Duration {
 // ErrConditionalWriteUnsupported rather than falling through to an
 // unconditional write.
 func (s *BdStore) UpdateIfMatch(id string, expectedRevision int64, opts UpdateOpts) error {
+	if _, protected := opts.Metadata[RefineryDecisionAtKey]; protected {
+		return fmt.Errorf("immutable refinery clock requires native transactional metadata writes: %w", ErrConditionalWriteUnsupported)
+	}
 	if isEmptyUpdateOpts(opts) {
 		return fmt.Errorf("conditional update %s: %w", id, ErrEmptyConditionalUpdate)
 	}
@@ -528,6 +531,9 @@ func (s *BdStore) finalizeConditionalWrite(id, verb string, expectedRevision int
 // genuine value loss ((false,nil)) or a precondition — so consumers re-enter
 // level-triggered instead of stranding a reservation (DESIGN §8.4).
 func (s *BdStore) CompareAndSetMetadataKey(id, key, expected, next string) (bool, error) {
+	if key == RefineryDecisionAtKey {
+		return false, fmt.Errorf("immutable refinery clock requires native transactional metadata writes: %w", ErrConditionalWriteUnsupported)
+	}
 	if capable, _ := s.conditionalWritesCapable(); !capable {
 		return false, ErrConditionalWriteUnsupported
 	}

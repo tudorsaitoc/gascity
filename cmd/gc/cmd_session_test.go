@@ -2017,6 +2017,88 @@ func TestCmdSessionListJSONNoSessionsReturnsEmptyEnvelope(t *testing.T) {
 	}
 }
 
+func TestCmdSessionListHistoryFiltersPreserveClosedRecords(t *testing.T) {
+	clearGCEnv(t)
+	clearInheritedCityRoutingEnv(t)
+	cityDir := writeSessionListTestCity(t)
+	store, err := openCityStoreAt(cityDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := make(map[string]string)
+	for _, fixture := range []struct {
+		name     string
+		state    string
+		template string
+		closed   bool
+	}{
+		{name: "active", state: "active", template: "worker"},
+		{name: "suspended", state: "suspended", template: "worker"},
+		{name: "asleep", state: "asleep", template: "reviewer"},
+		{name: "closed", state: "active", template: "worker", closed: true},
+	} {
+		b, err := store.Create(beads.Bead{
+			Title: fixture.name,
+			Type:  session.BeadType,
+			Metadata: map[string]string{
+				"session_name": fixture.name,
+				"template":     fixture.template,
+				"state":        fixture.state,
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids[fixture.name] = b.ID
+		if fixture.closed {
+			if err := store.Close(b.ID); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	for _, tc := range []struct {
+		state    string
+		template string
+		want     []string
+	}{
+		{state: "", want: []string{"active", "suspended", "asleep"}},
+		{state: "all", want: []string{"active", "suspended", "asleep", "closed"}},
+		{state: "closed", want: []string{"closed"}},
+		{state: "active", want: []string{"active"}},
+		{state: "suspended", want: []string{"suspended"}},
+		{state: "active,closed", want: []string{"active", "closed"}},
+		{state: "all", template: "reviewer", want: []string{"asleep"}},
+		{state: "all", template: "worker", want: []string{"active", "suspended", "closed"}},
+	} {
+		t.Run(tc.state+"/"+tc.template, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			if code := doSessionListFallback(tc.state, tc.template, true, &stdout, &stderr); code != 0 {
+				t.Fatalf("session list = %d, stderr=%s", code, stderr.String())
+			}
+			var got sessionListJSON
+			if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+				t.Fatal(err)
+			}
+			wantIDs := make(map[string]bool, len(tc.want))
+			for _, name := range tc.want {
+				wantIDs[ids[name]] = true
+			}
+			for _, row := range got.Sessions {
+				if !wantIDs[row.ID] {
+					t.Fatalf("unexpected row ID %q in %+v", row.ID, got.Sessions)
+				}
+				delete(wantIDs, row.ID)
+				if row.ID == ids["closed"] && (!row.Closed || row.State != "") {
+					t.Fatalf("closed record projected as live: %+v", row)
+				}
+			}
+			if len(wantIDs) != 0 {
+				t.Fatalf("missing row IDs %v in %+v", wantIDs, got.Sessions)
+			}
+		})
+	}
+}
+
 func TestRenderSessionListFromAPIJSONUsesSnakeCaseSessionFields(t *testing.T) {
 	var stdout bytes.Buffer
 	code := renderSessionListFromAPI(api.CachedRead[[]SessionView]{

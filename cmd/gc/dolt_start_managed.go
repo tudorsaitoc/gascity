@@ -432,7 +432,7 @@ func startManagedDoltSQLServer(cityPath, configFile, logFilePath string, logFile
 	cmd.Stdin = nil
 	cmd.SysProcAttr = managedDoltSQLServerSysProcAttr()
 	cmd.Env = doltServerEnv(cityPath, os.Environ())
-	if err := cmd.Start(); err != nil {
+	if err := startManagedDoltCommand(cmd, cityPath); err != nil {
 		return managedDoltStartedProcess{}, fmt.Errorf("start dolt sql-server: %w", err)
 	}
 	// Snapshot the child's OS-level start identity while it is still definitely

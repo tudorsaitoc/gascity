@@ -1153,26 +1153,27 @@ type BackendCredentialResolvedPayload struct {
 
 // Bead defines model for Bead.
 type Bead struct {
-	Assignee     *string            `json:"assignee,omitempty"`
-	CreatedAt    time.Time          `json:"created_at"`
-	DeferUntil   *time.Time         `json:"defer_until,omitempty"`
-	Dependencies *[]Dep             `json:"dependencies,omitempty"`
-	Description  *string            `json:"description,omitempty"`
-	Ephemeral    *bool              `json:"ephemeral,omitempty"`
-	From         *string            `json:"from,omitempty"`
-	Id           string             `json:"id"`
-	IsBlocked    *bool              `json:"is_blocked,omitempty"`
-	IssueType    string             `json:"issue_type"`
-	Labels       *[]string          `json:"labels,omitempty"`
-	Metadata     *map[string]string `json:"metadata,omitempty"`
-	Needs        *[]string          `json:"needs,omitempty"`
-	NoHistory    *bool              `json:"no_history,omitempty"`
-	Parent       *string            `json:"parent,omitempty"`
-	Priority     *int64             `json:"priority,omitempty"`
-	Ref          *string            `json:"ref,omitempty"`
-	Status       string             `json:"status"`
-	Title        string             `json:"title"`
-	UpdatedAt    *time.Time         `json:"updated_at,omitempty"`
+	AcceptanceCriteria *string            `json:"acceptance_criteria,omitempty"`
+	Assignee           *string            `json:"assignee,omitempty"`
+	CreatedAt          time.Time          `json:"created_at"`
+	DeferUntil         *time.Time         `json:"defer_until,omitempty"`
+	Dependencies       *[]Dep             `json:"dependencies,omitempty"`
+	Description        *string            `json:"description,omitempty"`
+	Ephemeral          *bool              `json:"ephemeral,omitempty"`
+	From               *string            `json:"from,omitempty"`
+	Id                 string             `json:"id"`
+	IsBlocked          *bool              `json:"is_blocked,omitempty"`
+	IssueType          string             `json:"issue_type"`
+	Labels             *[]string          `json:"labels,omitempty"`
+	Metadata           *map[string]string `json:"metadata,omitempty"`
+	Needs              *[]string          `json:"needs,omitempty"`
+	NoHistory          *bool              `json:"no_history,omitempty"`
+	Parent             *string            `json:"parent,omitempty"`
+	Priority           *int64             `json:"priority,omitempty"`
+	Ref                *string            `json:"ref,omitempty"`
+	Status             string             `json:"status"`
+	Title              string             `json:"title"`
+	UpdatedAt          *time.Time         `json:"updated_at,omitempty"`
 }
 
 // BeadAssignInputBody defines model for BeadAssignInputBody.
@@ -4660,11 +4661,32 @@ type SlingInputBody struct {
 	// Bead Bead ID to sling.
 	Bead *string `json:"bead,omitempty"`
 
-	// Force Bypass cross-rig guards; for direct bead routes, also bypass missing-bead validation. Formula-backed graph routes may replace existing live workflow roots but still require the source bead to exist.
+	// Force Allow cross-rig routing and graph workflow replacement without bypassing current holds, unreadable receipt beads, or ownership conditions.
 	Force *bool `json:"force,omitempty"`
 
 	// Formula Formula name for workflow launch.
 	Formula *string `json:"formula,omitempty"`
+
+	// IfAcceptance Exact original native acceptance criteria required at route commit.
+	IfAcceptance *string `json:"if_acceptance,omitempty"`
+
+	// IfAssignee Exact canonical assignee required at route commit; an empty string requires unowned work.
+	IfAssignee *string `json:"if_assignee,omitempty"`
+
+	// IfDescription Exact original canonical description required at route commit.
+	IfDescription *string `json:"if_description,omitempty"`
+
+	// IfLabels Exact unordered canonical label snapshot required by the same route transaction; an empty array requires no labels.
+	IfLabels *[]string `json:"if_labels,omitempty"`
+
+	// IfMetadata Canonical metadata equality predicates consumed by the same route transaction; an empty value matches absent.
+	IfMetadata *map[string]string `json:"if_metadata,omitempty"`
+
+	// IfStatus Exact canonical status required at the native route commit.
+	IfStatus *string `json:"if_status,omitempty"`
+
+	// IfTitle Exact original canonical title required at route commit.
+	IfTitle *string `json:"if_title,omitempty"`
 
 	// Merge Merge strategy: direct, mr, or local.
 	Merge *string `json:"merge,omitempty"`
@@ -4678,7 +4700,7 @@ type SlingInputBody struct {
 	// Owned Mark the routed bead as owned by the target.
 	Owned *bool `json:"owned,omitempty"`
 
-	// Reassign Clear any existing human assignee on the bead before routing, so a bead claimed via bd update --claim is handed to the target's pool.
+	// Reassign Clear the current assignee in the guarded route transaction, handing the bead to the target's claim path.
 	Reassign *bool `json:"reassign,omitempty"`
 
 	// Rig Rig name.
@@ -36064,6 +36086,7 @@ type PostV0CityByCityNameSlingResponse struct {
 	ApplicationproblemJSON409 *ErrorModel
 	ApplicationproblemJSON422 *ErrorModel
 	ApplicationproblemJSON500 *ErrorModel
+	ApplicationproblemJSON503 *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -47732,6 +47755,13 @@ func ParsePostV0CityByCityNameSlingResponse(rsp *http.Response) (*PostV0CityByCi
 			return nil, err
 		}
 		response.ApplicationproblemJSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
 
 	}
 

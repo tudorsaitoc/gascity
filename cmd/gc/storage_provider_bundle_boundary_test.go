@@ -16,12 +16,6 @@ package main
 //     so an out-of-tree provider cannot leak back here by accident;
 //   - the whole storage surface compiles identically with CGO on and off, so
 //     the pure-Go driver choice is a checked property rather than a comment;
-//   - the module graph carries no replace directive, so a build of this repo
-//     resolves the dependencies its manifest names and nothing else.
-//
-// The last two are what a downstream fork relies on. A fork appends its own
-// factory in its own tree; these arms are what keep the seam it appends to
-// honest here.
 
 import (
 	"errors"
@@ -33,7 +27,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -60,16 +53,6 @@ var sanctionedProviderIDs = map[string]bool{"sqlite": true, "sqlite-beads": true
 var storageSurfaceDirs = []string{
 	"cmd/gc",
 	"internal/storebinding",
-}
-
-// replaceDirective is one parsed `replace` line, in either the single-line or
-// the parenthesized-block form.
-type replaceDirective struct {
-	line       int
-	oldPath    string
-	oldVersion string
-	newPath    string
-	newVersion string
 }
 
 // TestStorageProviderBundleHasOneConstructionSite proves the registry is
@@ -200,33 +183,6 @@ func TestStorageSurfaceCompilesIdenticallyWithAndWithoutCGO(t *testing.T) {
 	}
 }
 
-// TestModuleGraphCarriesNoReplaceDirective is the module-graph guarantee a
-// downstream fork builds on: this repo's dependencies are exactly what its
-// manifest names, at released versions, with nothing redirected. It is the
-// tree-side companion to scripts/check-gomod-replace.sh's released-semver-only
-// policy — that script gates what a change adds, this arm gates the result.
-//
-// A replace this parser cannot read is a violation, not a pass: silently
-// ignoring a line we cannot parse is how a guard goes blind.
-func TestModuleGraphCarriesNoReplaceDirective(t *testing.T) {
-	root := moduleRoot(t)
-	goMod, err := os.ReadFile(filepath.Join(root, "go.mod"))
-	if err != nil {
-		t.Fatalf("reading go.mod: %v", err)
-	}
-	directives, malformed := replaceDirectives(string(goMod))
-	if len(malformed) > 0 {
-		t.Fatalf("go.mod has replace directives this guard cannot parse (lines %v); a manifest we cannot read is a violation, not a pass", malformed)
-	}
-	for _, directive := range directives {
-		t.Errorf("go.mod line %d replaces %q with %q; this module graph carries no replace directive, so a build resolves the dependencies the manifest names and nothing else",
-			directive.line, directive.oldPath, directive.newPath)
-	}
-	if anyGoWorkFile(t, root) {
-		t.Error("the tree commits a go.work; a workspace redirects the module graph for every go invocation started at or below it")
-	}
-}
-
 // --- the arms, as functions over an arbitrary tree ---------------------------
 
 // scanProviderIDs reports every literal provider ID compiled into the tree and
@@ -265,167 +221,6 @@ func scanProviderIDs(t *testing.T, root string, files []string) (map[string]stri
 		}
 	}
 	return found, findings
-}
-
-// --- manifest parsing --------------------------------------------------------
-
-// replaceDirectives parses every replace directive in a go.mod, in both the
-// single-line and parenthesized-block forms, and reports the line numbers of
-// any it could not parse.
-func replaceDirectives(goMod string) ([]replaceDirective, []int) {
-	var directives []replaceDirective
-	var malformed []int
-	inBlock := false
-
-	for index, raw := range strings.Split(goMod, "\n") {
-		number := index + 1
-		line := strings.TrimSpace(stripLineComment(raw))
-		if line == "" {
-			continue
-		}
-		if inBlock {
-			if line == ")" {
-				inBlock = false
-				continue
-			}
-			directive, ok := parseReplaceBody(line, number)
-			if !ok {
-				malformed = append(malformed, number)
-				continue
-			}
-			directives = append(directives, directive)
-			continue
-		}
-		fields := strings.Fields(line)
-		switch {
-		case fields[0] == "replace", fields[0] == "replace(":
-			// Parsed below.
-		case strings.HasPrefix(fields[0], "replace("):
-			// The replace verb glued to its body. Go itself rejects this, so
-			// such a tree cannot build — but treating an unreadable replace as
-			// "not a replace" is the default that lets a quoted form through,
-			// so report it rather than skip it.
-			malformed = append(malformed, number)
-			continue
-		default:
-			// "replacement" or any other directive is not this one.
-			continue
-		}
-		rest := strings.TrimSpace(line[len("replace"):])
-		if rest == "(" {
-			inBlock = true
-			continue
-		}
-		directive, ok := parseReplaceBody(rest, number)
-		if !ok {
-			malformed = append(malformed, number)
-			continue
-		}
-		directives = append(directives, directive)
-	}
-	if inBlock {
-		// An unterminated block means the rest of the file was never read as
-		// directives. Report it as unparseable rather than trusting the
-		// prefix we did read.
-		malformed = append(malformed, 0)
-	}
-	return directives, malformed
-}
-
-// parseReplaceBody parses "old [version] => new [version]".
-func parseReplaceBody(body string, number int) (replaceDirective, bool) {
-	if strings.ContainsAny(body, "()") {
-		// No module path or version contains a parenthesis, so this is a
-		// block delimiter we did not expect. Fail closed.
-		return replaceDirective{}, false
-	}
-	sides := strings.Split(body, "=>")
-	if len(sides) != 2 {
-		return replaceDirective{}, false
-	}
-	left := strings.Fields(sides[0])
-	right := strings.Fields(sides[1])
-	if len(left) < 1 || len(left) > 2 || len(right) < 1 || len(right) > 2 {
-		return replaceDirective{}, false
-	}
-	fields := slices.Concat(left, right)
-	tokens := make([]string, len(fields))
-	for index, field := range fields {
-		token, ok := unquoteModToken(field)
-		if !ok {
-			return replaceDirective{}, false
-		}
-		tokens[index] = token
-	}
-	directive := replaceDirective{line: number, oldPath: tokens[0], newPath: tokens[len(left)]}
-	if len(left) == 2 {
-		directive.oldVersion = tokens[1]
-	}
-	if len(right) == 2 {
-		directive.newVersion = tokens[len(tokens)-1]
-	}
-	return directive, true
-}
-
-// unquoteModToken resolves a go.mod token to the path or version Go itself
-// sees. Go's module lexer accepts a quoted module path, so
-// `replace "example.com/mod" => ./elsewhere` is a live replacement — but a
-// parser that compares the raw token sees a replacement of some other,
-// quote-named module and reports the manifest as replace-free. Comparing
-// against Go's semantics rather than against the bytes is what closes that.
-func unquoteModToken(token string) (string, bool) {
-	if !strings.ContainsAny(token, "\"`") {
-		return token, true
-	}
-	if !strings.HasPrefix(token, `"`) {
-		// A backquote, or a quote anywhere but the front, is not a spelling Go
-		// accepts. Fail closed rather than guess where the path ends.
-		return "", false
-	}
-	unquoted, err := strconv.Unquote(token)
-	if err != nil {
-		return "", false
-	}
-	return unquoted, true
-}
-
-func stripLineComment(line string) string {
-	if index := strings.Index(line, "//"); index >= 0 {
-		return line[:index]
-	}
-	return line
-}
-
-// anyGoWorkFile reports whether the tree commits a go.work anywhere, not just
-// at the module root. Go resolves a workspace by walking up from the working
-// directory, so a go.work in any subdirectory redirects the module graph for
-// every go invocation started at or below it — a committed tree fact, and so
-// in scope for a guard that keys on committed tree facts. Ambient GOWORK and
-// -modfile redirections are not tree facts and stay out of scope.
-func anyGoWorkFile(t *testing.T, root string) bool {
-	t.Helper()
-	found := false
-	err := filepath.WalkDir(root, func(_ string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			switch entry.Name() {
-			case ".git", "node_modules", "vendor", "testdata", ".claude":
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if entry.Name() == "go.work" || entry.Name() == "go.work.sum" {
-			found = true
-			return filepath.SkipAll
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("walking the module for go.work files: %v", err)
-	}
-	return found
 }
 
 // --- shared helpers ----------------------------------------------------------

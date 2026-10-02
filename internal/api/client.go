@@ -1535,6 +1535,13 @@ type SlingRequest struct {
 	NoConvoy       bool
 	Owned          bool
 	NoFormula      bool
+	IfStatus       *string
+	IfAssignee     *string
+	IfMetadata     map[string]string
+	IfLabels       *[]string
+	IfTitle        *string
+	IfDescription  *string
+	IfAcceptance   *string
 }
 
 // SlingResult is the outcome of a sling mutation.
@@ -1591,6 +1598,15 @@ func (c *Client) Sling(req SlingRequest) (SlingResult, error) {
 	if len(req.Vars) > 0 {
 		v := req.Vars
 		body.Vars = &v
+	}
+	body.IfStatus = req.IfStatus
+	body.IfAssignee = req.IfAssignee
+	body.IfLabels = req.IfLabels
+	body.IfTitle = req.IfTitle
+	body.IfDescription = req.IfDescription
+	body.IfAcceptance = req.IfAcceptance
+	if len(req.IfMetadata) != 0 {
+		body.IfMetadata = &req.IfMetadata
 	}
 	params := &genclient.PostV0CityByCityNameSlingParams{XGCRequest: "true"}
 	resp, err := c.cw.PostV0CityByCityNameSlingWithResponse(context.Background(), c.cityName, params, body)

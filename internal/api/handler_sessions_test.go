@@ -773,6 +773,139 @@ func TestHandleSessionListFilterByState(t *testing.T) {
 	}
 }
 
+func TestHandleSessionListHistoryFiltersWithWarmOpenCache(t *testing.T) {
+	fs := newSessionFakeState(t)
+	backing := beads.NewMemStore()
+	ids := make(map[string]string)
+	for _, fixture := range []struct {
+		name     string
+		state    string
+		template string
+		closed   bool
+	}{
+		{name: "active", state: "active", template: "worker"},
+		{name: "suspended", state: "suspended", template: "worker"},
+		{name: "asleep", state: "asleep", template: "reviewer"},
+		{name: "closed", state: "active", template: "worker", closed: true},
+	} {
+		b, err := backing.Create(beads.Bead{
+			Title: fixture.name,
+			Type:  session.BeadType,
+			Metadata: map[string]string{
+				"session_name": fixture.name,
+				"template":     fixture.template,
+				"state":        fixture.state,
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids[fixture.name] = b.ID
+		if fixture.closed {
+			if err := backing.Close(b.ID); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	cache := beads.NewCachingStoreForTest(backing, nil)
+	if err := cache.Prime(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	fs.cityBeadStore = cache
+	srv := New(fs)
+	for _, handler := range []struct {
+		name string
+		h    http.Handler
+	}{
+		{name: "huma", h: newTestCityHandlerWith(t, fs, srv)},
+		{name: "legacy", h: http.HandlerFunc(srv.handleSessionList)},
+	} {
+		t.Run(handler.name, func(t *testing.T) {
+			for _, tc := range []struct {
+				query string
+				want  []string
+			}{
+				{query: "?state=all", want: []string{"active", "suspended", "asleep", "closed"}},
+				{query: "?state=active", want: []string{"active"}},
+				{query: "", want: []string{"active", "suspended", "asleep"}},
+				{query: "?state=closed", want: []string{"closed"}},
+				{query: "?state=suspended", want: []string{"suspended"}},
+				{query: "?state=active,closed", want: []string{"active", "closed"}},
+				{query: "?state=all&template=reviewer", want: []string{"asleep"}},
+				{query: "?state=all&template=worker", want: []string{"active", "suspended", "closed"}},
+			} {
+				t.Run(tc.query, func(t *testing.T) {
+					w := httptest.NewRecorder()
+					handler.h.ServeHTTP(w, httptest.NewRequest("GET", cityURL(fs, "/sessions"+tc.query), nil))
+					if w.Code != http.StatusOK {
+						t.Fatalf("session list status = %d, body=%s", w.Code, w.Body.String())
+					}
+					var got struct {
+						Items   []sessionResponse `json:"items"`
+						Total   int               `json:"total"`
+						Partial bool              `json:"partial"`
+					}
+					if err := json.NewDecoder(w.Body).Decode(&got); err != nil {
+						t.Fatal(err)
+					}
+					wantIDs := make(map[string]bool, len(tc.want))
+					for _, name := range tc.want {
+						wantIDs[ids[name]] = true
+					}
+					for _, row := range got.Items {
+						if !wantIDs[row.ID] {
+							t.Fatalf("unexpected row ID %q in %+v", row.ID, got.Items)
+						}
+						delete(wantIDs, row.ID)
+						if row.ID == ids["closed"] && row.State != "" {
+							t.Fatalf("closed record projected as live: %+v", row)
+						}
+					}
+					if len(wantIDs) != 0 || got.Total != len(tc.want) || got.Partial {
+						t.Fatalf("missing IDs=%v, total=%d, partial=%v, rows=%+v", wantIDs, got.Total, got.Partial, got.Items)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestHandleSessionListHistoryReadFailureCannotUseEmptyOpenCache(t *testing.T) {
+	fs := newSessionFakeState(t)
+	backing := &cachedOnlyListStoreForSessionTest{MemStore: beads.NewMemStore()}
+	closed, err := backing.Create(beads.Bead{Title: "closed history", Type: session.BeadType})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := backing.Close(closed.ID); err != nil {
+		t.Fatal(err)
+	}
+	cache := beads.NewCachingStoreForTest(backing, nil)
+	if err := cache.Prime(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	backing.blockList = true
+	fs.cityBeadStore = cache
+	srv := New(fs)
+	for _, handler := range []struct {
+		name string
+		h    http.Handler
+	}{
+		{name: "huma", h: newTestCityHandlerWith(t, fs, srv)},
+		{name: "legacy", h: http.HandlerFunc(srv.handleSessionList)},
+	} {
+		t.Run(handler.name, func(t *testing.T) {
+			for _, state := range []string{"all", "closed"} {
+				w := httptest.NewRecorder()
+				handler.h.ServeHTTP(w, httptest.NewRequest("GET", cityURL(fs, "/sessions?state="+state), nil))
+				if w.Code != http.StatusInternalServerError {
+					t.Fatalf("unavailable %s history returned status=%d body=%s; empty open cache is not authoritative", state, w.Code, w.Body.String())
+				}
+			}
+		})
+	}
+}
+
 func TestHandleSessionListPagination(t *testing.T) {
 	fs := newSessionFakeState(t)
 	srv := New(fs)

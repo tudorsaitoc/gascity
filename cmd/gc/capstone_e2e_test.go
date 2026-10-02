@@ -33,15 +33,12 @@ import (
 // The capstone wire E2E (G23). It stands up a REAL hardened city — real
 // controllerState + real SupervisorMux + real write-auth over an httptest TLS
 // server — and drives the flagship one-liner (`rig add --git-url` then `sling`)
-// through the remote CLI paths with an in-process ed25519 grant signer. It stubs
-// exactly two boundaries: the git-fetch (rigCloneGit) so no network clone runs,
-// and the SSRF DNS resolver (ssrf.HostResolver) so the fence runs for real
-// against a fence-passing fake-public host. Everything else — admission locks,
-// the request_id state machine, the durable idem record, the fence, rig.Provision
-// (real beads init + config append), the G17 visibility barrier, typed events,
-// the real SSE stream, the G18 grant editor, the writeAuthMiddleware, TLS, and
-// the CLI rendering — is exercised end to end. No subprocess, tmux, Dolt, or
-// network (per TESTING.md).
+// through the remote CLI paths with an in-process ed25519 grant signer. Git
+// fetch and DNS are isolated boundaries; provisioning, visibility, idempotency,
+// write authentication, TLS, events, and CLI rendering remain real.
+// FileStore cannot atomically route work, so the sling scenario first proves
+// its refusal, then explicitly installs a native-capable MemStore unit model.
+// That second route is not FileStore persistence or native SQL deployment proof.
 
 // Stable metadata keys for the durable idempotency record (mirrors the
 // unexported internal/api constants; kept here as literals because the E2E
@@ -88,6 +85,7 @@ type capstoneHarness struct {
 
 func newCapstoneHarness(t *testing.T) *capstoneHarness {
 	t.Helper()
+	t.Setenv("GC_SLING_ADMISSION_COMMAND", "")
 	t.Setenv("GC_BEADS", "file")
 	t.Setenv("GC_DOLT", "skip")
 	t.Setenv("GC_BEADS_SCOPE_ROOT", "")
@@ -321,7 +319,7 @@ func capstoneRigAdd(h *capstoneHarness, c *api.Client, reqID string, stdout, std
 }
 
 func capstoneSling(h *capstoneHarness, c *api.Client, target, beadID string, stdout, stderr *bytes.Buffer) int {
-	return cmdSlingRemote(c, h.target(), []string{target, beadID}, false, false, false, "", nil, "", false, false, false, "", false, false, false, "", "", false, stdout, stderr)
+	return cmdSlingRemote(c, h.target(), []string{target, beadID}, false, false, false, "", nil, "", false, false, false, "", false, false, false, "", "", false, nil, stdout, stderr)
 }
 
 // Scenario A + B — the capstone one-liner and the idempotent replay.
@@ -375,6 +373,26 @@ func TestCapstoneOneLinerAndIdempotentReplay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed bead into provisioned store: %v", err)
 	}
+	var unsupportedOut, unsupportedErr bytes.Buffer
+	if code := capstoneSling(h, client, "worker", seeded.ID, &unsupportedOut, &unsupportedErr); code == 0 {
+		t.Fatalf("FileStore reported native route success: stdout=%s stderr=%s", unsupportedOut.String(), unsupportedErr.String())
+	}
+	if !strings.Contains(unsupportedErr.String(), "conditional writes unsupported") {
+		t.Fatalf("FileStore refusal hid missing native authority: %s", unsupportedErr.String())
+	}
+	unrouted, err := webStore.Get(seeded.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unrouted.Metadata[capstoneRoutedToKey] != "" || unrouted.Status != seeded.Status || unrouted.Assignee != seeded.Assignee {
+		t.Fatalf("unsupported backend mutated work: %+v", unrouted)
+	}
+	// Preserve the provisioned row identity but change only this test's backend.
+	// Production FileStore defaults and capability fences remain untouched.
+	webStore = beads.NewMemStoreFrom(1, []beads.Bead{unrouted}, nil)
+	h.cs.mu.Lock()
+	h.cs.beadStores["web"] = webStore
+	h.cs.mu.Unlock()
 	var slOut, slErr bytes.Buffer
 	if code := capstoneSling(h, client, "worker", seeded.ID, &slOut, &slErr); code != 0 {
 		t.Fatalf("sling exit=%d\nstdout=%s\nstderr=%s", code, slOut.String(), slErr.String())
@@ -392,9 +410,10 @@ func TestCapstoneOneLinerAndIdempotentReplay(t *testing.T) {
 		t.Errorf("gc.routed_to=%q, want it to name the worker agent", got)
 	}
 
-	// The grant rode BOTH mutations and never the SSE: exactly 2 mints.
-	if got := h.grantCount.Load(); got != 2 {
-		t.Fatalf("grantCount=%d after add+sling, want exactly 2", got)
+	// Rig provision, unsupported route, and native unit route each mint a grant.
+	// The SSE is still grant-free.
+	if got := h.grantCount.Load(); got != 3 {
+		t.Fatalf("grantCount=%d after add+refusal+sling, want exactly 3", got)
 	}
 
 	// A grant-less client against the same hardened city is refused, non-fallbackably.

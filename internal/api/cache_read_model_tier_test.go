@@ -53,7 +53,7 @@ func TestSessionReadModelListingsWarmCacheZeroStoreList(t *testing.T) {
 
 	sessFront := session.NewStore(beads.SessionStore{Store: cache})
 
-	listings, partial, err := sessionReadModelListings(sessFront)
+	listings, partial, err := sessionReadModelListings(sessFront, "")
 	if err != nil {
 		t.Fatalf("sessionReadModelListings: %v", err)
 	}
