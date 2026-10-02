@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   infra migration carry acceptance criteria. The writer uses the maintained
   Beads SDK fork `v1.1.3`; isolated Dolt 2.2.1 and installed CLI mutation probes
   preserve the first terminal clock and reject invalid-clock writes atomically.
+- **Interrupted provider staging freezes the original formula and requested
+  target.** A retry with the same source/effect cannot activate the original
+  candidate while reporting a different formula or worker. The requested
+  target is recorded independently of private control-root routing and is
+  included in activation preconditions. Missing original intent is a conflict,
+  not permission to infer it from the retry.
 - **Unavailable native runtime observations remain unknown, not empty.**
   A responsive empty tmux server can clear stale liveness, while transport and
   malformed snapshots retain last-known-good state. Managed Dolt launch accepts

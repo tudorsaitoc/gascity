@@ -1,16 +1,21 @@
 package sling
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/gastownhall/gascity/internal/beadmeta"
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/config"
+	"github.com/gastownhall/gascity/internal/formula"
+	"github.com/gastownhall/gascity/internal/molecule"
 	"github.com/gastownhall/gascity/internal/runtime"
 )
 
@@ -241,6 +246,126 @@ id = "step"
 title = "Do work"
 `), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestStagedFormulaReplayPreservesOriginalProviderIntent(t *testing.T) {
+	for _, scenario := range []string{"same", "target", "formula", "committed-same", "committed-target", "committed-formula"} {
+		t.Run(scenario, func(t *testing.T) {
+			dir := t.TempDir()
+			writeCustomDeliveryGraphFormula(t, dir)
+			if err := os.WriteFile(filepath.Join(dir, "other-work.formula.toml"), []byte(`
+formula = "other-work"
+version = 2
+contract = "graph.v2"
+[[steps]]
+id = "step"
+title = "Other work"
+`), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			cfg := graphV2SlingTestConfig(t, dir)
+			target := config.Agent{Name: "worker-a", MaxActiveSessions: intPtr(1)}
+			other := config.Agent{Name: "worker-b", MaxActiveSessions: intPtr(1)}
+			cfg.Agents = append(cfg.Agents, target, other)
+			deps := testDeps(cfg, runtime.NewFake(), newFakeRunner().run)
+			deps.CityPath = t.TempDir()
+			admitCustomDeliveryFixture(t, deps.CityPath)
+			source, err := deps.Store.Create(beads.Bead{
+				Title: "original goal", Description: "original instructions",
+				AcceptanceCriteria: "original acceptance",
+				Metadata:           map[string]string{DispatchEffectIDKey: "original-effect", DispatchEffectStateKey: "attempted"},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			conditions, err := routeConditions(source, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			opts := SlingOpts{Target: target, BeadOrFormula: source.ID, OnFormula: "graph-work", Conditions: &conditions, NoConvoy: true}
+			inv, _, err := prepareGraphV2FormulaInvocation(context.Background(), opts.OnFormula, source.ID, opts, deps, target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			recipe, err := formula.CompileWithoutRuntimeVarValidation(context.Background(), opts.OnFormula, SlingFormulaSearchPaths(deps, target), inv.Vars)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, err := encodeRouteConditions(conditions)
+			if err != nil {
+				t.Fatal(err)
+			}
+			recipe.Steps[0].Metadata[beadmeta.AttachFencePendingMetadataKey] = "true"
+			recipe.Steps[0].Metadata[DispatchEffectIDKey] = "original-effect"
+			recipe.Steps[0].Metadata["gc.dispatch_source_bead"] = source.ID
+			recipe.Steps[0].Metadata[dispatchSourceConditionsKey] = raw
+			recipe.Steps[0].Metadata[dispatchTargetKey] = target.Name
+			candidate, err := InstantiateCompiledSlingFormula(context.Background(), recipe, opts.OnFormula,
+				molecule.Options{Vars: inv.Vars, DeferAssignees: true, IdempotencyKey: "original-effect"},
+				source.ID, opts.ScopeKind, opts.ScopeRef, target, deps)
+			if err != nil {
+				t.Fatal(err)
+			}
+			mapping, err := json.Marshal(candidate.IDMapping)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := deps.graphStore().SetMetadata(candidate.RootID, dispatchCandidateIDsKey, string(mapping)); err != nil {
+				t.Fatal(err)
+			}
+			if strings.HasPrefix(scenario, "committed-") {
+				update := beads.UpdateOpts{Metadata: map[string]string{
+					DispatchEffectStateKey:                "committed",
+					"workflow_id":                         candidate.RootID,
+					beadmeta.ExecutionRoutedToMetadataKey: target.Name,
+					"gc.dispatch_activation_status":       source.Status,
+					"gc.dispatch_activation_assignee":     source.Assignee,
+				}}
+				if err := freezeActivationConditions(&update, conditions); err != nil {
+					t.Fatal(err)
+				}
+				if err := deps.Store.Update(source.ID, update); err != nil {
+					t.Fatal(err)
+				}
+				current, err := deps.Store.Get(source.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				selected, err := routeConditions(current, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				opts.Conditions = &selected
+			}
+			intent := strings.TrimPrefix(scenario, "committed-")
+			originalSource, _ := deps.Store.Get(source.ID)
+			originalRoot, _ := deps.graphStore().Get(candidate.RootID)
+			switch intent {
+			case "target":
+				opts.Target = other
+			case "formula":
+				opts.OnFormula = "other-work"
+			}
+			result, err := DoSling(opts, deps, deps.Store)
+			currentSource, sourceErr := deps.Store.Get(source.ID)
+			currentRoot, rootErr := deps.graphStore().Get(candidate.RootID)
+			if sourceErr != nil || rootErr != nil {
+				t.Fatalf("read recovered effect: source=%v provider=%v", sourceErr, rootErr)
+			}
+			if intent == "same" {
+				if err != nil || result.WorkflowID != candidate.RootID || currentSource.Metadata["workflow_id"] != candidate.RootID ||
+					currentSource.Metadata[beadmeta.ExecutionRoutedToMetadataKey] != target.Name ||
+					currentRoot.Metadata[beadmeta.AttachFencePendingMetadataKey] != "" {
+					t.Fatalf("original staged provider did not resume: result=%+v err=%v source=%+v root=%+v", result, err, currentSource, currentRoot)
+				}
+				return
+			}
+			var conflict *RouteConflictError
+			if !errors.As(err, &conflict) || !reflect.DeepEqual(currentSource, originalSource) || !reflect.DeepEqual(currentRoot, originalRoot) {
+				t.Fatalf("changed %s selected or activated the original provider: result=%+v err=%v source=%+v root=%+v", scenario, result, err, currentSource, currentRoot)
+			}
+		})
 	}
 }
 

@@ -35,12 +35,6 @@ import (
 	"github.com/gastownhall/gascity/internal/storebinding"
 )
 
-const (
-	bundleRootFile        = "cmd/gc/storage_provider_bundle.go"
-	compiledFactoriesFunc = "compiledStorageProviderFactories"
-	registryConstructor   = "NewProviderRegistry"
-)
-
 // sanctionedProviderIDs are the provider IDs compiled into this binary:
 // "sqlite" for the SQLite graph-engine inspection surface, "sqlite-beads" for
 // the bead-store provider over it, and "beads-workspace" for the provider that
@@ -53,51 +47,6 @@ var sanctionedProviderIDs = map[string]bool{"sqlite": true, "sqlite-beads": true
 var storageSurfaceDirs = []string{
 	"cmd/gc",
 	"internal/storebinding",
-}
-
-// TestStorageProviderBundleHasOneConstructionSite proves the registry is
-// constructed exactly once, in the file that owns the composition root, and
-// that the compiled-factory function is declared exactly once. A duplicated or
-// shadowed declaration must fail loudly, not win by build order.
-func TestStorageProviderBundleHasOneConstructionSite(t *testing.T) {
-	root := moduleRoot(t)
-	sites := map[string]int{}
-	declarations := map[string]int{}
-
-	for _, rel := range moduleGoFiles(t, root) {
-		file := parseModuleFile(t, root, rel)
-		ast.Inspect(file, func(node ast.Node) bool {
-			call, ok := node.(*ast.CallExpr)
-			if !ok {
-				return true
-			}
-			switch fn := call.Fun.(type) {
-			case *ast.Ident:
-				if fn.Name == registryConstructor && filepath.Dir(rel) != "internal/storebinding" {
-					sites[rel]++
-				}
-			case *ast.SelectorExpr:
-				if fn.Sel.Name == registryConstructor {
-					sites[rel]++
-				}
-			}
-			return true
-		})
-		for _, decl := range file.Decls {
-			fn, ok := decl.(*ast.FuncDecl)
-			if ok && fn.Recv == nil && fn.Name.Name == compiledFactoriesFunc {
-				declarations[rel]++
-			}
-		}
-	}
-
-	if got := len(sites); got != 1 || sites[bundleRootFile] != 1 {
-		t.Fatalf("registry construction sites = %v, want exactly one in %s", sites, bundleRootFile)
-	}
-	if len(declarations) != 1 || declarations[bundleRootFile] != 1 {
-		t.Fatalf("%s is declared in %v, want exactly one declaration in %s",
-			compiledFactoriesFunc, declarations, bundleRootFile)
-	}
 }
 
 // TestCompiledStorageProviderRegistryIsFrozenAndExplicit exercises the

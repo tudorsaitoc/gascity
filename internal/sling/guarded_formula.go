@@ -24,6 +24,7 @@ const dispatchCandidateIDsKey = "gc.dispatch_candidate_ids"
 const dispatchReplacedRootKey = "gc.dispatch_replaced_roots"
 const dispatchSourceConditionsKey = "gc.dispatch_source_conditions"
 const dispatchActivationConditionsKey = "gc.dispatch_activation_conditions"
+const dispatchTargetKey = "gc.dispatch_target"
 const customDispatchProviderKey = "gc.dispatch_provider"
 
 func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, result SlingResult) (SlingResult, error) {
@@ -56,7 +57,8 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 			return result, err
 		}
 	}
-	if err := checkNativeAdmission(ctx, deps.Cfg, deps.CityPath, agentutil.NormalizePoolRouteTarget(deps.Cfg, agentutil.RoutedToIdentity(&a)), effectID != ""); err != nil {
+	target := agentutil.NormalizePoolRouteTarget(deps.Cfg, agentutil.RoutedToIdentity(&a))
+	if err := checkNativeAdmission(ctx, deps.Cfg, deps.CityPath, target, effectID != ""); err != nil {
 		return result, err
 	}
 	if _, ok := beads.GuardedUpdateWriterFor(deps.Store); !ok {
@@ -71,6 +73,10 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 	}
 	if _, ok := beads.SingleTransactionStoreFor(candidateStore); !ok {
 		return result, beads.ErrConditionalWriteUnsupported
+	}
+	candidate, err := originalDispatchCandidate(candidateStore, effectID, sourceID, name, target)
+	if err != nil {
+		return result, err
 	}
 	inv, graph, err := prepareGraphV2FormulaInvocation(ctx, name, sourceID, opts, deps, a)
 	if err != nil {
@@ -120,6 +126,7 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 		recipe.Steps[0].Metadata = map[string]string{}
 	}
 	recipe.Steps[0].Metadata[beadmeta.AttachFencePendingMetadataKey] = "true"
+	recipe.Steps[0].Metadata[dispatchTargetKey] = target
 	if effectID != "" {
 		recipe.Steps[0].Metadata[DispatchEffectIDKey] = effectID
 	}
@@ -133,10 +140,6 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 		}
 		recipe.Steps[0].Metadata[dispatchSourceConditionsKey] = raw
 	}
-	candidate, err := originalDispatchCandidate(candidateStore, effectID, sourceID)
-	if err != nil {
-		return result, err
-	}
 	if candidate == nil {
 		candidate, err = InstantiateCompiledSlingFormula(ctx, recipe, name, createOpts, sourceID, opts.ScopeKind, opts.ScopeRef, a, deps, opts.Force)
 	}
@@ -147,6 +150,12 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 	root, err := beads.HandlesFor(candidateStore).Live.Get(candidate.RootID)
 	if err != nil {
 		return result, err
+	}
+	if err := validateStagedProviderIntent(root, sourceID, name, target); err != nil {
+		return result, err
+	}
+	if IsWorkflowAttachment(root) != graph {
+		return result, &RouteConflictError{sourceID, "requested workflow contract differs from the original staged provider"}
 	}
 	if root.Metadata[beadmeta.AttachFencePendingMetadataKey] != "true" {
 		return result, &RouteConflictError{sourceID, "existing provider workflow is not this attempt's pending candidate"}
@@ -194,7 +203,6 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 		opts.Conditions = &conditions
 	}
 	metadata := map[string]string{}
-	target := agentutil.NormalizePoolRouteTarget(deps.Cfg, agentutil.RoutedToIdentity(&a))
 	if graph {
 		metadata["workflow_id"] = candidate.RootID
 		metadata[beadmeta.ExecutionRoutedToMetadataKey] = target
@@ -313,7 +321,7 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 
 func activationConditions(b beads.Bead) beads.UpdateConditions {
 	metadata := map[string]string{}
-	for _, key := range []string{beadmeta.AttachFencePendingMetadataKey, DispatchEffectIDKey, DispatchEffectStateKey, customDispatchProviderKey, dispatchCandidateIDsKey, dispatchReplacedRootKey, dispatchSourceConditionsKey, dispatchActivationConditionsKey, "gc.dispatch_source_bead", beadmeta.RootBeadIDMetadataKey, beadmeta.RoutedToMetadataKey, beadmeta.ExecutionRoutedToMetadataKey, molecule.DeferredAssigneeMetadataKey, molecule.DeferredTypeMetadataKey, molecule.DeferredRoutedToMetadataKey, molecule.DeferredExecutionRoutedToMetadataKey, "handoff.conflict_state"} {
+	for _, key := range []string{beadmeta.AttachFencePendingMetadataKey, DispatchEffectIDKey, DispatchEffectStateKey, customDispatchProviderKey, dispatchCandidateIDsKey, dispatchReplacedRootKey, dispatchSourceConditionsKey, dispatchActivationConditionsKey, dispatchTargetKey, "gc.dispatch_source_bead", beadmeta.RootBeadIDMetadataKey, beadmeta.FormulaNameMetadataKey, beadmeta.FormulaContractMetadataKey, beadmeta.RoutedToMetadataKey, beadmeta.ExecutionRoutedToMetadataKey, molecule.DeferredAssigneeMetadataKey, molecule.DeferredTypeMetadataKey, molecule.DeferredRoutedToMetadataKey, molecule.DeferredExecutionRoutedToMetadataKey, "handoff.conflict_state"} {
 		metadata[key] = b.Metadata[key]
 	}
 	return beads.UpdateConditions{Status: &b.Status, Assignee: &b.Assignee, Title: &b.Title, Description: &b.Description, AcceptanceCriteria: &b.AcceptanceCriteria, Labels: &b.Labels, Metadata: metadata}
@@ -816,7 +824,17 @@ func closeGuardedReplacement(writer beads.GuardedUpdateWriter, rows []beads.Bead
 	return nil
 }
 
-func originalDispatchCandidate(store beads.Store, effectID, sourceID string) (*molecule.Result, error) {
+func validateStagedProviderIntent(root beads.Bead, sourceID, formulaName, target string) error {
+	if root.Metadata[beadmeta.FormulaNameMetadataKey] != formulaName {
+		return &RouteConflictError{sourceID, "requested formula differs from the original staged provider"}
+	}
+	if root.Metadata[dispatchTargetKey] != target {
+		return &RouteConflictError{sourceID, "requested target differs from the original staged provider"}
+	}
+	return nil
+}
+
+func originalDispatchCandidate(store beads.Store, effectID, sourceID, formulaName, target string) (*molecule.Result, error) {
 	if effectID == "" {
 		return nil, nil
 	}
@@ -833,6 +851,9 @@ func originalDispatchCandidate(store beads.Store, effectID, sourceID string) (*m
 	root := roots[0]
 	if root.Metadata[beadmeta.AttachFencePendingMetadataKey] != "true" {
 		return nil, &RouteConflictError{sourceID, "original provider effect requires reconciliation, not another materialization"}
+	}
+	if err := validateStagedProviderIntent(root, sourceID, formulaName, target); err != nil {
+		return nil, err
 	}
 	var mapping map[string]string
 	if err := json.Unmarshal([]byte(root.Metadata[dispatchCandidateIDsKey]), &mapping); err != nil || len(mapping) == 0 {
