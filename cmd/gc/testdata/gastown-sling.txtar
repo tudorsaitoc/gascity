@@ -36,11 +36,6 @@ exec gc agent resume worker
 ! exec gc sling empty-pool gc-1
 stderr 'warning.*session config.*max_active_sessions=0'
 
-# --- 5. Sling with --formula but no bd mol cook ---
-
-! exec gc sling mayor fake-formula --formula
-stderr 'instantiating formula'
-
 -- sling-city.toml --
 [workspace]
 name = "sling"

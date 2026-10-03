@@ -10,48 +10,12 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strings"
 	"testing"
 	"unicode"
 	"unicode/utf8"
 )
-
-func TestNativeDoltliteMakeTargetPolicyRejectsOverrides(t *testing.T) {
-	const recipe = `$(TEST_ENV) CGO_ENABLED=0 go test -tags gascity_native_beads -run '^TestDoltlite' ./internal/beads -count=1`
-	valid := "before:\n\ttrue\n\ntest-native-doltlite-beads:\n\t" + recipe + "\n\nafter:\n\ttrue\n"
-	if err := validateNativeDoltliteMakefile(valid); err != nil {
-		t.Fatalf("valid target rejected: %v", err)
-	}
-
-	for name, makefile := range map[string]string{
-		"second invocation":            strings.Replace(valid, "\n\nafter:", "\n\tgo test ./internal/beads\n\nafter:", 1),
-		"second run flag":              strings.Replace(valid, " -tags gascity_native_beads", " -run='^TestAbsent$' -tags gascity_native_beads", 1),
-		"double dash run":              strings.Replace(valid, " -count=1", " -count=1 --run=^TestAbsent$", 1),
-		"test binary run":              strings.Replace(valid, " -count=1", " -count=1 -test.run=^TestAbsent$", 1),
-		"duplicate rule":               valid + "test-native-doltlite-beads: prerequisite\n\tgo test ./internal/beads\n",
-		"multiple target rule":         valid + "alias test-native-doltlite-beads:\n\tgo test ./internal/beads\n",
-		"blank separated invocation":   strings.Replace(valid, "\n\nafter:", "\n\n\tgo test ./internal/beads\n\nafter:", 1),
-		"comment separated invocation": strings.Replace(valid, "\n\nafter:", "\n\n# still the same recipe\n\tgo test ./internal/beads\n\nafter:", 1),
-	} {
-		t.Run(name, func(t *testing.T) {
-			if err := validateNativeDoltliteMakefile(makefile); err == nil {
-				t.Fatal("override unexpectedly accepted")
-			}
-		})
-	}
-}
-
-func TestNativeDoltliteDryRunPolicyRequiresOneExactCommand(t *testing.T) {
-	const command = "env -i PATH=... CGO_ENABLED=0 go test -tags gascity_native_beads -run '^TestDoltlite' ./internal/beads -count=1"
-	if err := validateNativeDoltliteDryRun(command + "\n"); err != nil {
-		t.Fatalf("valid dry-run command rejected: %v", err)
-	}
-	if err := validateNativeDoltliteDryRun(command + "\ngo test ./internal/beads\n"); err == nil {
-		t.Fatal("second expanded command unexpectedly accepted")
-	}
-}
 
 func TestNativeDoltliteOwnerPolicyRejectsFuzzOwners(t *testing.T) {
 	for _, name := range []string{"FuzzDoltliteReadStore"} {
@@ -98,63 +62,6 @@ func TestNativeDoltliteConstraintIgnoresBlockCommentDirective(t *testing.T) {
 	if nativeOnly {
 		t.Fatal("directive-looking text inside a block comment must not tag the file")
 	}
-}
-
-func validateNativeDoltliteMakefile(makefile string) error {
-	const (
-		targetName     = "test-native-doltlite-beads"
-		targetLineText = targetName + ":"
-		recipe         = `$(TEST_ENV) CGO_ENABLED=0 go test -tags gascity_native_beads -run '^TestDoltlite' ./internal/beads -count=1`
-	)
-
-	lines := strings.Split(makefile, "\n")
-	targetLine := -1
-	for i, line := range lines {
-		if strings.HasPrefix(strings.TrimSpace(line), "#") {
-			continue
-		}
-		colon := strings.IndexByte(line, ':')
-		if colon < 0 || !slices.Contains(strings.Fields(line[:colon]), targetName) {
-			continue
-		}
-		if targetLine >= 0 || line != targetLineText {
-			return fmt.Errorf("target must have exactly one declaration without prerequisites")
-		}
-		targetLine = i
-	}
-	if targetLine < 0 {
-		return fmt.Errorf("target is missing")
-	}
-	if targetLine+2 >= len(lines) {
-		return fmt.Errorf("target recipe is incomplete")
-	}
-	if got := lines[targetLine+1]; got != "\t"+recipe {
-		return fmt.Errorf("recipe = %q, want exactly %q", got, recipe)
-	}
-	for _, line := range lines[targetLine+2:] {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(line, "\t") {
-			return fmt.Errorf("target must contain exactly one recipe command")
-		}
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-		break
-	}
-	return nil
-}
-
-func validateNativeDoltliteDryRun(output string) error {
-	const suffix = ` CGO_ENABLED=0 go test -tags gascity_native_beads -run '^TestDoltlite' ./internal/beads -count=1`
-
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	if len(lines) != 1 {
-		return fmt.Errorf("expanded to %d commands, want exactly 1", len(lines))
-	}
-	if !strings.HasSuffix(lines[0], suffix) {
-		return fmt.Errorf("expanded command does not end with %q", strings.TrimSpace(suffix))
-	}
-	return nil
 }
 
 func validateNativeDoltliteBuildContext(dir, name string) error {

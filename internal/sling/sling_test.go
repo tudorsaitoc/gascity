@@ -28,17 +28,10 @@ import (
 
 // --- Test helpers ---
 
-type fakeRunnerRule struct {
-	prefix string
-	out    string
-	err    error
-}
-
 type fakeRunner struct {
 	calls []string
 	dirs  []string
 	envs  []map[string]string
-	rules []fakeRunnerRule
 }
 
 type getErrStore struct {
@@ -52,19 +45,10 @@ func (s *getErrStore) Get(_ string) (beads.Bead, error) {
 
 func newFakeRunner() *fakeRunner { return &fakeRunner{} }
 
-func (r *fakeRunner) on(prefix string, err error) {
-	r.rules = append(r.rules, fakeRunnerRule{prefix: prefix, err: err})
-}
-
 func (r *fakeRunner) run(dir, command string, env map[string]string) (string, error) {
 	r.calls = append(r.calls, command)
 	r.dirs = append(r.dirs, dir)
 	r.envs = append(r.envs, env)
-	for _, rule := range r.rules {
-		if strings.Contains(command, rule.prefix) {
-			return rule.out, rule.err
-		}
-	}
 	return "", nil
 }
 
@@ -1666,7 +1650,7 @@ func TestDoSlingCustomSlingQueryExpandsTemplateContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if source.Metadata[DispatchEffectStateKey] != "routed" || source.Metadata[DispatchEffectIDKey] == "" ||
+	if source.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "routed" || source.Metadata[beadmeta.DispatchEffectIDMetadataKey] == "" ||
 		source.Metadata[beadmeta.RoutedToMetadataKey] != "frontend/worker" {
 		t.Fatalf("custom acknowledgment did not finish the original source effect: %+v", source.Metadata)
 	}

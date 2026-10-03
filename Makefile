@@ -106,6 +106,17 @@ endif
 .PHONY: build check check-all check-bd check-docker check-docs check-dolt check-eventexport-isolation check-gomod-replace check-core-boundary check-native-dependency-surface check-routed-test-rows check-split-topology-rows check-version-tag lint lint-full lint-new lint-changed lint-affected fmt-check fmt-check-changed fmt vet test test-ci-policy test-mac test-fast-parallel test-fsys-darwin-compile test-pack-registry-live test-native-doltlite-beads test-cmd-gc-process test-cmd-gc-process-shard test-cmd-gc-process-parallel test-productmetrics-testhook test-worker-core test-worker-core-phase2 test-worker-core-phase2-all test-worker-core-phase2-real-transport setup-worker-inference test-worker-inference test-worker-inference-phase3 test-acceptance test-bd-cli-contract test-bd-conditional-release-contract test-acceptance-b test-acceptance-c test-acceptance-all test-tutorial-goldens test-tutorial-regression test-tutorial test-integration test-integration-shards test-integration-shards-parallel test-integration-shards-cover test-integration-packages test-integration-packages-cover test-integration-review-formulas test-integration-review-formulas-cover test-integration-review-formulas-basic test-integration-review-formulas-basic-cover test-integration-review-formulas-retries test-integration-review-formulas-retries-cover test-integration-review-formulas-recovery test-integration-review-formulas-recovery-cover test-integration-bdstore test-integration-bdstore-cover test-integration-rest test-integration-rest-cover test-integration-rest-smoke test-integration-rest-smoke-cover test-integration-rest-full test-integration-rest-full-cover test-local-full-parallel test-mail-wisp-insert test-mcp-mail test-openclaw-bridge test-docker test-k8s test-cover test-cover-mac test-cover-noncmdgc test-cover-cmdgc-shard cover check-self-contained install install-tools install-buildx setup clean generate check-schema docker-base docker-agent docker-controller docs-dev diagrams-excalidraw dashboard-smoke dashboard-e2e-go dashboard-e2e-play dashboard-e2e
 .PHONY: check-release-dist-ignore
 
+# Go package loaders require the real, source-matched SPA build input.
+# CI consumers set GC_DASHBOARD_INPUT_REQUIRED=1: stale input fails, never rebuilds.
+.DEFAULT_GOAL := build
+.PHONY: dashboard-input dashboard-verify
+dashboard-input:
+	python3 "$(dir $(abspath $(lastword $(MAKEFILE_LIST))))scripts/dashboard-input.py" $(if $(filter 1,$(GC_DASHBOARD_INPUT_REQUIRED)),verify,prepare)
+dashboard-verify:
+	python3 "$(dir $(abspath $(lastword $(MAKEFILE_LIST))))scripts/dashboard-input.py" verify
+build generate lint-full lint-new lint-changed lint-affected fmt-check fmt-check-changed fmt vet check-native-dependency-surface spec-ci dashboard-e2e-go: dashboard-input
+test test-mac test-fast-parallel test-fsys-darwin-compile test-pack-registry-live test-ci-policy test-native-doltlite-beads test-cmd-gc-process test-productmetrics-testhook test-cmd-gc-process-shard test-cmd-gc-process-parallel test-worker-core test-worker-core-phase2 test-worker-core-phase2-real-transport test-worker-core-phase2-all test-worker-inference test-acceptance test-bd-cli-contract test-bd-conditional-release-contract test-acceptance-b test-acceptance-c test-integration test-integration-huma test-integration-shards-parallel test-local-full-parallel test-integration-packages test-integration-packages-cover test-integration-review-formulas-basic test-integration-review-formulas-basic-cover test-integration-review-formulas-retries test-integration-review-formulas-retries-cover test-integration-review-formulas-recovery test-integration-review-formulas-recovery-cover test-integration-bdstore test-integration-bdstore-cover test-integration-rest-smoke test-integration-rest-smoke-cover test-integration-rest-full test-integration-rest-full-cover test-chaos-dolt test-tutorial-goldens check-docs test-cover test-cover-mac test-cover-noncmdgc test-cover-cmdgc-shard test-mail-wisp-insert test-mcp-mail test-docker test-k8s: dashboard-input
+
 ## build: compile gc binary with version metadata
 build:
 	go build -buildvcs=false -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY) ./cmd/gc
@@ -401,6 +412,11 @@ TEST_ENV = env -i \
 	GOINSECURE="$${GOINSECURE-}" \
 	GOVCS="$${GOVCS-}" \
 	GOWORK="$${GOWORK-}" \
+	GC_DASHBOARD_INPUT_REQUIRED="$${GC_DASHBOARD_INPUT_REQUIRED-}" \
+	GC_SLING_ADMISSION_COMMAND="$${GC_SLING_ADMISSION_COMMAND-}" \
+	GC_SLING_TEST_SCOPE="$${GC_SLING_TEST_SCOPE-}" \
+	PYTHONPATH="$${PYTHONPATH-}" \
+	CGO_ENABLED="$${CGO_ENABLED-}" \
 	ANTHROPIC_BASE_URL="$${ANTHROPIC_BASE_URL-}" \
 	ANTHROPIC_API_KEY="$${ANTHROPIC_API_KEY-}" \
 	ANTHROPIC_AUTH_TOKEN="$${ANTHROPIC_AUTH_TOKEN-}" \
@@ -884,26 +900,30 @@ diagrams-excalidraw:
 ## docs-dev: run the Mintlify docs locally
 docs-dev:
 	./mint.sh dev
+.PHONY: dashboard-deps
+dashboard-deps:
+	cd internal/api/dashboardspa/web && npm ci --silent
 
-## dashboard-build: compile the SPA bundle and sync it into the embedded dist/
+
+## dashboard-build: build and admit the current SPA; compiled assets are never tracked
 dashboard-build:
-	cd internal/api/dashboardspa/web && npm ci --silent && npm run build && rm -rf ../dist && cp -rf frontend/dist ../dist
+	python3 scripts/dashboard-input.py build
 
 ## dashboard-dev: Vite dev server (HMR) for SPA iteration
 dashboard-dev:
 	cd internal/api/dashboardspa/web && npm run --workspace gas-city-dashboard-frontend dev
 
 ## dashboard-check: typecheck (src + test + e2e specs) + build the SPA, then go test the embedded handler + BFF
-dashboard-check: dashboard-build
+dashboard-check: dashboard-input dashboard-deps
 	cd internal/api/dashboardspa/web && npm run typecheck && npm run --workspace gas-city-dashboard-frontend typecheck:test
 	cd internal/api/dashboardspa/web && npm run --workspace gas-city-dashboard-frontend typecheck:e2e
 	$(TEST_ENV) go test ./internal/api/dashboardspa/... ./internal/api/dashboardbff/...
 
 ## dashboard-smoke: serve the built SPA bundle via Vite preview and verify it responds
-dashboard-smoke: dashboard-build
+dashboard-smoke: dashboard-input dashboard-deps
 	@PORT=$$(python3 -c 'import socket; sock = socket.socket(); sock.bind(("127.0.0.1", 0)); print(sock.getsockname()[1]); sock.close()'); \
 	LOG=$$(mktemp); \
-	( cd internal/api/dashboardspa/web/frontend && exec npm run preview -- --host 127.0.0.1 --strictPort --port $$PORT >"$$LOG" 2>&1 ) & \
+	( cd internal/api/dashboardspa/web/frontend && exec npm run preview -- --outDir ../../dist --host 127.0.0.1 --strictPort --port $$PORT >"$$LOG" 2>&1 ) & \
 	PID=$$!; \
 	trap 'kill $$PID >/dev/null 2>&1 || true; wait $$PID >/dev/null 2>&1 || true; rm -f "$$LOG"' EXIT INT TERM; \
 	for attempt in $$(seq 1 40); do \
@@ -930,9 +950,8 @@ dashboard-e2e-go:
 ## installs Chromium, and runs the render specs, which assert each view renders
 ## its seeded content with no React error boundary and no client-error POST. The
 ## Go webServer in playwright.config.ts launches the seeded fakesupervisor.
-dashboard-e2e-play: dashboard-build
+dashboard-e2e-play: dashboard-input dashboard-deps
 	cd test/dashport/cmd/fakesupervisor && go build -tags integration -o fakesupervisor .
-	cd internal/api/dashboardspa/web && npm ci --silent
 	cd internal/api/dashboardspa/web/frontend && npm run test:e2e:install
 	cd internal/api/dashboardspa/web/frontend && npm run test:e2e
 
@@ -940,22 +959,16 @@ dashboard-e2e-play: dashboard-build
 ## test (Layer A) and the Playwright browser render smoke (Layer B).
 dashboard-e2e: dashboard-e2e-go dashboard-e2e-play
 
-## dashboard-ci: regenerate the typed API client + rebuild the SPA bundle, and
-## fail if the generated gc-supervisor-client or the embedded dist/ is stale.
-## Used by CI to enforce that the dashboard's generated client (from
-## internal/api/openapi.json via openapi-ts.config.ts) and dist/ match sources.
-dashboard-ci: dashboard-check
+## dashboard-ci: build one admitted SPA input and enforce generated client SOURCE drift.
+dashboard-ci: dashboard-build
 	cd internal/api/dashboardspa/web && npm run generate:client
 	@if ! git diff --quiet -- internal/api/dashboardspa/web/shared/src/generated/gc-supervisor-client; then \
 		echo "ERROR: dashboard API client is stale — run 'npm run generate:client' in internal/api/dashboardspa/web and commit." >&2; \
 		git --no-pager diff --stat -- internal/api/dashboardspa/web/shared/src/generated/gc-supervisor-client; \
 		exit 1; \
 	fi
-	@if ! git diff --quiet -- internal/api/dashboardspa/dist; then \
-		echo "ERROR: internal/api/dashboardspa/dist/ is stale — run 'make dashboard-build' and commit." >&2; \
-		git --no-pager diff --stat -- internal/api/dashboardspa/dist; \
-		exit 1; \
-	fi
+	python3 scripts/dashboard-input.py verify
+	$(MAKE) dashboard-check dashboard-smoke GC_DASHBOARD_INPUT_REQUIRED=1
 
 ## spec-ci: regenerate the OpenAPI spec + generated Go client, fail on drift.
 ## Used by CI to enforce that internal/api/openapi.json, docs/reference/schema JSON

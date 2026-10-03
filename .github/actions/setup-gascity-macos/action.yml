@@ -59,6 +59,8 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
 
+    - uses: ./.github/actions/dashboard-input
+
     - name: Install system dependencies (brew)
       if: ${{ inputs.install-system-deps == 'true' }}
       shell: bash

@@ -68,15 +68,7 @@ func TestCmdSlingMultiDefaultTargets_DeterministicPick(t *testing.T) {
 			defer restore()
 
 			var stdout, stderr bytes.Buffer
-			code := cmdSling(
-				[]string{"fo-multi-work"},
-				false, false, false,
-				"", nil, "",
-				true, false, false, "",
-				false, false, false,
-				"", "",
-				&stdout, &stderr,
-			)
+			code := cmdSlingWithJSON([]string{"fo-multi-work"}, false, false, false, "", nil, "", true, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 			if code != 0 {
 				t.Fatalf("cmdSling = %d, want 0; stderr=%s", code, stderr.String())
 			}

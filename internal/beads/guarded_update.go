@@ -15,6 +15,7 @@ type UpdateConditions struct {
 	UnsetMetadata       []string
 }
 
+// Requested reports whether any conditional-write field is specified.
 func (c UpdateConditions) Requested() bool {
 	return c.Actor != "" || c.Status != nil || c.Assignee != nil || c.Title != nil || c.Description != nil || c.AcceptanceCriteria != nil || c.Labels != nil || len(c.Metadata) != 0 || len(c.SetMetadataIfAbsent) != 0 || len(c.UnsetMetadata) != 0
 }
@@ -47,6 +48,7 @@ func GuardedUpdateWriterFor(store Store) (GuardedUpdateWriter, bool) {
 	return writer, ok
 }
 
+// RefineryDecisionAtKey identifies the immutable first terminal decision clock.
 const RefineryDecisionAtKey = "refinery_decision_at"
 
 // mergeUpdateMetadata preserves the first nonempty terminal clock, even when

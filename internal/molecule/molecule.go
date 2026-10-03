@@ -1429,6 +1429,14 @@ func activateFencedGraphWorkflowBead(store beads.Store, id string) error {
 		return err
 	}
 	if !applied {
+		current, readErr := beads.HandlesFor(store).Live.Get(id)
+		if readErr != nil {
+			return readErr
+		}
+		remaining := DeferredRoutingActivationUpdate(current)
+		if remaining.Assignee == nil && remaining.Type == nil && len(remaining.Metadata) == 0 {
+			return nil
+		}
 		return fmt.Errorf("candidate %s ownership or hold changed before activation", id)
 	}
 	return nil

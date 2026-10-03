@@ -26,6 +26,12 @@ cd "$repo_root"
 # shellcheck source=lib/test-slice.sh
 source "$repo_root/scripts/lib/test-slice.sh"
 gc_test_slice_reexec "$repo_root/scripts/test-local-parallel" "$@"
+dashboard_mode=prepare
+if [[ "${GC_DASHBOARD_INPUT_REQUIRED:-0}" == "1" ]]; then
+  dashboard_mode=verify
+fi
+python3 "$repo_root/scripts/dashboard-input.py" "$dashboard_mode"
+export GC_DASHBOARD_INPUT_REQUIRED=1
 # shellcheck source=lib/inner-parallelism.sh
 source "$repo_root/scripts/lib/inner-parallelism.sh"
 
@@ -307,6 +313,9 @@ set +e
     GOINSECURE="${GOINSECURE-}" \
     GOVCS="${GOVCS-}" \
     GOWORK="${GOWORK-}" \
+    GC_DASHBOARD_INPUT_REQUIRED="${GC_DASHBOARD_INPUT_REQUIRED-}" \
+    GC_SLING_ADMISSION_COMMAND="${GC_SLING_ADMISSION_COMMAND-}" \
+    PYTHONPATH="${PYTHONPATH-}" \
     bash -lc "$command" >"$log" 2>&1; then
     echo "[$label] ok"
   else

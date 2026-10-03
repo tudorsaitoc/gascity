@@ -15,10 +15,13 @@ import (
 type SingleTransactionStore interface {
 	TxSingle(string, func(Tx) error) error
 }
+
+// SingleTransactionStoreHandleProvider declares the backend transaction handle.
 type SingleTransactionStoreHandleProvider interface {
 	SingleTransactionStoreHandle() (SingleTransactionStore, bool)
 }
 
+// SingleTransactionStoreFor resolves only explicitly declared store wrappers.
 func SingleTransactionStoreFor(store Store) (SingleTransactionStore, bool) {
 	if store == nil {
 		return nil, false
@@ -51,11 +54,12 @@ func (m *MemStore) TxSingle(_ string, fn func(Tx) error) error {
 	return nil
 }
 
-// FileStore embeds the memory test double but persists each mutation separately.
+// SingleTransactionStoreHandle refuses the file store's per-mutation persistence.
 func (fs *FileStore) SingleTransactionStoreHandle() (SingleTransactionStore, bool) {
 	return nil, false
 }
 
+// TxSingle refuses an all-or-nothing capability the file store cannot provide.
 func (fs *FileStore) TxSingle(_ string, _ func(Tx) error) error {
 	return ErrConditionalWriteUnsupported
 }
@@ -64,6 +68,7 @@ type nativeSingleTransactionRunner interface {
 	RunInSingleTransaction(context.Context, string, func(beadslib.Transaction) error) error
 }
 
+// SingleTransactionStoreHandle checks the native backend's declared capability.
 func (s *NativeDoltStore) SingleTransactionStoreHandle() (SingleTransactionStore, bool) {
 	storage, release, err := s.acquireStorage()
 	if err != nil {
@@ -76,6 +81,7 @@ func (s *NativeDoltStore) SingleTransactionStoreHandle() (SingleTransactionStore
 	return s, true
 }
 
+// TxSingle runs the callback through one acquired native backend transaction.
 func (s *NativeDoltStore) TxSingle(commitMsg string, fn func(Tx) error) error {
 	if fn == nil {
 		return errors.New("beads single tx: nil callback")
@@ -99,6 +105,7 @@ func (s *NativeDoltStore) TxSingle(commitMsg string, fn func(Tx) error) error {
 	})
 }
 
+// SingleTransactionStoreHandle resolves the cache's declared backing capability.
 func (c *CachingStore) SingleTransactionStoreHandle() (SingleTransactionStore, bool) {
 	if _, ok := SingleTransactionStoreFor(c.conditionalBacking()); !ok {
 		return nil, false
@@ -106,6 +113,7 @@ func (c *CachingStore) SingleTransactionStoreHandle() (SingleTransactionStore, b
 	return c, true
 }
 
+// TxSingle runs the callback through the declared backing transaction handle.
 func (c *CachingStore) TxSingle(commitMsg string, fn func(Tx) error) error {
 	writer, ok := SingleTransactionStoreFor(c.conditionalBacking())
 	if !ok {

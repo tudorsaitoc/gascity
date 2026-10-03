@@ -192,6 +192,7 @@ func (m *MemStore) UpdateGuarded(id string, opts UpdateOpts, conditions UpdateCo
 	return true, nil
 }
 
+// UpdateGuarded refuses the file store's separately persisted mutations.
 func (fs *FileStore) UpdateGuarded(_ string, _ UpdateOpts, _ UpdateConditions) (bool, error) {
 	return false, ErrConditionalWriteUnsupported
 }

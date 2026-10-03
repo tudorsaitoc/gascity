@@ -677,9 +677,12 @@ cross-class. Attach a v1 formula to that bead instead.`,
 			cookVars := parseFormulaVars(vars)
 
 			if attach != "" {
-				isGraphFormula, _, err := graphv2.IsGraphV2Formula(args[0], scope.searchPaths)
+				isGraphFormula, resolvedFormula, err := graphv2.IsGraphV2Formula(args[0], scope.searchPaths)
 				if err != nil {
 					return formulaCommandError(stderr, "gc formula cook", jsonOutput, fmt.Errorf("load formula %q: %w", args[0], err))
+				}
+				if err := formula.ValidateHostRequirements(resolvedFormula, cfg.Daemon.FormulaV2Enabled()); err != nil {
+					return formulaCommandError(stderr, "gc formula cook", jsonOutput, err)
 				}
 				// A graft is a TWO-ENDED edge, so the arm that can serve it runs
 				// WHOLE against the store that holds the ATTACH BEAD, resolved
@@ -939,9 +942,12 @@ cross-class. Attach a v1 formula to that bead instead.`,
 				return nil
 			}
 
-			isGraphFormula, _, err := graphv2.IsGraphV2Formula(args[0], scope.searchPaths)
+			isGraphFormula, resolvedFormula, err := graphv2.IsGraphV2Formula(args[0], scope.searchPaths)
 			if err != nil {
 				return formulaCommandError(stderr, "gc formula cook", jsonOutput, fmt.Errorf("load formula %q: %w", args[0], err))
+			}
+			if err := formula.ValidateHostRequirements(resolvedFormula, cfg.Daemon.FormulaV2Enabled()); err != nil {
+				return formulaCommandError(stderr, "gc formula cook", jsonOutput, err)
 			}
 			if isGraphFormula {
 				if _, ok := beads.GuardedUpdateWriterFor(graphStore); !ok {

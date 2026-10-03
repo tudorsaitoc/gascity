@@ -20,6 +20,9 @@ on:
 permissions:
   contents: read
 
+env:
+  GC_DASHBOARD_INPUT_REQUIRED: '1'
+
 concurrency:
   group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -182,12 +185,13 @@ jobs:
 
   preflight-static:
     name: Preflight / static checks
-    needs: runner-policy
+    needs: [runner-policy, dashboard-input]
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 2
+      - uses: ./.github/actions/dashboard-input
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
@@ -269,6 +273,7 @@ jobs:
     name: Preflight / unit cover (noncmdgc)
     needs:
       - runner-policy
+      - dashboard-input
     if: github.event_name == 'push'
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
     env:
@@ -298,6 +303,7 @@ jobs:
     name: Preflight / unit cover (cmd/gc ${{ matrix.shard }} of 6)
     needs:
       - runner-policy
+      - dashboard-input
     if: github.event_name == 'push'
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
     env:
@@ -331,6 +337,7 @@ jobs:
     name: Preflight / acceptance A
     needs:
       - runner-policy
+      - dashboard-input
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -340,6 +347,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
       - name: Acceptance tests (Tier A)
         run: make test-acceptance
 
@@ -349,12 +357,14 @@ jobs:
     name: Contract / bd CLI (minimum supported)
     needs:
       - runner-policy
+      - dashboard-input
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
       - name: Install minimum-supported bd
         run: |
           set -euo pipefail
@@ -380,6 +390,7 @@ jobs:
     name: Contract / acceptance A (bd current)
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: ${{ needs.changes.outputs.beads == 'true' }}
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
@@ -388,6 +399,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
       - name: Resolve bd current pin
         id: bd
         run: |
@@ -432,6 +444,7 @@ jobs:
     name: Contract radar (gc HEAD x bd main HEAD)
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: ${{ needs.changes.outputs.beads == 'true' }}
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
@@ -440,6 +453,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
       - name: Build bd from beads main HEAD
         run: |
           set -euo pipefail
@@ -453,10 +467,39 @@ jobs:
       - name: bd CLI contract (main HEAD)
         run: make test-bd-cli-contract
 
+  dashboard-input:
+    name: Dashboard build input
+    needs: runner-policy
+    runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
+    env:
+      GC_DASHBOARD_INPUT_REQUIRED: ''
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Dashboard input admission boundaries
+        run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_dashboard_input.py
+      - name: Generate source client and admit real SPA
+        run: make dashboard-ci
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dashboard-input-${{ github.sha }}
+          path: |
+            internal/api/dashboardspa/dist
+            internal/api/dashboardspa/dashboard-input.json
+          retention-days: 1
+          if-no-files-found: error
+          include-hidden-files: true
+
   preflight-generated:
     name: Preflight / generated artifacts
     needs:
       - runner-policy
+      - dashboard-input
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
     env:
       # Make TestGeneratedClientInSync fatal on missing oapi-codegen so the
@@ -467,11 +510,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: "22"
-      - name: Dashboard bundle drift check
-        run: make dashboard-ci
+      - uses: ./.github/actions/dashboard-input
       - name: OpenAPI spec + client drift check
         run: make spec-ci
       # On drift this fails the job and leaves the exact regen patch, which
@@ -559,6 +598,7 @@ jobs:
     name: cmd/gc process / shard ${{ matrix.shard }} of 12
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: needs.changes.outputs.cmd_gc_process == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
@@ -610,6 +650,7 @@ jobs:
     name: cmd/gc product metrics testhook
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: needs.changes.outputs.cmd_gc_process == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
@@ -619,6 +660,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
       - name: Ensure timing renderer is available
         run: command -v jq >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends jq)
       - name: Run product metrics testhook profile
@@ -671,6 +713,7 @@ jobs:
     name: Integration / ${{ matrix.shard_name }}
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: needs.changes.outputs.integration == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
@@ -740,6 +783,7 @@ jobs:
     name: Integration / rest-full-${{ matrix.shard }}-of-16
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: github.event_name == 'push' && needs.changes.outputs.integration == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
@@ -765,6 +809,7 @@ jobs:
     name: Worker core (Claude)
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: needs.changes.outputs.worker == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
@@ -776,6 +821,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
       - name: Prepare worker report dir
         run: mkdir -p "$WORKER_REPORT_DIR"
       - name: WorkerCore transcript/continuation conformance
@@ -799,6 +845,7 @@ jobs:
     name: Worker core (Codex)
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: needs.changes.outputs.worker == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
@@ -810,6 +857,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
       - name: Prepare worker report dir
         run: mkdir -p "$WORKER_REPORT_DIR"
       - name: WorkerCore transcript/continuation conformance
@@ -833,6 +881,7 @@ jobs:
     name: Worker core (Gemini)
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: needs.changes.outputs.worker == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
@@ -844,6 +893,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
       - name: Prepare worker report dir
         run: mkdir -p "$WORKER_REPORT_DIR"
       - name: WorkerCore transcript/continuation conformance
@@ -976,6 +1026,7 @@ jobs:
     name: Worker core phase 2 (Claude)
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: needs.changes.outputs.worker_phase2 == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
@@ -987,6 +1038,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y tmux
       - name: Prepare worker report dir
@@ -1012,6 +1064,7 @@ jobs:
     name: Worker core phase 2 (Codex)
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: needs.changes.outputs.worker_phase2 == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
@@ -1023,6 +1076,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y tmux
       - name: Prepare worker report dir
@@ -1048,6 +1102,7 @@ jobs:
     name: Worker core phase 2 (Gemini)
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: needs.changes.outputs.worker_phase2 == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
@@ -1059,6 +1114,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y tmux
       - name: Prepare worker report dir
@@ -1198,6 +1254,7 @@ jobs:
     name: Pack compatibility gate
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: needs.changes.outputs.packs == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_32vcpu }}
@@ -1206,6 +1263,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
       # The gastown pack ships via the gascity-packs Go module, so a routine
       # go.mod bump can silently desync the embedded pack bytes from the
       # provenance pins in internal/config/public_packs.go and the
@@ -1249,12 +1307,14 @@ jobs:
     name: Dashboard SPA
     needs:
       - runner-policy
+      - dashboard-input
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
@@ -1273,14 +1333,6 @@ jobs:
       - name: Vitest
         run: npm run --workspace gas-city-dashboard-frontend test
         working-directory: internal/api/dashboardspa/web
-      - name: Build
-        run: npm run build --silent
-        working-directory: internal/api/dashboardspa/web
-      # Sync the freshly built bundle into the embedded dist/ the fakesupervisor
-      # serves, so the Playwright render smoke (Layer B) runs against the SPA
-      # this job just built, not a stale committed embed.
-      - name: Sync embedded SPA bundle
-        run: rm -rf internal/api/dashboardspa/dist && cp -rf internal/api/dashboardspa/web/frontend/dist internal/api/dashboardspa/dist
       - name: Build seeded fakesupervisor (Layer B server)
         run: go build -tags integration -o fakesupervisor .
         working-directory: test/dashport/cmd/fakesupervisor
@@ -1358,6 +1410,7 @@ jobs:
     name: MCP mail conformance
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: needs.changes.outputs.mail == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_8vcpu }}
@@ -1368,6 +1421,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y jq curl
@@ -1387,6 +1441,7 @@ jobs:
     name: Docker session
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: needs.changes.outputs.docker == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_16vcpu }}
@@ -1396,6 +1451,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -1412,6 +1468,7 @@ jobs:
     name: K8s session
     needs:
       - runner-policy
+      - dashboard-input
       - changes
     if: needs.changes.outputs.k8s == 'true'
     runs-on: ${{ needs.runner-policy.outputs.runner_8vcpu }}
@@ -1421,6 +1478,7 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - uses: ./.github/actions/dashboard-input
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y jq

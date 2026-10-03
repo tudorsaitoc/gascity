@@ -99,6 +99,13 @@ func TestCapstoneIntegrationRealMinter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed bead: %v", err)
 	}
+	// Keep the provisioned row's canonical identity while using a guard-capable
+	// backend for the real-minter success path. The sibling capstone test proves
+	// that the provisioned FileStore refuses routing without mutating the row.
+	webStore = beads.NewMemStoreFrom(1, []beads.Bead{seeded}, nil)
+	h.cs.mu.Lock()
+	h.cs.beadStores["web"] = webStore
+	h.cs.mu.Unlock()
 	if code := capstoneSling(h, client, "worker", seeded.ID, &bytes.Buffer{}, &bytes.Buffer{}); code != 0 {
 		t.Fatalf("sling via real minter failed (exit=%d)", code)
 	}

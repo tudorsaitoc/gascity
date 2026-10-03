@@ -1314,6 +1314,10 @@ type createObservingStore struct {
 	onCreate func(beads.Bead)
 }
 
+func (s *createObservingStore) ConditionalWritesResolveTarget() beads.Store {
+	return s.Store
+}
+
 func (s *createObservingStore) Create(b beads.Bead) (beads.Bead, error) {
 	created, err := s.Store.Create(b)
 	if err == nil && s.onCreate != nil {

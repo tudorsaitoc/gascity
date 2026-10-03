@@ -3560,6 +3560,10 @@ type failOnceDepAddStore struct {
 	failed bool
 }
 
+func (s *failOnceDepAddStore) ConditionalWritesResolveTarget() beads.Store {
+	return s.Store
+}
+
 func (s *failOnceDepAddStore) DepAdd(issueID, dependsOnID, depType string) error {
 	if !s.failed {
 		s.failed = true

@@ -1539,12 +1539,12 @@ func existingGraphV2Root(store beads.Store, recipe *formula.Recipe) (*molecule.R
 			continue
 		}
 		if root.Metadata[beadmeta.AttachFencePendingMetadataKey] != "" {
-			id := recipe.Steps[0].Metadata[DispatchEffectIDKey]
-			if id == "" || root.Metadata[DispatchEffectIDKey] != id {
+			id := recipe.Steps[0].Metadata[beadmeta.DispatchEffectIDMetadataKey]
+			if id == "" || root.Metadata[beadmeta.DispatchEffectIDMetadataKey] != id {
 				continue
 			}
 			var mapping map[string]string
-			if err := json.Unmarshal([]byte(root.Metadata[dispatchCandidateIDsKey]), &mapping); err != nil || len(mapping) == 0 {
+			if err := json.Unmarshal([]byte(root.Metadata[beadmeta.DispatchCandidateIDsMetadataKey]), &mapping); err != nil || len(mapping) == 0 {
 				return nil, fmt.Errorf("original pending provider candidate %s has no complete materialization receipt", root.ID)
 			}
 			return &molecule.Result{RootID: root.ID, GraphWorkflow: true, IDMapping: mapping}, nil

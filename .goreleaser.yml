@@ -1,5 +1,9 @@
 version: 2
 
+before:
+  hooks:
+    - python3 scripts/dashboard-input.py prepare
+
 builds:
   - main: ./cmd/gc
     binary: gc

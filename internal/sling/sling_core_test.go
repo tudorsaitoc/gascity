@@ -73,5 +73,4 @@ func TestAttachFormulaToBeadEntryShapes(t *testing.T) {
 			t.Fatalf("attachment did not activate with its source route: source=%+v root=%+v", source, root)
 		}
 	})
-
 }

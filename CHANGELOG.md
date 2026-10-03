@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   infra migration carry acceptance criteria. The writer uses the maintained
   Beads SDK fork `v1.1.3`; isolated Dolt 2.2.1 and installed CLI mutation probes
   preserve the first terminal clock and reject invalid-clock writes atomically.
+- **Co-activation recognizes an already completed fenced transition.** If
+  another activator finishes between the read and guarded update, the loser
+  re-reads the row and accepts only the existing no-op state. Pending
+  ownership or hold drift still refuses; no second write is attempted.
+- **Go package loading uses admitted, source-matched dashboard assets.**
+  Compiled SPA assets are no longer tracked. The frontend producer builds once;
+  CI consumers verify checkout, source and asset identities plus the 16 MiB
+  bound before loading the embed package, without rebuilding a mismatched input.
+- **Guarded native integration exercises real authority and SQL.** The
+  maintained runner prepares pinned private policy source through existing
+  authentication and owns a private Dolt SQL server. Competing routes, original
+  candidate drift and atomic refusal are checked through independent native
+  handles rather than FileStore or a synthetic admission response.
 - **Interrupted provider staging freezes the original formula and requested
   target.** A retry with the same source/effect cannot activate the original
   candidate while reporting a different formula or worker. The requested

@@ -1512,7 +1512,7 @@ func (s *graphWiringStore) DepAdd(issueID, dependsOnID, depType string) error {
 
 func (s *graphWiringStore) assertNoRunnableWork() {
 	s.t.Helper()
-	ready, err := s.MemStore.Ready()
+	ready, err := s.Ready()
 	if err != nil {
 		s.t.Fatalf("Ready during graph wiring: %v", err)
 	}

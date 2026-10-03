@@ -18,6 +18,12 @@ if [ "$#" -eq 0 ]; then
   echo "scripts/go-test-observable: missing go test args" >&2
   exit 2
 fi
+repo_root="$(cd "$script_dir/.." && pwd)"
+dashboard_mode=prepare
+if [[ "${GC_DASHBOARD_INPUT_REQUIRED:-0}" == "1" ]]; then
+  dashboard_mode=verify
+fi
+python3 "$repo_root/scripts/dashboard-input.py" "$dashboard_mode"
 
 timing_file="${OBSERVABLE_TIMING_FILE:-}"
 timing_variant="${OBSERVABLE_VARIANT:-default}"

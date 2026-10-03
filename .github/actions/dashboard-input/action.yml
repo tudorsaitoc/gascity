@@ -1,0 +1,22 @@
+name: Prepare dashboard Go build input
+description: Admit the same-run bundle in CI, or build the real current SPA for standalone producers
+runs:
+  using: composite
+  steps:
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      if: env.GC_DASHBOARD_INPUT_REQUIRED == '1'
+      with:
+        name: dashboard-input-${{ github.sha }}
+        path: internal/api/dashboardspa
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      if: env.GC_DASHBOARD_INPUT_REQUIRED != '1'
+      with:
+        node-version: '22'
+    - name: Admit current dashboard input
+      shell: bash
+      run: |
+        if [[ "${GC_DASHBOARD_INPUT_REQUIRED:-}" == 1 ]]; then
+          python3 scripts/dashboard-input.py verify
+        else
+          python3 scripts/dashboard-input.py prepare
+        fi

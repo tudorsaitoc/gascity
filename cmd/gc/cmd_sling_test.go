@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gastownhall/gascity/internal/beadmeta"
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/config"
 	convoycore "github.com/gastownhall/gascity/internal/convoy"
@@ -81,13 +82,6 @@ func seededStore(ids ...string) beads.Store {
 	return beads.NewMemStoreFrom(0, seed, nil)
 }
 
-// fakeRunnerRule maps a command substring to a canned response.
-type fakeRunnerRule struct {
-	prefix string
-	out    string
-	err    error
-}
-
 func newSlingTestStore() *beads.MemStore {
 	// These are real canonical rows, not a Get fallback that invents missing
 	// work. Tests with other identities or state must seed their own store.
@@ -101,31 +95,19 @@ func newSlingTestStore() *beads.MemStore {
 	return store
 }
 
-// fakeRunner records the commands it receives and returns canned output.
-// Rules are matched in order (first match wins), providing deterministic behavior.
+// fakeRunner records commands; work state is read from the actual test store.
 type fakeRunner struct {
 	calls []string
 	dirs  []string
 	envs  []map[string]string
-	rules []fakeRunnerRule
 }
 
 func newFakeRunner() *fakeRunner { return &fakeRunner{} }
-
-// on registers a rule: if a command contains prefix, return (out, err).
-func (r *fakeRunner) on(prefix, out string, err error) {
-	r.rules = append(r.rules, fakeRunnerRule{prefix: prefix, out: out, err: err})
-}
 
 func (r *fakeRunner) run(dir, command string, env map[string]string) (string, error) {
 	r.calls = append(r.calls, command)
 	r.dirs = append(r.dirs, dir)
 	r.envs = append(r.envs, env)
-	for _, rule := range r.rules {
-		if strings.Contains(command, rule.prefix) {
-			return rule.out, rule.err
-		}
-	}
 	return "", nil
 }
 
@@ -836,8 +818,8 @@ func TestDoSlingRunnerError(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			effectID, rootID := source.Metadata[sling.DispatchEffectIDKey], source.Metadata["molecule_id"]
-			if effectID == "" || rootID == "" || source.Metadata[sling.DispatchEffectStateKey] != "unknown" {
+			effectID, rootID := source.Metadata[beadmeta.DispatchEffectIDMetadataKey], source.Metadata["molecule_id"]
+			if effectID == "" || rootID == "" || source.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "unknown" {
 				t.Fatalf("failed delivery lost unresolved original effect: %+v", source)
 			}
 			if source.Title != work.Title || source.Description != work.Description || source.AcceptanceCriteria != work.AcceptanceCriteria || source.Assignee != work.Assignee {
@@ -847,7 +829,7 @@ func TestDoSlingRunnerError(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if root.Metadata["gc.attach_fence_pending"] != "true" || root.Metadata[sling.DispatchEffectIDKey] != effectID {
+			if root.Metadata["gc.attach_fence_pending"] != "true" || root.Metadata[beadmeta.DispatchEffectIDMetadataKey] != effectID {
 				t.Fatalf("failed delivery activated or lost original candidate: %+v", root)
 			}
 			before, err := deps.Store.List(beads.ListQuery{AllowScan: true, IncludeClosed: true, TierMode: beads.TierBoth})
@@ -1469,7 +1451,7 @@ dir = "frontend"
 	t.Setenv("GC_CITY_PATH", cityDir)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling([]string{"frontend/worker", "ship feature"}, false, false, true, "", nil, "", true, false, false, "", false, false, false, "", "", &stdout, &stderr)
+	code := cmdSlingWithJSON([]string{"frontend/worker", "ship feature"}, false, false, true, "", nil, "", true, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling returned %d, want 0; stderr: %s", code, stderr.String())
 	}
@@ -1534,7 +1516,7 @@ func TestCmdSlingFileStoreRefusesNativeRouteWithoutEffects(t *testing.T) {
 	t.Chdir(cityDir)
 	t.Setenv("GC_CITY_PATH", cityDir)
 	var stdout, stderr bytes.Buffer
-	code := cmdSling([]string{"frontend/worker", "FE-42"}, false, false, true, "", nil, "", false, false, false, "", true, false, false, "", "", &stdout, &stderr)
+	code := cmdSlingWithJSON([]string{"frontend/worker", "FE-42"}, false, false, true, "", nil, "", false, false, false, "", true, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("unsupported native route exit=%d, want1; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -1583,7 +1565,7 @@ mode = "on_demand"
 	t.Setenv("GC_CITY_PATH", cityDir)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling([]string{"worker", "ship feature"}, false, false, true, "", nil, "", true, false, false, "", false, false, false, "", "", &stdout, &stderr)
+	code := cmdSlingWithJSON([]string{"worker", "ship feature"}, false, false, true, "", nil, "", true, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling returned %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -1714,7 +1696,7 @@ func TestCmdSlingInlineBeadBareTargetFromRigCwdUsesRigStore(t *testing.T) {
 	t.Chdir(rigDir)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling([]string{"worker", "ship feature"}, false, false, true, "", nil, "", true, false, false, "", false, false, false, "", "", &stdout, &stderr)
+	code := cmdSlingWithJSON([]string{"worker", "ship feature"}, false, false, true, "", nil, "", true, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling returned %d, want 0; stderr: %s", code, stderr.String())
 	}
@@ -1739,13 +1721,14 @@ func TestCmdSlingRefusesMissingBead(t *testing.T) {
 	cityDir := setupCmdSlingBeadExistsFixture(t)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
+	code := cmdSlingWithJSON(
 		[]string{"frontend/worker", "FE-ghost1"},
 		false, false, false, // isFormula, doNudge, force=false
 		"", nil, "",
 		true, false, false, "",
 		false, false, false,
 		"", "",
+		false, nil,
 		&stdout, &stderr,
 	)
 	if code == 0 {
@@ -1768,15 +1751,7 @@ func TestCmdSlingDryRunRefusesMissingBead(t *testing.T) {
 	setupCmdSlingBeadExistsFixture(t)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"frontend/worker", "FE-ghost1"},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		false, false, true,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"frontend/worker", "FE-ghost1"}, false, false, false, "", nil, "", true, false, false, "", false, false, true, "", "", false, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("cmdSling dry-run returned 0, want non-zero; stdout=%s stderr=%s", stdout.String(), stderr.String())
 	}
@@ -1793,15 +1768,7 @@ func TestCmdSlingDryRunPreviewsInlineText(t *testing.T) {
 	cityDir := setupCmdSlingBeadExistsFixture(t)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"frontend/worker", "write docs"},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		false, false, true,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"frontend/worker", "write docs"}, false, false, false, "", nil, "", true, false, false, "", false, false, true, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling dry-run returned %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -1840,15 +1807,7 @@ func TestCmdSlingDryRunInlineTextHasNoFalsePositivePreCheck(t *testing.T) {
 	cityDir := setupCmdSlingBeadExistsFixture(t)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"frontend/worker", "write docs"},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		false, false, true,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"frontend/worker", "write docs"}, false, false, false, "", nil, "", true, false, false, "", false, false, true, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling dry-run returned %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -2191,15 +2150,7 @@ dir = "orders"
 	t.Chdir(cityDir)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"orders/worker", "FE-abcde"},
-		false, false, true,
-		"", nil, "",
-		true, false, false, "",
-		true, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"orders/worker", "FE-abcde"}, false, false, true, "", nil, "", true, false, false, "", true, false, false, "", "", false, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("cmdSling returned 0, want non-zero refusal; stdout=%s stderr=%s", stdout.String(), stderr.String())
 	}
@@ -2243,15 +2194,7 @@ func TestCmdSlingHyphenatedRigPrefixExistingBeadDoesNotOrphan(t *testing.T) {
 	cityDir, rigDir, _ := setupCmdSlingHyphenatedRigPrefixBeadFixture(t, beadID, "agent-diagnostics")
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"agent-diagnostics/worker", beadID},
-		false, false, true,
-		"", nil, "",
-		true, false, false, "",
-		true, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"agent-diagnostics/worker", beadID}, false, false, true, "", nil, "", true, false, false, "", true, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling returned %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -2269,15 +2212,7 @@ func TestCmdSlingHyphenatedRigPrefixMultiDashExistingBeadDoesNotOrphan(t *testin
 	cityDir, rigDir, _ := setupCmdSlingHyphenatedRigPrefixBeadFixture(t, beadID, "agent-diagnostics")
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"agent-diagnostics/worker", beadID},
-		false, false, true,
-		"", nil, "",
-		true, false, false, "",
-		true, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"agent-diagnostics/worker", beadID}, false, false, true, "", nil, "", true, false, false, "", true, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling returned %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -2293,15 +2228,7 @@ func TestCmdSlingOneArgHyphenatedPrefixMultiDashExistingBeadUsesDefaultTarget(t 
 	cityDir, rigDir, _ := setupCmdSlingHyphenatedRigPrefixBeadFixture(t, beadID, "agent-diagnostics")
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{beadID},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		false, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{beadID}, false, false, false, "", nil, "", true, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling returned %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -2321,15 +2248,7 @@ func TestCmdSlingCrossRigHyphenatedPrefixMultiDashRouteRefused(t *testing.T) {
 	cityDir, rigDir, otherDir := setupCmdSlingHyphenatedRigPrefixBeadFixture(t, beadID, "other")
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"other/worker", beadID},
-		false, false, true,
-		"", nil, "",
-		true, false, false, "",
-		true, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"other/worker", beadID}, false, false, true, "", nil, "", true, false, false, "", true, false, false, "", "", false, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("cmdSling returned 0, want non-zero refusal; stdout=%s stderr=%s", stdout.String(), stderr.String())
 	}
@@ -2459,15 +2378,7 @@ func TestCmdSlingConfiguredPrefixAllAlphaExistingBeadUsesSelectedPrefixStore(t *
 	cityDir, frontendDir := setupCmdSlingConfiguredPrefixAllAlphaFrontendFixture(t, false, true)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"frontend/worker", "FE-abcde"},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		true, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"frontend/worker", "FE-abcde"}, false, false, false, "", nil, "", true, false, false, "", true, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling returned %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -2499,15 +2410,7 @@ func TestCmdSlingOneArgConfiguredPrefixAllAlphaExistingBeadUsesDefaultTarget(t *
 	cityDir, frontendDir := setupCmdSlingConfiguredPrefixAllAlphaFrontendFixture(t, true, true)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"FE-abcde"},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		true, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"FE-abcde"}, false, false, false, "", nil, "", true, false, false, "", true, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling returned %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -2604,15 +2507,7 @@ func TestCmdSlingForceRefusesMissingBeadWithoutEffects(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"frontend/worker", "FE-ghost1"},
-		false, false, true,
-		"", nil, "",
-		false, false, false, "",
-		false, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"frontend/worker", "FE-ghost1"}, false, false, true, "", nil, "", false, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("missing source returned success; stdout=%s stderr=%s", stdout.String(), stderr.String())
 	}
@@ -2640,13 +2535,14 @@ func TestCmdSlingAcceptsExistingBead(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
+	code := cmdSlingWithJSON(
 		[]string{"frontend/worker", seeded.ID},
 		false, false, false, // force=false; existence check should pass naturally
 		"", nil, "",
 		true, false, false, "",
 		false, false, false,
 		"", "",
+		false, nil,
 		&stdout, &stderr,
 	)
 	if code != 0 {
@@ -2667,15 +2563,7 @@ func TestCmdSlingMultiDashBeadIDRoutesExistingBead(t *testing.T) {
 	cityDir, rigDir := setupCmdSlingMultiDashBeadFixture(t, true)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"foundations/worker", "fo-spawn-storm"},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		false, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"foundations/worker", "fo-spawn-storm"}, false, false, false, "", nil, "", true, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling returned %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -2710,15 +2598,7 @@ func TestCmdSlingOneArgMultiDashExistingBeadUsesDefaultTarget(t *testing.T) {
 	cityDir, rigDir := setupCmdSlingMultiDashBeadFixture(t, true)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"fo-spawn-storm"},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		false, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"fo-spawn-storm"}, false, false, false, "", nil, "", true, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling returned %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -2782,15 +2662,7 @@ dir = "orders"
 	writeSlingTestCity(t, cityDir, cityToml)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"orders/worker", "fo-spawn-storm"},
-		false, false, true,
-		"", nil, "",
-		true, false, false, "",
-		true, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"orders/worker", "fo-spawn-storm"}, false, false, true, "", nil, "", true, false, false, "", true, false, false, "", "", false, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("cmdSling returned 0, want non-zero refusal; stdout=%s stderr=%s", stdout.String(), stderr.String())
 	}
@@ -2874,15 +2746,7 @@ dir = "live_docs"
 	t.Chdir(cityDir)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"live_docs/worker", beadID},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		false, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"live_docs/worker", beadID}, false, false, false, "", nil, "", true, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling returned %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -2993,15 +2857,7 @@ dir = "orders"
 	t.Chdir(cityDir)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"orders/worker", "od-zzzz1"},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		false, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"orders/worker", "od-zzzz1"}, false, false, false, "", nil, "", true, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("cmdSling returned 0, want non-zero; stdout=%s stderr=%s", stdout.String(), stderr.String())
 	}
@@ -3017,15 +2873,7 @@ func TestCmdSlingRefusesMissingConfiguredPrefixAllAlphaBeadID(t *testing.T) {
 	cityDir, _ := setupCmdSlingConfiguredPrefixAllAlphaFrontendFixture(t, false, false)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"frontend/worker", "FE-abcde"},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		true, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"frontend/worker", "FE-abcde"}, false, false, false, "", nil, "", true, false, false, "", true, false, false, "", "", false, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("cmdSling returned 0, want non-zero; stdout=%s stderr=%s", stdout.String(), stderr.String())
 	}
@@ -4003,7 +3851,7 @@ title = "Do work"
 		t.Fatalf("workflow root count = %d, want 1", len(roots))
 	}
 	rootID := roots[0].ID
-	if parent.Metadata["workflow_id"] != rootID || parent.Metadata[sling.DispatchEffectStateKey] != "routed" || parent.Title != "Work" {
+	if parent.Metadata["workflow_id"] != rootID || parent.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "routed" || parent.Title != "Work" {
 		t.Fatalf("source did not retain original goal and select exact activated provider: %+v root=%s", parent, rootID)
 	}
 
@@ -8476,15 +8324,7 @@ func TestCmdSlingMultiDefaultTargetsPicksFromList(t *testing.T) {
 	)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"fo-multi-work"},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		false, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"fo-multi-work"}, false, false, false, "", nil, "", true, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling returned %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -8511,15 +8351,7 @@ func TestCmdSlingMultiDefaultTargetsSingleEntry(t *testing.T) {
 	)
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"fo-multi-work"},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		false, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"fo-multi-work"}, false, false, false, "", nil, "", true, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("cmdSling returned %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
@@ -8543,15 +8375,7 @@ func TestCmdSlingMultiDefaultTargetsEmptyEntryRejected(t *testing.T) {
 	setupCmdSlingMultiDefaultTargetsFixture(t, []string{"foundations/worker-a", ""})
 
 	var stdout, stderr bytes.Buffer
-	code := cmdSling(
-		[]string{"fo-multi-work"},
-		false, false, false,
-		"", nil, "",
-		true, false, false, "",
-		false, false, false,
-		"", "",
-		&stdout, &stderr,
-	)
+	code := cmdSlingWithJSON([]string{"fo-multi-work"}, false, false, false, "", nil, "", true, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("cmdSling returned 0, want non-zero for empty entry in default_sling_targets")
 	}

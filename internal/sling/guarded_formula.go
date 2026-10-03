@@ -20,13 +20,6 @@ import (
 	"github.com/gastownhall/gascity/internal/sourceworkflow"
 )
 
-const dispatchCandidateIDsKey = "gc.dispatch_candidate_ids"
-const dispatchReplacedRootKey = "gc.dispatch_replaced_roots"
-const dispatchSourceConditionsKey = "gc.dispatch_source_conditions"
-const dispatchActivationConditionsKey = "gc.dispatch_activation_conditions"
-const dispatchTargetKey = "gc.dispatch_target"
-const customDispatchProviderKey = "gc.dispatch_provider"
-
 func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, result SlingResult) (SlingResult, error) {
 	ctx := context.Background()
 	a := opts.Target
@@ -39,7 +32,7 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 	}
 	effectID := ""
 	if opts.Conditions != nil {
-		effectID = opts.Conditions.Metadata[DispatchEffectIDKey]
+		effectID = opts.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey]
 	}
 	custom := IsCustomSlingQuery(a)
 	if custom && opts.IsFormula {
@@ -126,19 +119,19 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 		recipe.Steps[0].Metadata = map[string]string{}
 	}
 	recipe.Steps[0].Metadata[beadmeta.AttachFencePendingMetadataKey] = "true"
-	recipe.Steps[0].Metadata[dispatchTargetKey] = target
+	recipe.Steps[0].Metadata[beadmeta.DispatchTargetMetadataKey] = target
 	if effectID != "" {
-		recipe.Steps[0].Metadata[DispatchEffectIDKey] = effectID
+		recipe.Steps[0].Metadata[beadmeta.DispatchEffectIDMetadataKey] = effectID
 	}
 	if sourceID != "" {
-		recipe.Steps[0].Metadata["gc.dispatch_source_bead"] = sourceID
+		recipe.Steps[0].Metadata[beadmeta.DispatchSourceBeadMetadataKey] = sourceID
 	}
 	if source != nil {
 		raw, err := encodeRouteConditions(*opts.Conditions)
 		if err != nil {
 			return result, err
 		}
-		recipe.Steps[0].Metadata[dispatchSourceConditionsKey] = raw
+		recipe.Steps[0].Metadata[beadmeta.DispatchSourceConditionsMetadataKey] = raw
 	}
 	if candidate == nil {
 		candidate, err = InstantiateCompiledSlingFormula(ctx, recipe, name, createOpts, sourceID, opts.ScopeKind, opts.ScopeRef, a, deps, opts.Force)
@@ -160,12 +153,12 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 	if root.Metadata[beadmeta.AttachFencePendingMetadataKey] != "true" {
 		return result, &RouteConflictError{sourceID, "existing provider workflow is not this attempt's pending candidate"}
 	}
-	if effectID != "" && root.Metadata[DispatchEffectIDKey] != effectID {
+	if effectID != "" && root.Metadata[beadmeta.DispatchEffectIDMetadataKey] != effectID {
 		return result, &RouteConflictError{sourceID, "existing provider workflow belongs to a different effect"}
 	}
 	if source != nil {
 		var original beads.UpdateConditions
-		if err := json.Unmarshal([]byte(root.Metadata[dispatchSourceConditionsKey]), &original); err != nil {
+		if err := json.Unmarshal([]byte(root.Metadata[beadmeta.DispatchSourceConditionsMetadataKey]), &original); err != nil {
 			return result, fmt.Errorf("original staged source conditions: %w", err)
 		}
 		if original.Status == nil || original.Assignee == nil || original.Title == nil || original.Description == nil || original.AcceptanceCriteria == nil || original.Labels == nil {
@@ -180,7 +173,7 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 	if err != nil {
 		return result, err
 	}
-	if err := candidateStore.SetMetadata(candidate.RootID, dispatchCandidateIDsKey, string(mapping)); err != nil {
+	if err := candidateStore.SetMetadata(candidate.RootID, beadmeta.DispatchCandidateIDsMetadataKey, string(mapping)); err != nil {
 		return result, err
 	}
 	result.FormulaName, result.Method = name, method
@@ -218,19 +211,19 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 	if opts.Merge != "" {
 		metadata[beadmeta.MergeStrategyMetadataKey] = opts.Merge
 	}
-	metadata[DispatchEffectStateKey] = "routed"
+	metadata[beadmeta.DispatchEffectStateMetadataKey] = "routed"
 	if effectID != "" {
-		metadata[DispatchEffectIDKey] = effectID
+		metadata[beadmeta.DispatchEffectIDMetadataKey] = effectID
 	}
 	if opts.IsFormula {
-		metadata["gc.dispatch_source_bead"] = sourceID
+		metadata[beadmeta.DispatchSourceBeadMetadataKey] = sourceID
 	}
 	if custom {
 		_, _, identity, err := customDeliveryCommand(opts, deps, sourceID)
 		if err != nil {
 			return result, err
 		}
-		metadata[customDispatchProviderKey] = identity
+		metadata[beadmeta.DispatchProviderMetadataKey] = identity
 	}
 	update := beads.UpdateOpts{Metadata: metadata}
 	if opts.Reassign {
@@ -240,12 +233,12 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 			update.Status = &open
 		}
 	}
-	metadata["gc.dispatch_activation_status"], metadata["gc.dispatch_activation_assignee"] = source.Status, source.Assignee
+	metadata[beadmeta.DispatchActivationStatusMetadataKey], metadata[beadmeta.DispatchActivationAssigneeMetadataKey] = source.Status, source.Assignee
 	if update.Status != nil {
-		metadata["gc.dispatch_activation_status"] = *update.Status
+		metadata[beadmeta.DispatchActivationStatusMetadataKey] = *update.Status
 	}
 	if update.Assignee != nil {
-		metadata["gc.dispatch_activation_assignee"] = *update.Assignee
+		metadata[beadmeta.DispatchActivationAssigneeMetadataKey] = *update.Assignee
 	}
 	// Same owner: delivery, source ownership, and all candidate activation
 	// become visible together. Cross-owner: the source commits the selected
@@ -253,12 +246,13 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 	sourceWriter, _ := beads.GuardedUpdateWriterFor(deps.Store)
 	candidateWriter, _ := beads.GuardedUpdateWriterFor(candidateStore)
 	sameOwner := sourceWriter == candidateWriter || opts.IsFormula
-	if custom {
+	switch {
+	case custom:
 		sourceDeps := deps
 		if opts.IsFormula {
 			sourceDeps.Store = candidateStore
 		}
-		update.Metadata[DispatchEffectStateKey] = "committed"
+		update.Metadata[beadmeta.DispatchEffectStateMetadataKey] = "committed"
 		if opts.IsFormula {
 			for key, expected := range activationConditions(*source).Metadata {
 				opts.Conditions.Metadata[key] = expected
@@ -273,12 +267,12 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 		if err := deliverSelectedCustomFormula(opts, sourceDeps, sourceID, candidateStore, candidate, graph, effectID, target); err != nil {
 			return result, err
 		}
-	} else if sameOwner {
+	case sameOwner:
 		if err := commitFormulaTransaction(ctx, candidateStore, sourceID, update, *opts.Conditions, candidate, graph, deps, effectID != "", sourcePredecessors); err != nil {
 			return result, err
 		}
-	} else {
-		update.Metadata[DispatchEffectStateKey] = "committed"
+	default:
+		update.Metadata[beadmeta.DispatchEffectStateMetadataKey] = "committed"
 		if err := freezeActivationConditions(&update, *opts.Conditions); err != nil {
 			return result, err
 		}
@@ -321,7 +315,7 @@ func slingGuardedFormula(opts SlingOpts, deps SlingDeps, source *beads.Bead, res
 
 func activationConditions(b beads.Bead) beads.UpdateConditions {
 	metadata := map[string]string{}
-	for _, key := range []string{beadmeta.AttachFencePendingMetadataKey, DispatchEffectIDKey, DispatchEffectStateKey, customDispatchProviderKey, dispatchCandidateIDsKey, dispatchReplacedRootKey, dispatchSourceConditionsKey, dispatchActivationConditionsKey, dispatchTargetKey, "gc.dispatch_source_bead", beadmeta.RootBeadIDMetadataKey, beadmeta.FormulaNameMetadataKey, beadmeta.FormulaContractMetadataKey, beadmeta.RoutedToMetadataKey, beadmeta.ExecutionRoutedToMetadataKey, molecule.DeferredAssigneeMetadataKey, molecule.DeferredTypeMetadataKey, molecule.DeferredRoutedToMetadataKey, molecule.DeferredExecutionRoutedToMetadataKey, "handoff.conflict_state"} {
+	for _, key := range []string{beadmeta.AttachFencePendingMetadataKey, beadmeta.DispatchEffectIDMetadataKey, beadmeta.DispatchEffectStateMetadataKey, beadmeta.DispatchProviderMetadataKey, beadmeta.DispatchCandidateIDsMetadataKey, beadmeta.DispatchReplacedRootsMetadataKey, beadmeta.DispatchSourceConditionsMetadataKey, beadmeta.DispatchActivationConditionsMetadataKey, beadmeta.DispatchTargetMetadataKey, beadmeta.DispatchSourceBeadMetadataKey, beadmeta.RootBeadIDMetadataKey, beadmeta.FormulaNameMetadataKey, beadmeta.FormulaContractMetadataKey, beadmeta.RoutedToMetadataKey, beadmeta.ExecutionRoutedToMetadataKey, molecule.DeferredAssigneeMetadataKey, molecule.DeferredTypeMetadataKey, molecule.DeferredRoutedToMetadataKey, molecule.DeferredExecutionRoutedToMetadataKey, "handoff.conflict_state"} {
 		metadata[key] = b.Metadata[key]
 	}
 	return beads.UpdateConditions{Status: &b.Status, Assignee: &b.Assignee, Title: &b.Title, Description: &b.Description, AcceptanceCriteria: &b.AcceptanceCriteria, Labels: &b.Labels, Metadata: metadata}
@@ -430,7 +424,7 @@ func finishCommittedFormula(deps SlingDeps, sourceID string, store beads.Store, 
 	if err != nil {
 		return err
 	}
-	selfCandidate := standalone && sourceID == candidate.RootID && root.Metadata["gc.dispatch_source_bead"] == sourceID
+	selfCandidate := standalone && sourceID == candidate.RootID && root.Metadata[beadmeta.DispatchSourceBeadMetadataKey] == sourceID
 	if root.Metadata[beadmeta.AttachFencePendingMetadataKey] != "" {
 		if root.Metadata["handoff.conflict_state"] == "hold" {
 			return &RouteConflictError{root.ID, "selected workflow is held"}
@@ -439,10 +433,10 @@ func finishCommittedFormula(deps SlingDeps, sourceID string, store beads.Store, 
 		if err != nil {
 			return err
 		}
-		if source.Metadata["handoff.conflict_state"] == "hold" || source.Status != source.Metadata["gc.dispatch_activation_status"] || source.Assignee != source.Metadata["gc.dispatch_activation_assignee"] {
+		if source.Metadata["handoff.conflict_state"] == "hold" || source.Status != source.Metadata[beadmeta.DispatchActivationStatusMetadataKey] || source.Assignee != source.Metadata[beadmeta.DispatchActivationAssigneeMetadataKey] {
 			return &RouteConflictError{sourceID, "selected source ownership or hold changed before provider activation"}
 		}
-		if source.Metadata[DispatchEffectStateKey] != selectedState || source.Metadata[DispatchEffectIDKey] != effectID ||
+		if source.Metadata[beadmeta.DispatchEffectStateMetadataKey] != selectedState || source.Metadata[beadmeta.DispatchEffectIDMetadataKey] != effectID ||
 			(!selfCandidate && (graph && source.Metadata["workflow_id"] != candidate.RootID || !graph && source.Metadata[beadmeta.MoleculeIDMetadataKey] != candidate.RootID)) {
 			return &RouteConflictError{sourceID, "source no longer selects this provider candidate"}
 		}
@@ -450,7 +444,7 @@ func finishCommittedFormula(deps SlingDeps, sourceID string, store beads.Store, 
 		if err != nil {
 			return err
 		}
-		if err := commitSelectedSource(context.Background(), deps.Store, sourceID, beads.UpdateOpts{Metadata: map[string]string{DispatchEffectStateKey: selectedState}}, original, nil, deps, target, effectID != ""); err != nil {
+		if err := commitSelectedSource(context.Background(), deps.Store, sourceID, beads.UpdateOpts{Metadata: map[string]string{beadmeta.DispatchEffectStateMetadataKey: selectedState}}, original, nil, deps, target, effectID != ""); err != nil {
 			return err
 		}
 		metadata := map[string]string{beadmeta.RoutedToMetadataKey: target}
@@ -458,7 +452,7 @@ func finishCommittedFormula(deps SlingDeps, sourceID string, store beads.Store, 
 			metadata[beadmeta.ExecutionRoutedToMetadataKey] = target
 		}
 		if selfCandidate {
-			metadata[DispatchEffectStateKey] = "routed"
+			metadata[beadmeta.DispatchEffectStateMetadataKey] = "routed"
 		}
 		if err := commitFormulaTransaction(context.Background(), store, root.ID, beads.UpdateOpts{Metadata: metadata}, activationConditions(root), candidate, graph, deps, effectID != "", nil); err != nil {
 			return err
@@ -470,7 +464,7 @@ func finishCommittedFormula(deps SlingDeps, sourceID string, store beads.Store, 
 	if err != nil {
 		return err
 	}
-	if b.Metadata[DispatchEffectStateKey] == "routed" && b.Metadata[DispatchEffectIDKey] == effectID &&
+	if b.Metadata[beadmeta.DispatchEffectStateMetadataKey] == "routed" && b.Metadata[beadmeta.DispatchEffectIDMetadataKey] == effectID &&
 		(graph && b.Metadata["workflow_id"] == candidate.RootID && b.Metadata[beadmeta.ExecutionRoutedToMetadataKey] == target ||
 			!graph && b.Metadata[beadmeta.MoleculeIDMetadataKey] == candidate.RootID && b.Metadata[beadmeta.RoutedToMetadataKey] == target ||
 			selfCandidate && b.Metadata[beadmeta.RoutedToMetadataKey] == target) {
@@ -481,12 +475,12 @@ func finishCommittedFormula(deps SlingDeps, sourceID string, store beads.Store, 
 	if err != nil {
 		return err
 	}
-	if conditions.Metadata[DispatchEffectStateKey] != "committed" || conditions.Metadata[DispatchEffectIDKey] != effectID ||
+	if conditions.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "committed" || conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey] != effectID ||
 		(graph && (conditions.Metadata["workflow_id"] != candidate.RootID || conditions.Metadata[beadmeta.ExecutionRoutedToMetadataKey] != target) ||
 			!graph && (conditions.Metadata[beadmeta.MoleculeIDMetadataKey] != candidate.RootID || conditions.Metadata[beadmeta.RoutedToMetadataKey] != target)) {
 		return &RouteConflictError{sourceID, "original activation receipt does not select this provider"}
 	}
-	applied, err := writer.UpdateGuarded(sourceID, beads.UpdateOpts{Metadata: map[string]string{DispatchEffectStateKey: "routed"}}, conditions)
+	applied, err := writer.UpdateGuarded(sourceID, beads.UpdateOpts{Metadata: map[string]string{beadmeta.DispatchEffectStateMetadataKey: "routed"}}, conditions)
 	if err != nil {
 		return err
 	}
@@ -498,7 +492,7 @@ func finishCommittedFormula(deps SlingDeps, sourceID string, store beads.Store, 
 
 func resumeCommittedFormula(opts SlingOpts, deps SlingDeps, source beads.Bead) (SlingResult, error) {
 	result := SlingResult{BeadID: source.ID, Target: opts.Target.QualifiedName(), Method: "on-formula", FormulaName: opts.OnFormula, WorkflowID: source.Metadata["workflow_id"]}
-	if source.Metadata[DispatchEffectStateKey] != "routed" {
+	if source.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "routed" {
 		if _, err := selectedSourceConditions(source); err != nil {
 			return result, err
 		}
@@ -509,14 +503,14 @@ func resumeCommittedFormula(opts SlingOpts, deps SlingDeps, source beads.Bead) (
 		rootID = source.Metadata[beadmeta.MoleculeIDMetadataKey]
 		result.WispRootID = rootID
 	}
-	if rootID == "" && source.Metadata["gc.dispatch_source_bead"] == source.ID && source.Metadata[dispatchCandidateIDsKey] != "" {
+	if rootID == "" && source.Metadata[beadmeta.DispatchSourceBeadMetadataKey] == source.ID && source.Metadata[beadmeta.DispatchCandidateIDsMetadataKey] != "" {
 		rootID, result.WispRootID = source.ID, source.ID
 	}
 	if rootID == "" && IsCustomSlingQuery(opts.Target) {
 		if opts.Conditions == nil {
 			return result, &RouteConflictError{source.ID, "original effect conditions are absent"}
 		}
-		id := opts.Conditions.Metadata[DispatchEffectIDKey]
+		id := opts.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey]
 		if err := deliverSelectedCustomFormula(opts, deps, source.ID, nil, nil, false, id, target); err != nil {
 			return result, err
 		}
@@ -544,12 +538,12 @@ func resumeCommittedFormula(opts SlingOpts, deps SlingDeps, source beads.Bead) (
 	if opts.Conditions == nil {
 		return result, &RouteConflictError{source.ID, "original effect conditions are absent"}
 	}
-	id := opts.Conditions.Metadata[DispatchEffectIDKey]
-	if root.Metadata[DispatchEffectIDKey] != id || root.Metadata["gc.dispatch_source_bead"] != source.ID {
+	id := opts.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey]
+	if root.Metadata[beadmeta.DispatchEffectIDMetadataKey] != id || root.Metadata[beadmeta.DispatchSourceBeadMetadataKey] != source.ID {
 		return result, &RouteConflictError{source.ID, "selected provider candidate does not match original effect"}
 	}
 	var mapping map[string]string
-	if err := json.Unmarshal([]byte(root.Metadata[dispatchCandidateIDsKey]), &mapping); err != nil || len(mapping) == 0 {
+	if err := json.Unmarshal([]byte(root.Metadata[beadmeta.DispatchCandidateIDsMetadataKey]), &mapping); err != nil || len(mapping) == 0 {
 		return result, fmt.Errorf("selected provider candidate identity is unreadable")
 	}
 	pending := root.Metadata[beadmeta.AttachFencePendingMetadataKey] != ""
@@ -557,13 +551,13 @@ func resumeCommittedFormula(opts SlingOpts, deps SlingDeps, source beads.Bead) (
 		if source.Metadata["handoff.conflict_state"] == "hold" {
 			return result, &RouteConflictError{source.ID, "source hold is active"}
 		}
-		if source.Status != source.Metadata["gc.dispatch_activation_status"] || source.Assignee != source.Metadata["gc.dispatch_activation_assignee"] {
+		if source.Status != source.Metadata[beadmeta.DispatchActivationStatusMetadataKey] || source.Assignee != source.Metadata[beadmeta.DispatchActivationAssigneeMetadataKey] {
 			return result, &RouteConflictError{source.ID, "selected source owner changed before activation recovery"}
 		}
 		if _, err := routeConditions(source, opts.Conditions); err != nil {
 			return result, err
 		}
-		if source.Metadata[DispatchEffectStateKey] == "routed" {
+		if source.Metadata[beadmeta.DispatchEffectStateMetadataKey] == "routed" {
 			if _, err := selectedSourceConditions(source); err != nil {
 				return result, err
 			}
@@ -612,13 +606,13 @@ func resumeUnresolvedCustomFormula(opts SlingOpts, deps SlingDeps) (SlingResult,
 		if selectedTarget == "" {
 			selectedTarget = root.Metadata[beadmeta.RoutedToMetadataKey]
 		}
-		if root.Metadata["gc.dispatch_source_bead"] != root.ID || root.Metadata[customDispatchProviderKey] == "" ||
-			root.Metadata[DispatchEffectIDKey] == "" || selectedTarget != target {
+		if root.Metadata[beadmeta.DispatchSourceBeadMetadataKey] != root.ID || root.Metadata[beadmeta.DispatchProviderMetadataKey] == "" ||
+			root.Metadata[beadmeta.DispatchEffectIDMetadataKey] == "" || selectedTarget != target {
 			continue
 		}
-		state := root.Metadata[DispatchEffectStateKey]
+		state := root.Metadata[beadmeta.DispatchEffectStateMetadataKey]
 		if state != "committed" && state != "attempted" && state != "unknown" &&
-			!(state == "routed" && root.Metadata[beadmeta.AttachFencePendingMetadataKey] != "") {
+			(state != "routed" || root.Metadata[beadmeta.AttachFencePendingMetadataKey] == "") {
 			continue
 		}
 		if selected != nil {
@@ -647,16 +641,16 @@ func commitCustomPlainRoute(opts SlingOpts, deps SlingDeps, sourceID string) err
 	if err != nil {
 		return err
 	}
-	effectID := opts.Conditions.Metadata[DispatchEffectIDKey]
+	effectID := opts.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey]
 	if effectID == "" {
 		effectID = "gc-custom-" + rand.Text()
-	} else if opts.Conditions.Metadata[DispatchEffectStateKey] != "attempted" || opts.Conditions.Metadata[customDispatchProviderKey] != "" {
+	} else if opts.Conditions.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "attempted" || opts.Conditions.Metadata[beadmeta.DispatchProviderMetadataKey] != "" {
 		return &RouteConflictError{sourceID, "an existing custom effect requires its original receipt, not a new delivery"}
 	}
 	target := agentutil.NormalizePoolRouteTarget(deps.Cfg, agentutil.RoutedToIdentity(&opts.Target))
 	update := beads.UpdateOpts{Metadata: map[string]string{
-		beadmeta.RoutedToMetadataKey: target, DispatchEffectIDKey: effectID,
-		DispatchEffectStateKey: "committed", customDispatchProviderKey: provider,
+		beadmeta.RoutedToMetadataKey: target, beadmeta.DispatchEffectIDMetadataKey: effectID,
+		beadmeta.DispatchEffectStateMetadataKey: "committed", beadmeta.DispatchProviderMetadataKey: provider,
 	}}
 	if opts.Merge != "" {
 		update.Metadata[beadmeta.MergeStrategyMetadataKey] = opts.Merge
@@ -689,10 +683,10 @@ func deliverSelectedCustomFormula(opts SlingOpts, deps SlingDeps, sourceID strin
 	if err != nil {
 		return err
 	}
-	if source.Metadata[DispatchEffectIDKey] != effectID || source.Metadata[customDispatchProviderKey] != provider {
+	if source.Metadata[beadmeta.DispatchEffectIDMetadataKey] != effectID || source.Metadata[beadmeta.DispatchProviderMetadataKey] != provider {
 		return &RouteConflictError{sourceID, "custom provider differs from the original selected effect"}
 	}
-	switch source.Metadata[DispatchEffectStateKey] {
+	switch source.Metadata[beadmeta.DispatchEffectStateMetadataKey] {
 	case "attempted", "unknown":
 		return &RouteConflictError{sourceID, "custom delivery " + effectID + " is unresolved; the original provider has no authoritative acknowledgment to reconcile"}
 	case "committed":
@@ -700,7 +694,7 @@ func deliverSelectedCustomFormula(opts SlingOpts, deps SlingDeps, sourceID strin
 		if err != nil {
 			return err
 		}
-		attempt := beads.UpdateOpts{Metadata: map[string]string{DispatchEffectStateKey: "attempted"}}
+		attempt := beads.UpdateOpts{Metadata: map[string]string{beadmeta.DispatchEffectStateMetadataKey: "attempted"}}
 		if err := freezeActivationConditions(&attempt, original); err != nil {
 			return err
 		}
@@ -708,8 +702,8 @@ func deliverSelectedCustomFormula(opts SlingOpts, deps SlingDeps, sourceID strin
 			return err
 		}
 		original.Metadata = maps.Clone(original.Metadata)
-		original.Metadata[DispatchEffectStateKey] = "attempted"
-		original.Metadata[dispatchActivationConditionsKey] = attempt.Metadata[dispatchActivationConditionsKey]
+		original.Metadata[beadmeta.DispatchEffectStateMetadataKey] = "attempted"
+		original.Metadata[beadmeta.DispatchActivationConditionsMetadataKey] = attempt.Metadata[beadmeta.DispatchActivationConditionsMetadataKey]
 		env := ResolveSlingEnv(opts.Target, deps, sourceID)
 		if env == nil {
 			env = map[string]string{}
@@ -720,7 +714,7 @@ func deliverSelectedCustomFormula(opts SlingOpts, deps SlingDeps, sourceID strin
 		if deliveryErr != nil {
 			state = "unknown"
 		}
-		receipt := beads.UpdateOpts{Metadata: map[string]string{DispatchEffectStateKey: state}}
+		receipt := beads.UpdateOpts{Metadata: map[string]string{beadmeta.DispatchEffectStateMetadataKey: state}}
 		if err := freezeActivationConditions(&receipt, original); err != nil {
 			return errors.Join(deliveryErr, err)
 		}
@@ -739,7 +733,7 @@ func deliverSelectedCustomFormula(opts SlingOpts, deps SlingDeps, sourceID strin
 }
 
 func reconciledFormulaRoute(opts SlingOpts, deps SlingDeps, source *beads.Bead) (SlingResult, bool, error) {
-	if source == nil || source.Metadata[DispatchEffectStateKey] != "routed" || opts.Force && source.Metadata[DispatchEffectIDKey] == "" {
+	if source == nil || source.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "routed" || opts.Force && source.Metadata[beadmeta.DispatchEffectIDMetadataKey] == "" {
 		return SlingResult{}, false, nil
 	}
 	target := agentutil.NormalizePoolRouteTarget(deps.Cfg, agentutil.RoutedToIdentity(&opts.Target))
@@ -764,14 +758,14 @@ func reconciledFormulaRoute(opts SlingOpts, deps SlingDeps, source *beads.Bead) 
 	if selectedFormula := root.Metadata[beadmeta.FormulaNameMetadataKey]; requestedFormula != "" && selectedFormula != "" && requestedFormula != selectedFormula {
 		return SlingResult{}, true, &RouteConflictError{source.ID, "requested formula differs from the original selected provider"}
 	}
-	if root.Metadata[beadmeta.AttachFencePendingMetadataKey] != "" || root.Metadata[DispatchEffectIDKey] != source.Metadata[DispatchEffectIDKey] || root.Metadata["gc.dispatch_source_bead"] != source.ID {
+	if root.Metadata[beadmeta.AttachFencePendingMetadataKey] != "" || root.Metadata[beadmeta.DispatchEffectIDMetadataKey] != source.Metadata[beadmeta.DispatchEffectIDMetadataKey] || root.Metadata[beadmeta.DispatchSourceBeadMetadataKey] != source.ID {
 		return SlingResult{}, true, &RouteConflictError{source.ID, "original provider activation cannot be reconciled"}
 	}
 	return SlingResult{BeadID: source.ID, Target: opts.Target.QualifiedName(), Method: "on-formula", FormulaName: opts.OnFormula, WorkflowID: source.Metadata["workflow_id"], WispRootID: source.Metadata[beadmeta.MoleculeIDMetadataKey], Idempotent: true}, true, nil
 }
 
 func guardedReplacementRows(store beads.Store, candidate beads.Bead) ([]beads.Bead, error) {
-	raw := candidate.Metadata[dispatchReplacedRootKey]
+	raw := candidate.Metadata[beadmeta.DispatchReplacedRootsMetadataKey]
 	if raw == "" {
 		return nil, nil
 	}
@@ -828,7 +822,7 @@ func validateStagedProviderIntent(root beads.Bead, sourceID, formulaName, target
 	if root.Metadata[beadmeta.FormulaNameMetadataKey] != formulaName {
 		return &RouteConflictError{sourceID, "requested formula differs from the original staged provider"}
 	}
-	if root.Metadata[dispatchTargetKey] != target {
+	if root.Metadata[beadmeta.DispatchTargetMetadataKey] != target {
 		return &RouteConflictError{sourceID, "requested target differs from the original staged provider"}
 	}
 	return nil
@@ -838,7 +832,7 @@ func originalDispatchCandidate(store beads.Store, effectID, sourceID, formulaNam
 	if effectID == "" {
 		return nil, nil
 	}
-	roots, err := beads.HandlesFor(store).Live.List(beads.ListQuery{Metadata: map[string]string{DispatchEffectIDKey: effectID, "gc.dispatch_source_bead": sourceID}, IncludeClosed: true, TierMode: beads.TierBoth})
+	roots, err := beads.HandlesFor(store).Live.List(beads.ListQuery{Metadata: map[string]string{beadmeta.DispatchEffectIDMetadataKey: effectID, beadmeta.DispatchSourceBeadMetadataKey: sourceID}, IncludeClosed: true, TierMode: beads.TierBoth})
 	if err != nil {
 		return nil, err
 	}
@@ -856,7 +850,7 @@ func originalDispatchCandidate(store beads.Store, effectID, sourceID, formulaNam
 		return nil, err
 	}
 	var mapping map[string]string
-	if err := json.Unmarshal([]byte(root.Metadata[dispatchCandidateIDsKey]), &mapping); err != nil || len(mapping) == 0 {
+	if err := json.Unmarshal([]byte(root.Metadata[beadmeta.DispatchCandidateIDsMetadataKey]), &mapping); err != nil || len(mapping) == 0 {
 		return nil, fmt.Errorf("original pending provider candidate %s has no complete materialization receipt", root.ID)
 	}
 	return &molecule.Result{RootID: root.ID, IDMapping: mapping, GraphWorkflow: IsWorkflowAttachment(root)}, nil
@@ -943,7 +937,7 @@ func addReplacementRoot(recipe *formula.Recipe, rootID string) error {
 		recipe.Steps[0].Metadata = map[string]string{}
 	}
 	var roots []string
-	if raw := recipe.Steps[0].Metadata[dispatchReplacedRootKey]; raw != "" {
+	if raw := recipe.Steps[0].Metadata[beadmeta.DispatchReplacedRootsMetadataKey]; raw != "" {
 		if err := json.Unmarshal([]byte(raw), &roots); err != nil {
 			return err
 		}
@@ -958,7 +952,7 @@ func addReplacementRoot(recipe *formula.Recipe, rootID string) error {
 	if err != nil {
 		return err
 	}
-	recipe.Steps[0].Metadata[dispatchReplacedRootKey] = string(raw)
+	recipe.Steps[0].Metadata[beadmeta.DispatchReplacedRootsMetadataKey] = string(raw)
 	return nil
 }
 
@@ -1001,7 +995,7 @@ func freezeActivationConditions(update *beads.UpdateOpts, conditions beads.Updat
 		conditions.Metadata = map[string]string{}
 	}
 	maps.Copy(conditions.Metadata, update.Metadata)
-	delete(conditions.Metadata, dispatchActivationConditionsKey)
+	delete(conditions.Metadata, beadmeta.DispatchActivationConditionsMetadataKey)
 	if update.Status != nil {
 		conditions.Status = update.Status
 	}
@@ -1012,13 +1006,13 @@ func freezeActivationConditions(update *beads.UpdateOpts, conditions beads.Updat
 	if err != nil {
 		return err
 	}
-	update.Metadata[dispatchActivationConditionsKey] = raw
+	update.Metadata[beadmeta.DispatchActivationConditionsMetadataKey] = raw
 	return nil
 }
 
 func selectedSourceConditions(source beads.Bead) (beads.UpdateConditions, error) {
 	var conditions beads.UpdateConditions
-	if err := json.Unmarshal([]byte(source.Metadata[dispatchActivationConditionsKey]), &conditions); err != nil {
+	if err := json.Unmarshal([]byte(source.Metadata[beadmeta.DispatchActivationConditionsMetadataKey]), &conditions); err != nil {
 		return conditions, fmt.Errorf("original selected source conditions: %w", err)
 	}
 	if conditions.Status == nil || conditions.Assignee == nil || conditions.Title == nil || conditions.Description == nil || conditions.AcceptanceCriteria == nil || conditions.Labels == nil {
@@ -1027,6 +1021,6 @@ func selectedSourceConditions(source beads.Bead) (beads.UpdateConditions, error)
 	if _, err := routeConditions(source, &conditions); err != nil {
 		return conditions, err
 	}
-	conditions.Metadata[dispatchActivationConditionsKey] = source.Metadata[dispatchActivationConditionsKey]
+	conditions.Metadata[beadmeta.DispatchActivationConditionsMetadataKey] = source.Metadata[beadmeta.DispatchActivationConditionsMetadataKey]
 	return conditions, nil
 }

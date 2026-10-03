@@ -9,6 +9,11 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
+dashboard_mode=prepare
+if [[ "${GC_DASHBOARD_INPUT_REQUIRED:-0}" == "1" ]]; then
+  dashboard_mode=verify
+fi
+python3 "$repo_root/scripts/dashboard-input.py" "$dashboard_mode"
 target="$repo_root/internal/api/genclient/client_gen.go"
 tmp=$(mktemp -t gc-client-gen.XXXXXX.go)
 trap 'rm -f "$tmp"' EXIT

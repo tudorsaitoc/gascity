@@ -19,7 +19,7 @@ func TestRuntimeTmuxManifestMatchesCanonicalLinuxIntegrationInventory(t *testing
 	repo := repoRoot(t)
 	manifest := parseRuntimeTmuxManifest(t, filepath.Join(repo, runtimeTmuxManifestRelativePath))
 	dir := filepath.Join(repo, "internal", "runtime", "tmux")
-	declared := discoverRuntimeTmuxTests(t, dir, "linux", true)
+	declared := discoverRuntimeTmuxTests(t, dir, "linux")
 
 	if drift := runtimeTmuxManifestDrift(manifest, declared); len(drift) != 0 {
 		t.Fatalf("runtime-tmux manifest drift:\n%s\nupdate %s", strings.Join(drift, "\n"), runtimeTmuxManifestRelativePath)
@@ -47,11 +47,6 @@ func TestRuntimeTmuxManifestSixShardsPartitionInventoryExactlyOnce(t *testing.T)
 }
 
 func TestRuntimeTmuxManifestDiscoveryUsesCanonicalLinuxPlatform(t *testing.T) {
-	context := canonicalRuntimeTmuxBuildContext("linux", true)
-	if context.GOOS != "linux" || context.GOARCH != "amd64" || !slices.Equal(context.BuildTags, []string{"integration"}) {
-		t.Fatalf("runtime-tmux manifest build target = %s/%s tags %q, want linux/amd64 with integration", context.GOOS, context.GOARCH, context.BuildTags)
-	}
-
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "linux_integration_test.go"), `//go:build integration && linux
 
@@ -70,10 +65,10 @@ import "testing"
 func TestDarwin(t *testing.T) {}
 `)
 
-	if got, want := discoverRuntimeTmuxTests(t, dir, "linux", true), []string{"TestLinux"}; !slices.Equal(got, want) {
+	if got, want := discoverRuntimeTmuxTests(t, dir, "linux"), []string{"TestLinux"}; !slices.Equal(got, want) {
 		t.Fatalf("linux runtime-tmux inventory = %q, want %q", got, want)
 	}
-	if got, want := discoverRuntimeTmuxTests(t, dir, "darwin", true), []string{"TestDarwin"}; !slices.Equal(got, want) {
+	if got, want := discoverRuntimeTmuxTests(t, dir, "darwin"), []string{"TestDarwin"}; !slices.Equal(got, want) {
 		t.Fatalf("darwin runtime-tmux inventory = %q, want %q", got, want)
 	}
 }
@@ -89,7 +84,7 @@ func TestMain(m *testpkg.M) {}
 func TestMainOrdinary(t *testpkg.T) {}
 `)
 
-		if got, want := discoverRuntimeTmuxTests(t, dir, "linux", true), []string{"TestMainOrdinary"}; !slices.Equal(got, want) {
+		if got, want := discoverRuntimeTmuxTests(t, dir, "linux"), []string{"TestMainOrdinary"}; !slices.Equal(got, want) {
 			t.Fatalf("runtime-tmux tests = %q, want harness excluded and ordinary test %q", got, want)
 		}
 	})
@@ -103,7 +98,7 @@ import . "testing"
 func TestMain(t *T) {}
 `)
 
-		if got, want := discoverRuntimeTmuxTests(t, dir, "linux", true), []string{"TestMain"}; !slices.Equal(got, want) {
+		if got, want := discoverRuntimeTmuxTests(t, dir, "linux"), []string{"TestMain"}; !slices.Equal(got, want) {
 			t.Fatalf("runtime-tmux tests = %q, want ordinary TestMain included as %q", got, want)
 		}
 	})
@@ -171,12 +166,18 @@ func isSafeManifestTestName(name string) bool {
 	return true
 }
 
-func discoverRuntimeTmuxTests(t *testing.T, dir, goos string, integration bool) []string {
+func discoverRuntimeTmuxTests(t *testing.T, dir, goos string) []string {
 	t.Helper()
-	context := canonicalRuntimeTmuxBuildContext(goos, integration)
+	context := build.Default
+	context.GOOS = goos
+	context.GOARCH = "amd64"
+	context.Compiler = "gc"
+	context.CgoEnabled = true
+	context.BuildTags = []string{"integration"}
+	context.ToolTags = nil
 	pkg, err := context.ImportDir(dir, 0)
 	if err != nil {
-		t.Fatalf("load runtime-tmux package for %s/amd64 (integration=%t): %v", goos, integration, err)
+		t.Fatalf("load integration runtime-tmux package for %s/amd64: %v", goos, err)
 	}
 
 	testFiles := append(slices.Clone(pkg.TestGoFiles), pkg.XTestGoFiles...)
@@ -199,20 +200,6 @@ func discoverRuntimeTmuxTests(t *testing.T, dir, goos string, integration bool) 
 		}
 	}
 	return tests
-}
-
-func canonicalRuntimeTmuxBuildContext(goos string, integration bool) build.Context {
-	context := build.Default
-	context.GOOS = goos
-	context.GOARCH = "amd64"
-	context.Compiler = "gc"
-	context.CgoEnabled = true
-	context.BuildTags = nil
-	if integration {
-		context.BuildTags = []string{"integration"}
-	}
-	context.ToolTags = nil
-	return context
 }
 
 func testingParameterKind(file *ast.File, function *ast.FuncDecl) string {

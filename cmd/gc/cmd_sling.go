@@ -404,11 +404,6 @@ func resolveSlingTargetAndBead(cfg *config.City, cityPath string, args []string,
 	}
 }
 
-// cmdSling is the CLI entry point for gc sling.
-func cmdSling(args []string, isFormula, doNudge, force bool, title string, vars []string, merge string, noConvoy, owned, reassign bool, onFormula string, noFormula, fromStdin, dryRun bool, scopeKind, scopeRef string, stdout, stderr io.Writer) int {
-	return cmdSlingWithJSON(args, isFormula, doNudge, force, title, vars, merge, noConvoy, owned, reassign, onFormula, noFormula, fromStdin, dryRun, scopeKind, scopeRef, false, nil, stdout, stderr)
-}
-
 func cmdSlingWithJSON(args []string, isFormula, doNudge, force bool, title string, vars []string, merge string, noConvoy, owned, reassign bool, onFormula string, noFormula, fromStdin, dryRun bool, scopeKind, scopeRef string, jsonOutput bool, conditions *beads.UpdateConditions, stdout, stderr io.Writer) int {
 	humanStdout := stdout
 	if jsonOutput {

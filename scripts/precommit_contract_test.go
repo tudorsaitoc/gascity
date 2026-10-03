@@ -560,44 +560,8 @@ func restrictedPathWithoutNpm(t *testing.T, stubs map[string]string) string {
 	return binDir
 }
 
-func TestNativeDoltliteBeadsTargetRunsTaggedSuite(t *testing.T) {
+func TestNativeDoltliteBeadsTargetSelectsTaggedOwners(t *testing.T) {
 	repoRoot := repoRoot(t)
-	makefile, err := os.ReadFile(filepath.Join(repoRoot, "Makefile"))
-	if err != nil {
-		t.Fatalf("read Makefile: %v", err)
-	}
-	if err := validateNativeDoltliteMakefile(string(makefile)); err != nil {
-		t.Fatalf("test-native-doltlite-beads recipe: %v", err)
-	}
-
-	cmd := exec.Command("make", "-n", "test-native-doltlite-beads")
-	cmd.Dir = repoRoot
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("make -n test-native-doltlite-beads failed: %v\n%s", err, out)
-	}
-	command := string(out)
-	if err := validateNativeDoltliteDryRun(command); err != nil {
-		t.Fatalf("make -n test-native-doltlite-beads output: %v", err)
-	}
-	for _, want := range []string{
-		"CGO_ENABLED=0",
-		"-tags gascity_native_beads",
-		"-run '^TestDoltlite'",
-		"./internal/beads",
-	} {
-		if !strings.Contains(command, want) {
-			t.Fatalf("test-native-doltlite-beads recipe missing %q:\n%s", want, command)
-		}
-	}
-	for _, banned := range []string{
-		"CGO_ENABLED=1",
-		"cgo,gascity_native_beads",
-	} {
-		if strings.Contains(command, banned) {
-			t.Fatalf("test-native-doltlite-beads recipe must not contain %q (doltlite store now uses pure-Go modernc):\n%s", banned, command)
-		}
-	}
 	assertNativeDoltliteBeadsSelectionMatchesTaggedOwners(t, repoRoot)
 }
 

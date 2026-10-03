@@ -71,28 +71,39 @@ const (
 	// epoch fence committing. Cleared on activation; a root still carrying it
 	// is a pre-fence candidate that idempotency recovery either activates
 	// (deterministically, when it is the surviving candidate) or neutralizes.
-	AttachFencePendingMetadataKey        = "gc.attach_fence_pending"
-	DeferredAssigneeMetadataKey          = "gc.deferred_assignee"
-	DeferredExecutionRoutedToMetadataKey = "gc.deferred_execution_routed_to"
-	DeferredRoutedToMetadataKey          = "gc.deferred_routed_to"
-	DeferredTypeMetadataKey              = "gc.deferred_type"
-	DetachedMetadataKey                  = "gc.detached"
-	DrainContextMetadataKey              = "gc.drain_context"
-	DrainContinuationGroupMetadataKey    = "gc.drain_continuation_group"
-	DrainControlIDMetadataKey            = "gc.drain_control_id"
-	DrainCountMetadataKey                = "gc.drain_count"
-	DrainFormulaMetadataKey              = "gc.drain_formula"
-	DrainIndexMetadataKey                = "gc.drain_index"
-	DrainItemSingleLaneMetadataKey       = "gc.drain_item_single_lane"
-	DrainManifestMetadataKey             = "gc.drain_manifest.v1"
-	DrainMaxUnitsMetadataKey             = "gc.drain_max_units"
-	DrainMemberAccessMetadataKey         = "gc.drain_member_access"
-	DrainMemberIDMetadataKey             = "gc.drain_member_id"
-	DrainMemberUnresolvedMetadataKey     = "gc.drain_member_unresolved"
-	DrainOnItemFailureMetadataKey        = "gc.drain_on_item_failure"
-	DrainParentConvoyIDMetadataKey       = "gc.drain_parent_convoy_id"
-	DrainStateMetadataKey                = "gc.drain_state"
-	DrainUnitKeyMetadataKey              = "gc.drain_unit_key"
+	AttachFencePendingMetadataKey           = "gc.attach_fence_pending"
+	DeferredAssigneeMetadataKey             = "gc.deferred_assignee"
+	DeferredExecutionRoutedToMetadataKey    = "gc.deferred_execution_routed_to"
+	DeferredRoutedToMetadataKey             = "gc.deferred_routed_to"
+	DeferredTypeMetadataKey                 = "gc.deferred_type"
+	DetachedMetadataKey                     = "gc.detached"
+	DispatchActivationAssigneeMetadataKey   = "gc.dispatch_activation_assignee"
+	DispatchActivationConditionsMetadataKey = "gc.dispatch_activation_conditions"
+	DispatchActivationStatusMetadataKey     = "gc.dispatch_activation_status"
+	DispatchCandidateIDsMetadataKey         = "gc.dispatch_candidate_ids"
+	DispatchEffectIDMetadataKey             = "gc.dispatch_effect_id"
+	DispatchEffectStateMetadataKey          = "gc.dispatch_effect_state"
+	DispatchProviderMetadataKey             = "gc.dispatch_provider"
+	DispatchReplacedRootsMetadataKey        = "gc.dispatch_replaced_roots"
+	DispatchSourceBeadMetadataKey           = "gc.dispatch_source_bead"
+	DispatchSourceConditionsMetadataKey     = "gc.dispatch_source_conditions"
+	DispatchTargetMetadataKey               = "gc.dispatch_target"
+	DrainContextMetadataKey                 = "gc.drain_context"
+	DrainContinuationGroupMetadataKey       = "gc.drain_continuation_group"
+	DrainControlIDMetadataKey               = "gc.drain_control_id"
+	DrainCountMetadataKey                   = "gc.drain_count"
+	DrainFormulaMetadataKey                 = "gc.drain_formula"
+	DrainIndexMetadataKey                   = "gc.drain_index"
+	DrainItemSingleLaneMetadataKey          = "gc.drain_item_single_lane"
+	DrainManifestMetadataKey                = "gc.drain_manifest.v1"
+	DrainMaxUnitsMetadataKey                = "gc.drain_max_units"
+	DrainMemberAccessMetadataKey            = "gc.drain_member_access"
+	DrainMemberIDMetadataKey                = "gc.drain_member_id"
+	DrainMemberUnresolvedMetadataKey        = "gc.drain_member_unresolved"
+	DrainOnItemFailureMetadataKey           = "gc.drain_on_item_failure"
+	DrainParentConvoyIDMetadataKey          = "gc.drain_parent_convoy_id"
+	DrainStateMetadataKey                   = "gc.drain_state"
+	DrainUnitKeyMetadataKey                 = "gc.drain_unit_key"
 	// DrainUnprojectedBlockersMetadataKey records, on a drain item root, the
 	// out-of-convoy blockers of its source member that the item workflow could
 	// not depend on because they live in another class store. The item workflow
@@ -334,6 +345,17 @@ var KnownMetadataKeys = []string{
 	DeferredRoutedToMetadataKey,
 	DeferredTypeMetadataKey,
 	DetachedMetadataKey,
+	DispatchActivationAssigneeMetadataKey,
+	DispatchActivationConditionsMetadataKey,
+	DispatchActivationStatusMetadataKey,
+	DispatchCandidateIDsMetadataKey,
+	DispatchEffectIDMetadataKey,
+	DispatchEffectStateMetadataKey,
+	DispatchProviderMetadataKey,
+	DispatchReplacedRootsMetadataKey,
+	DispatchSourceBeadMetadataKey,
+	DispatchSourceConditionsMetadataKey,
+	DispatchTargetMetadataKey,
 	DrainContextMetadataKey,
 	DrainContinuationGroupMetadataKey,
 	DrainControlIDMetadataKey,

@@ -60,10 +60,12 @@ func TestNativeBdGuardedUpdateParsingAndRefusals(t *testing.T) {
 }
 
 func TestNativeBdGuardedUpdateCombinesMetadataRemovalAndLabels(t *testing.T) {
-	args := []string{"update", "saitoc-full-id", "--json", "--actor=saitoc/scheduler",
+	args := []string{
+		"update", "saitoc-full-id", "--json", "--actor=saitoc/scheduler",
 		"--if-status=open", "--if-assignee=worker", "--if-metadata=gc.routed_to=",
 		"--set-metadata=gc.routed_to=refinery", "--unset-metadata=refinery_handoff_at",
-		"--remove-label=value-contract-missing"}
+		"--remove-label=value-contract-missing",
+	}
 	args = append(args, "--if-labels-json=[]", "--if-title=original title", "--if-description=original description", "--if-acceptance=original acceptance")
 	op, rejected, ok := parseNativeBdUpdate(args)
 	if !ok {

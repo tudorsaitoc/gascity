@@ -15,7 +15,7 @@
     "test:watch": "vitest",
     "test:e2e:install": "playwright install chromium",
     "test:e2e:install:ci": "playwright install --with-deps chromium",
-    "test:e2e:build": "cd ../../../../../test/dashport/cmd/fakesupervisor && go build -tags integration -o fakesupervisor .",
+    "test:e2e:build": "python3 ../../../../../scripts/dashboard-input.py prepare && cd ../../../../../test/dashport/cmd/fakesupervisor && go build -tags integration -o fakesupervisor .",
     "test:e2e": "playwright test",
     "e2e": "playwright test"
   },

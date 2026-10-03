@@ -55,10 +55,10 @@ func DoSling(opts SlingOpts, deps SlingDeps, querier BeadQuerier) (SlingResult, 
 	if guardErr != nil {
 		return SlingResult{Target: a.QualifiedName()}, guardErr
 	}
-	if !opts.DryRun && source != nil && IsCustomSlingQuery(a) && source.Metadata[customDispatchProviderKey] != "" {
+	if !opts.DryRun && source != nil && IsCustomSlingQuery(a) && source.Metadata[beadmeta.DispatchProviderMetadataKey] != "" {
 		return resumeCommittedFormula(opts, deps, *source)
 	}
-	if !opts.DryRun && source != nil && source.Metadata[DispatchEffectStateKey] == "committed" && opts.Conditions != nil && source.Metadata[DispatchEffectIDKey] == opts.Conditions.Metadata[DispatchEffectIDKey] {
+	if !opts.DryRun && source != nil && source.Metadata[beadmeta.DispatchEffectStateMetadataKey] == "committed" && opts.Conditions != nil && source.Metadata[beadmeta.DispatchEffectIDMetadataKey] == opts.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey] {
 		return resumeCommittedFormula(opts, deps, *source)
 	}
 	if reconciled, ok, err := reconciledFormulaRoute(opts, deps, source); ok {
@@ -74,7 +74,7 @@ func DoSling(opts SlingOpts, deps SlingDeps, querier BeadQuerier) (SlingResult, 
 	if result.DryRun || result.Idempotent {
 		if result.NudgeAgent != nil {
 			target := agentutil.NormalizePoolRouteTarget(deps.Cfg, agentutil.RoutedToIdentity(&a))
-			if err := checkNativeAdmission(context.Background(), deps.Cfg, deps.CityPath, target, opts.Conditions != nil && opts.Conditions.Metadata[DispatchEffectIDKey] != ""); err != nil {
+			if err := checkNativeAdmission(context.Background(), deps.Cfg, deps.CityPath, target, opts.Conditions != nil && opts.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey] != ""); err != nil {
 				return result, err
 			}
 		}
@@ -126,7 +126,7 @@ func preflight(opts SlingOpts, deps SlingDeps, querier BeadQuerier) (SlingResult
 	}
 
 	// Pre-flight idempotency check.
-	if shouldCheckBeadState(opts) && (opts.Conditions == nil || opts.Conditions.Metadata[DispatchEffectIDKey] == "") {
+	if shouldCheckBeadState(opts) && (opts.Conditions == nil || opts.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey] == "") {
 		if resolveIdempotentShortCircuit(opts, a, deps, querier, &result) {
 			return result, nil
 		}
@@ -409,11 +409,12 @@ func finalize(opts SlingOpts, deps SlingDeps, beadID, method string, result Slin
 	a := opts.Target
 
 	// Native routing and custom effect reservation consume the same source guard.
-	if IsCustomSlingQuery(a) {
+	switch {
+	case IsCustomSlingQuery(a):
 		if err := commitCustomPlainRoute(opts, deps, beadID); err != nil {
 			return result, err
 		}
-	} else if deps.Router != nil {
+	case deps.Router != nil:
 		if err := validateBuiltInRouteStoreReachable(deps, beadID, a); err != nil {
 			telemetry.RecordSling(context.Background(), a.QualifiedName(), TargetType(&a), method, err)
 			return result, fmt.Errorf("%w", err)
@@ -432,7 +433,7 @@ func finalize(opts SlingOpts, deps SlingDeps, beadID, method string, result Slin
 			telemetry.RecordSling(context.Background(), a.QualifiedName(), TargetType(&a), method, err)
 			return result, fmt.Errorf("%w", err)
 		}
-	} else {
+	default:
 		req := RouteRequest{BeadID: beadID, Target: agentutil.RoutedToIdentity(&a), Conditions: opts.Conditions, Reassign: opts.Reassign}
 		if opts.Merge != "" {
 			req.Metadata = map[string]string{beadmeta.MergeStrategyMetadataKey: opts.Merge}
@@ -852,7 +853,7 @@ func DoSlingBatch(opts SlingOpts, deps SlingDeps, querier BeadChildQuerier) (Sli
 	}
 	if !opts.DryRun && !IsCustomSlingQuery(a) {
 		target := agentutil.NormalizePoolRouteTarget(deps.Cfg, agentutil.RoutedToIdentity(&a))
-		if err := checkNativeAdmission(context.Background(), deps.Cfg, deps.CityPath, target, opts.Conditions != nil && opts.Conditions.Metadata[DispatchEffectIDKey] != ""); err != nil {
+		if err := checkNativeAdmission(context.Background(), deps.Cfg, deps.CityPath, target, opts.Conditions != nil && opts.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey] != ""); err != nil {
 			return SlingResult{Target: a.QualifiedName()}, err
 		}
 	}
@@ -990,14 +991,15 @@ func DoSlingBatch(opts SlingOpts, deps SlingDeps, querier BeadChildQuerier) (Sli
 		dispatched, err := DoSling(childOpts, deps, deps.Store)
 		batchResult.BeadWarnings = append(batchResult.BeadWarnings, dispatched.BeadWarnings...)
 		batchResult.MetadataErrors = append(batchResult.MetadataErrors, dispatched.MetadataErrors...)
-		if err != nil {
+		switch {
+		case err != nil:
 			childResult.Failed, childResult.FailReason = true, err.Error()
 			failed++
 			childErrors = append(childErrors, err)
-		} else if dispatched.Idempotent {
+		case dispatched.Idempotent:
 			childResult.Skipped = true
 			idempotent++
-		} else {
+		default:
 			childResult.Routed = true
 			childResult.WorkflowID, childResult.WispRootID, childResult.FormulaName = dispatched.WorkflowID, dispatched.WispRootID, dispatched.FormulaName
 			routed++

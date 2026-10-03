@@ -10,14 +10,17 @@ import (
 	beadslib "github.com/steveyegge/beads"
 )
 
-var _ GuardedUpdateWriter = (*NativeDoltStore)(nil)
-var _ GuardedUpdateWriter = (*nativeDoltTx)(nil)
+var (
+	_ GuardedUpdateWriter = (*NativeDoltStore)(nil)
+	_ GuardedUpdateWriter = (*nativeDoltTx)(nil)
+)
 
 // Optional pinned-library capability; never emulate history after commit.
 type nativeTransactionEventWriter interface {
 	UpdateIssueWithEvents(context.Context, string, map[string]interface{}, string) error
 }
 
+// UpdateGuarded checks and applies the mutation in one backend transaction.
 func (s *NativeDoltStore) UpdateGuarded(id string, opts UpdateOpts, conditions UpdateConditions) (bool, error) {
 	storage, release, err := s.acquireStorage()
 	if err != nil {

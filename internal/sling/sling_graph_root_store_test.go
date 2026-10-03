@@ -61,7 +61,7 @@ func TestForcedGraphV2ReplacementUsesTheGraphStore(t *testing.T) {
 		t.Fatal(err)
 	}
 	if current.ID == previous.ID || previous.Status != "closed" || current.Status != "in_progress" ||
-		current.Metadata[beadmeta.AttachFencePendingMetadataKey] != "" || source.Metadata["workflow_id"] != current.ID || source.Metadata[DispatchEffectStateKey] != "routed" {
+		current.Metadata[beadmeta.AttachFencePendingMetadataKey] != "" || source.Metadata["workflow_id"] != current.ID || source.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "routed" {
 		t.Fatalf("replacement did not select exactly one active graph root: previous=%+v current=%+v source=%+v", previous, current, source)
 	}
 	if _, err := work.Get(current.ID); !errors.Is(err, beads.ErrNotFound) {
@@ -169,7 +169,7 @@ func TestForcedGraphV2ReplacementActivationFailurePreservesAndResumesSelectedRoo
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pending.ID == first.WorkflowID || pending.Type != "gate" || pending.Metadata[beadmeta.AttachFencePendingMetadataKey] != "true" || selected.Metadata[DispatchEffectStateKey] != "committed" {
+	if pending.ID == first.WorkflowID || pending.Type != "gate" || pending.Metadata[beadmeta.AttachFencePendingMetadataKey] != "true" || selected.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "committed" {
 		t.Fatalf("failed activation lost its durable selected identity: source=%+v candidate=%+v", selected, pending)
 	}
 	promoteGuard.armed = false
@@ -190,7 +190,7 @@ func TestForcedGraphV2ReplacementActivationFailurePreservesAndResumesSelectedRoo
 		t.Fatal(err)
 	}
 	if recovered.WorkflowID != pending.ID || !recovered.Idempotent || current.Status != "in_progress" ||
-		current.Metadata[beadmeta.AttachFencePendingMetadataKey] != "" || previous.Status != "closed" || selected.Metadata[DispatchEffectStateKey] != "routed" {
+		current.Metadata[beadmeta.AttachFencePendingMetadataKey] != "" || previous.Status != "closed" || selected.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "routed" {
 		t.Fatalf("recovery did not activate the original selected graph root: result=%+v source=%+v current=%+v previous=%+v", recovered, selected, current, previous)
 	}
 }

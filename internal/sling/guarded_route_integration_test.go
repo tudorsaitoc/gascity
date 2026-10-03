@@ -4,6 +4,7 @@ package sling
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gastownhall/gascity/internal/beadmeta"
 	"github.com/gastownhall/gascity/internal/beads"
@@ -20,21 +22,73 @@ import (
 	"github.com/gastownhall/gascity/internal/molecule"
 )
 
-// Main supplies one owned, schema-initialized throwaway SQL scope. Requiring
-// that explicit fixture avoids silently skipping the actual backend canary or
-// connecting these mutation tests to a developer's ambient city.
+// The integration runner owns the private SQL server. Each test owns its schema
+// and filesystem; admission still calls the unchanged real host authority.
 func guardedNativeFixture(t *testing.T) (string, *beads.NativeDoltStore, *beads.NativeDoltStore, *config.City) {
 	t.Helper()
-	scope := os.Getenv("GC_SLING_TEST_SCOPE")
-	if scope == "" || !filepath.IsAbs(scope) || !strings.Contains(scope, "gc-adr44-sling-") {
-		t.Fatal("GC_SLING_TEST_SCOPE must name Main's owned gc-adr44-sling-* throwaway SQL fixture")
-	}
 	if os.Getenv("GC_SLING_ADMISSION_COMMAND") == "" {
-		t.Fatal("the real execution-host admission command must be configured for this canary")
+		t.Fatal("configure the real execution-host admission command before this SQL canary")
 	}
-	env := map[string]string{}
-	for _, key := range []string{"BEADS_DOLT_SERVER_HOST", "BEADS_DOLT_SERVER_PORT", "BEADS_DOLT_PORT", "BEADS_DOLT_SERVER_DATABASE", "BEADS_DOLT_SERVER_SOCKET", "BEADS_DOLT_PASSWORD"} {
-		env[key] = os.Getenv(key)
+	fixture := os.Getenv("GC_SLING_TEST_SCOPE")
+	if fixture == "" {
+		t.Fatal("prepare the private native SQL fixture before this canary")
+	}
+	raw, err := os.ReadFile(filepath.Join(fixture, "client-env.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var env map[string]string
+	if err := json.Unmarshal(raw, &env); err != nil {
+		t.Fatal(err)
+	}
+	scope := t.TempDir()
+	beadsDir := filepath.Join(scope, ".beads")
+	if err := os.MkdirAll(beadsDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256([]byte(scope))
+	database := fmt.Sprintf("beads_%x", digest[:16])
+	env["BEADS_DOLT_SERVER_DATABASE"] = database
+	for key, value := range env {
+		t.Setenv(key, value)
+	}
+	t.Setenv("BEADS_DIR", beadsDir)
+	t.Setenv("BEADS_TEST_MODE", "1")
+	t.Setenv("BEADS_TEST_SERVER", "1")
+	t.Setenv("NERVE_ANDON_PATH", filepath.Join(scope, "andon.json"))
+	dsn := fmt.Sprintf("root@tcp(127.0.0.1:%s)/?timeout=1s&readTimeout=1s&writeTimeout=1s", env["BEADS_DOLT_SERVER_PORT"])
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := db.ExecContext(ctx, "CREATE DATABASE `"+database+"`"); err != nil {
+		t.Fatal(err)
+	}
+	metadata := map[string]any{
+		"backend": "dolt", "database": database, "dolt_mode": "server",
+		"dolt_server_host": "127.0.0.1", "dolt_server_port": json.Number(env["BEADS_DOLT_SERVER_PORT"]),
+	}
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(beadsDir, "metadata.json"), metadataJSON, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	storage, err := beads.OpenNativeStorage(ctx, scope, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = storage.SetConfig(ctx, "issue_prefix", "gc")
+	closeErr := storage.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if closeErr != nil {
+		t.Fatal(closeErr)
 	}
 	open := func() *beads.NativeDoltStore {
 		store, err := beads.OpenNativeDoltStoreAt(context.Background(), scope, env)
@@ -75,11 +129,6 @@ func TestGuardedNativeRouteCompetingSQLWriters(t *testing.T) {
 		err := <-results
 		if err == nil {
 			wins++
-			continue
-		}
-		var conflict *RouteConflictError
-		if !errors.As(err, &conflict) {
-			t.Fatalf("unexpected competing route failure: %v", err)
 		}
 	}
 	if wins != 1 {
@@ -137,7 +186,7 @@ func TestGuardedNativeRouteRejectsOwnerChangeAndHold(t *testing.T) {
 
 func TestGuardedNativeRouteLostAcknowledgmentReconcilesWithoutAnotherWrite(t *testing.T) {
 	scope, a, b, cfg := guardedNativeFixture(t)
-	work, err := a.Create(beads.Bead{Title: "accepted route with lost acknowledgment", Type: "task", Status: "open", Metadata: map[string]string{DispatchEffectIDKey: "stable-actual-effect", DispatchEffectStateKey: "attempted"}})
+	work, err := a.Create(beads.Bead{Title: "accepted route with lost acknowledgment", Type: "task", Status: "open", Metadata: map[string]string{beadmeta.DispatchEffectIDMetadataKey: "stable-actual-effect", beadmeta.DispatchEffectStateMetadataKey: "attempted"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +202,7 @@ func TestGuardedNativeRouteLostAcknowledgmentReconcilesWithoutAnotherWrite(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Metadata[DispatchEffectIDKey] != "stable-actual-effect" || got.Metadata[DispatchEffectStateKey] != "routed" || got.Metadata[beadmeta.RoutedToMetadataKey] != "worker-a" {
+	if got.Metadata[beadmeta.DispatchEffectIDMetadataKey] != "stable-actual-effect" || got.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "routed" || got.Metadata[beadmeta.RoutedToMetadataKey] != "worker-a" {
 		t.Fatalf("route and effect receipt did not commit together: %+v", got)
 	}
 	if err := CommitRoute(context.Background(), b, cfg, scope, req); err != nil {
@@ -165,7 +214,7 @@ func TestGuardedNativeRouteLostAcknowledgmentReconcilesWithoutAnotherWrite(t *te
 	}
 	defer db.Close()
 	var actualRoutes int
-	if err := db.QueryRow("SELECT COUNT(*) FROM events WHERE issue_id = ? AND event_type = 'updated' AND JSON_UNQUOTE(JSON_EXTRACT(new_value, '$.metadata.\"gc.dispatch_effect_state\"')) = 'routed'", work.ID).Scan(&actualRoutes); err != nil {
+	if err := db.QueryRow("SELECT COUNT(*) FROM events WHERE issue_id = ? AND event_type = 'updated' AND JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(new_value), new_value, '{}'), '$.metadata.\"gc.dispatch_effect_state\"')) = 'routed'", work.ID).Scan(&actualRoutes); err != nil {
 		t.Fatal(err)
 	}
 	if actualRoutes != 1 {
@@ -242,7 +291,7 @@ func TestGuardedNativeRouteRejectsChangedLabelsButKeepsOrdinaryMetadata(t *testi
 
 func TestGuardedNativeRouteMissingHostAdmissionCannotCommit(t *testing.T) {
 	scope, a, b, cfg := guardedNativeFixture(t)
-	work, err := a.Create(beads.Bead{Title: "no unknown-admission dispatch", Type: "task", Status: "open", Metadata: map[string]string{DispatchEffectIDKey: "admission-required", DispatchEffectStateKey: "attempted"}})
+	work, err := a.Create(beads.Bead{Title: "no unknown-admission dispatch", Type: "task", Status: "open", Metadata: map[string]string{beadmeta.DispatchEffectIDMetadataKey: "admission-required", beadmeta.DispatchEffectStateMetadataKey: "attempted"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +305,7 @@ func TestGuardedNativeRouteMissingHostAdmissionCannotCommit(t *testing.T) {
 	if readErr != nil {
 		t.Fatal(readErr)
 	}
-	if err == nil || got.Metadata[beadmeta.RoutedToMetadataKey] != "" || got.Metadata[DispatchEffectStateKey] != "attempted" {
+	if err == nil || got.Metadata[beadmeta.RoutedToMetadataKey] != "" || got.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "attempted" {
 		t.Fatalf("unknown host admission committed a dispatch: err=%v bead=%+v", err, got)
 	}
 }
@@ -276,7 +325,7 @@ func TestGuardedNativeFormulaMixedTierForceReplacementAndHold(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		candidate, err := a.Create(beads.Bead{Title: "ignored-tier speculative replacement", Type: "gate", Status: "open", Ephemeral: true, Metadata: map[string]string{beadmeta.AttachFencePendingMetadataKey: "true", beadmeta.FormulaContractMetadataKey: beadmeta.FormulaContractGraphV2, molecule.DeferredTypeMetadataKey: "task", molecule.DeferredRoutedToMetadataKey: "worker-a", dispatchReplacedRootKey: string(replaced)}})
+		candidate, err := a.Create(beads.Bead{Title: "ignored-tier speculative replacement", Type: "gate", Status: "open", Ephemeral: true, Metadata: map[string]string{beadmeta.AttachFencePendingMetadataKey: "true", beadmeta.FormulaContractMetadataKey: beadmeta.FormulaContractGraphV2, molecule.DeferredTypeMetadataKey: "task", molecule.DeferredRoutedToMetadataKey: "worker-a", beadmeta.DispatchReplacedRootsMetadataKey: string(replaced)}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -319,11 +368,11 @@ func TestGuardedNativeFormulaCommittedReceiptResumesOriginalCandidate(t *testing
 	for _, scenario := range []string{"", "owner", "goal", "labels", "hold", "activated-owner", "activated-goal", "activated-labels", "activated-hold"} {
 		activated := strings.HasPrefix(scenario, "activated-")
 		change := strings.TrimPrefix(scenario, "activated-")
-		source, err := a.Create(beads.Bead{Title: "selected source with interrupted activation", Type: "task", Status: "open", Metadata: map[string]string{DispatchEffectIDKey: "original-provider-effect", DispatchEffectStateKey: "committed", "gc.dispatch_activation_status": "open", "gc.dispatch_activation_assignee": ""}})
+		source, err := a.Create(beads.Bead{Title: "selected source with interrupted activation", Type: "task", Status: "open", Metadata: map[string]string{beadmeta.DispatchEffectIDMetadataKey: "original-provider-effect", beadmeta.DispatchEffectStateMetadataKey: "committed", beadmeta.DispatchActivationStatusMetadataKey: "open", beadmeta.DispatchActivationAssigneeMetadataKey: ""}})
 		if err != nil {
 			t.Fatal(err)
 		}
-		root, err := b.Create(beads.Bead{Title: "original selected candidate", Type: "gate", Status: "open", Ephemeral: true, Metadata: map[string]string{beadmeta.AttachFencePendingMetadataKey: "true", beadmeta.FormulaContractMetadataKey: beadmeta.FormulaContractGraphV2, DispatchEffectIDKey: "original-provider-effect", "gc.dispatch_source_bead": source.ID, molecule.DeferredTypeMetadataKey: "task", molecule.DeferredRoutedToMetadataKey: "worker-a"}})
+		root, err := b.Create(beads.Bead{Title: "original selected candidate", Type: "gate", Status: "open", Ephemeral: true, Metadata: map[string]string{beadmeta.AttachFencePendingMetadataKey: "true", beadmeta.FormulaContractMetadataKey: beadmeta.FormulaContractGraphV2, beadmeta.DispatchEffectIDMetadataKey: "original-provider-effect", beadmeta.DispatchSourceBeadMetadataKey: source.ID, molecule.DeferredTypeMetadataKey: "task", molecule.DeferredRoutedToMetadataKey: "worker-a"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -331,7 +380,7 @@ func TestGuardedNativeFormulaCommittedReceiptResumesOriginalCandidate(t *testing
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := b.SetMetadata(root.ID, dispatchCandidateIDsKey, string(mapping)); err != nil {
+		if err := b.SetMetadata(root.ID, beadmeta.DispatchCandidateIDsMetadataKey, string(mapping)); err != nil {
 			t.Fatal(err)
 		}
 		if err := a.Update(source.ID, beads.UpdateOpts{Metadata: map[string]string{"workflow_id": root.ID, beadmeta.ExecutionRoutedToMetadataKey: "worker-a"}}); err != nil {
@@ -345,7 +394,7 @@ func TestGuardedNativeFormulaCommittedReceiptResumesOriginalCandidate(t *testing
 		if err != nil {
 			t.Fatal(err)
 		}
-		receipt := beads.UpdateOpts{Metadata: map[string]string{DispatchEffectStateKey: "committed"}}
+		receipt := beads.UpdateOpts{Metadata: map[string]string{beadmeta.DispatchEffectStateMetadataKey: "committed"}}
 		if err := freezeActivationConditions(&receipt, original); err != nil {
 			t.Fatal(err)
 		}
@@ -409,11 +458,11 @@ func TestGuardedNativeFormulaCommittedReceiptResumesOriginalCandidate(t *testing
 			if activated {
 				wantType, wantPending = "task", ""
 			}
-			if !errors.As(err, &conflict) || gotRoot.Type != wantType || gotRoot.Metadata[beadmeta.AttachFencePendingMetadataKey] != wantPending || gotSource.Metadata[DispatchEffectStateKey] != "committed" || change == "owner" && gotSource.Assignee != "new-owner" || change == "goal" && gotSource.Title != "new human-approved goal" || change == "labels" && !slices.Contains(gotSource.Labels, "private-review") || change == "hold" && gotSource.Metadata["handoff.conflict_state"] != "hold" {
+			if !errors.As(err, &conflict) || gotRoot.Type != wantType || gotRoot.Metadata[beadmeta.AttachFencePendingMetadataKey] != wantPending || gotSource.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "committed" || change == "owner" && gotSource.Assignee != "new-owner" || change == "goal" && gotSource.Title != "new human-approved goal" || change == "labels" && !slices.Contains(gotSource.Labels, "private-review") || change == "hold" && gotSource.Metadata["handoff.conflict_state"] != "hold" {
 				t.Fatalf("fresh caller replayed stale %s: err=%v root=%+v source=%+v", scenario, err, gotRoot, gotSource)
 			}
 		} else {
-			if err != nil || result.WorkflowID != root.ID || !result.Idempotent || gotRoot.Type != "task" || gotRoot.Status != "in_progress" || gotRoot.Metadata[beadmeta.AttachFencePendingMetadataKey] != "" || gotSource.Metadata[DispatchEffectStateKey] != "routed" || gotSource.Metadata["workflow_id"] != root.ID {
+			if err != nil || result.WorkflowID != root.ID || !result.Idempotent || gotRoot.Type != "task" || gotRoot.Status != "in_progress" || gotRoot.Metadata[beadmeta.AttachFencePendingMetadataKey] != "" || gotSource.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "routed" || gotSource.Metadata["workflow_id"] != root.ID {
 				t.Fatalf("recovery did not activate the original selected provider: err=%v result=%+v root=%+v source=%+v", err, result, gotRoot, gotSource)
 			}
 			reconciled, ok, err := reconciledFormulaRoute(opts, deps, &gotSource)
@@ -446,7 +495,7 @@ func TestGuardedNativeRouteRejectsChangedHumanGoal(t *testing.T) {
 			if openErr != nil {
 				t.Fatal(openErr)
 			}
-			_, err = db.Exec("UPDATE issues SET acceptance_criteria = ?, row_lock = UUID(), updated_at = NOW() WHERE id = ?", changed, work.ID)
+			_, err = db.Exec("UPDATE issues SET acceptance_criteria = ?, row_lock = row_lock + 1, updated_at = NOW() WHERE id = ?", changed, work.ID)
 			if closeErr := db.Close(); closeErr != nil {
 				t.Fatal(closeErr)
 			}

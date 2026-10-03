@@ -61,8 +61,12 @@ func TestDoSling_Reassign_ReopensOrderClaimedBead(t *testing.T) {
 		name   string
 		routed bool
 		batch  bool
-	}{{"unrouted", false, false}, {"already routed", true, false},
-		{"convoy", false, true}, {"already routed convoy", true, true}} {
+	}{
+		{"unrouted", false, false},
+		{"already routed", true, false},
+		{"convoy", false, true},
+		{"already routed convoy", true, true},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
 			opts, deps, bead := orderClaimedPoolHandoffSetup(t)
 			if tc.routed {
@@ -274,7 +278,7 @@ title = "Other work"
 			source, err := deps.Store.Create(beads.Bead{
 				Title: "original goal", Description: "original instructions",
 				AcceptanceCriteria: "original acceptance",
-				Metadata:           map[string]string{DispatchEffectIDKey: "original-effect", DispatchEffectStateKey: "attempted"},
+				Metadata:           map[string]string{beadmeta.DispatchEffectIDMetadataKey: "original-effect", beadmeta.DispatchEffectStateMetadataKey: "attempted"},
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -297,10 +301,10 @@ title = "Other work"
 				t.Fatal(err)
 			}
 			recipe.Steps[0].Metadata[beadmeta.AttachFencePendingMetadataKey] = "true"
-			recipe.Steps[0].Metadata[DispatchEffectIDKey] = "original-effect"
-			recipe.Steps[0].Metadata["gc.dispatch_source_bead"] = source.ID
-			recipe.Steps[0].Metadata[dispatchSourceConditionsKey] = raw
-			recipe.Steps[0].Metadata[dispatchTargetKey] = target.Name
+			recipe.Steps[0].Metadata[beadmeta.DispatchEffectIDMetadataKey] = "original-effect"
+			recipe.Steps[0].Metadata[beadmeta.DispatchSourceBeadMetadataKey] = source.ID
+			recipe.Steps[0].Metadata[beadmeta.DispatchSourceConditionsMetadataKey] = raw
+			recipe.Steps[0].Metadata[beadmeta.DispatchTargetMetadataKey] = target.Name
 			candidate, err := InstantiateCompiledSlingFormula(context.Background(), recipe, opts.OnFormula,
 				molecule.Options{Vars: inv.Vars, DeferAssignees: true, IdempotencyKey: "original-effect"},
 				source.ID, opts.ScopeKind, opts.ScopeRef, target, deps)
@@ -311,16 +315,16 @@ title = "Other work"
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := deps.graphStore().SetMetadata(candidate.RootID, dispatchCandidateIDsKey, string(mapping)); err != nil {
+			if err := deps.graphStore().SetMetadata(candidate.RootID, beadmeta.DispatchCandidateIDsMetadataKey, string(mapping)); err != nil {
 				t.Fatal(err)
 			}
 			if strings.HasPrefix(scenario, "committed-") {
 				update := beads.UpdateOpts{Metadata: map[string]string{
-					DispatchEffectStateKey:                "committed",
-					"workflow_id":                         candidate.RootID,
-					beadmeta.ExecutionRoutedToMetadataKey: target.Name,
-					"gc.dispatch_activation_status":       source.Status,
-					"gc.dispatch_activation_assignee":     source.Assignee,
+					beadmeta.DispatchEffectStateMetadataKey:        "committed",
+					"workflow_id":                                  candidate.RootID,
+					beadmeta.ExecutionRoutedToMetadataKey:          target.Name,
+					beadmeta.DispatchActivationStatusMetadataKey:   source.Status,
+					beadmeta.DispatchActivationAssigneeMetadataKey: source.Assignee,
 				}}
 				if err := freezeActivationConditions(&update, conditions); err != nil {
 					t.Fatal(err)
@@ -408,7 +412,7 @@ func TestCustomDeliveryReservesTheOriginalEffectBeforeActivation(t *testing.T) {
 				}
 			}
 			if tc.originalEffect {
-				if err := deps.Store.Update(sourceID, beads.UpdateOpts{Metadata: map[string]string{DispatchEffectIDKey: "custom-original", DispatchEffectStateKey: "attempted"}}); err != nil {
+				if err := deps.Store.Update(sourceID, beads.UpdateOpts{Metadata: map[string]string{beadmeta.DispatchEffectIDMetadataKey: "custom-original", beadmeta.DispatchEffectStateMetadataKey: "attempted"}}); err != nil {
 					t.Fatal(err)
 				}
 				original, err := deps.Store.Get(sourceID)
@@ -425,12 +429,12 @@ func TestCustomDeliveryReservesTheOriginalEffectBeforeActivation(t *testing.T) {
 			deps.Runner = func(_, _ string, env map[string]string) (string, error) {
 				deliveries++
 				if sourceID == "" {
-					roots, err := deps.Store.ListByMetadata(map[string]string{DispatchEffectIDKey: env["GC_SLING_EFFECT_ID"]}, 0, beads.WithBothTiers)
+					roots, err := deps.Store.ListByMetadata(map[string]string{beadmeta.DispatchEffectIDMetadataKey: env["GC_SLING_EFFECT_ID"]}, 0, beads.WithBothTiers)
 					if err != nil {
 						t.Fatal(err)
 					}
 					for _, root := range roots {
-						if root.Metadata["gc.dispatch_source_bead"] == root.ID {
+						if root.Metadata[beadmeta.DispatchSourceBeadMetadataKey] == root.ID {
 							sourceID = root.ID
 						}
 					}
@@ -439,8 +443,8 @@ func TestCustomDeliveryReservesTheOriginalEffectBeforeActivation(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if current.Metadata[DispatchEffectStateKey] != "attempted" ||
-					current.Metadata[DispatchEffectIDKey] == "" || current.Metadata[DispatchEffectIDKey] != env["GC_SLING_EFFECT_ID"] ||
+				if current.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "attempted" ||
+					current.Metadata[beadmeta.DispatchEffectIDMetadataKey] == "" || current.Metadata[beadmeta.DispatchEffectIDMetadataKey] != env["GC_SLING_EFFECT_ID"] ||
 					current.Assignee != "" || current.Status != "open" {
 					t.Fatalf("provider ran before native original-effect reservation: %+v env=%v", current, env)
 				}
@@ -460,7 +464,7 @@ func TestCustomDeliveryReservesTheOriginalEffectBeforeActivation(t *testing.T) {
 						t.Fatalf("selected provider lost its pending fence before acknowledgment: %+v", root)
 					}
 					var candidates map[string]string
-					if err := json.Unmarshal([]byte(root.Metadata[dispatchCandidateIDsKey]), &candidates); err != nil {
+					if err := json.Unmarshal([]byte(root.Metadata[beadmeta.DispatchCandidateIDsMetadataKey]), &candidates); err != nil {
 						t.Fatal(err)
 					}
 					ready, err := deps.graphStore().Ready()
@@ -483,10 +487,10 @@ func TestCustomDeliveryReservesTheOriginalEffectBeforeActivation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if deliveries != 1 || current.Metadata[DispatchEffectStateKey] != "routed" {
+			if deliveries != 1 || current.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "routed" {
 				t.Fatalf("acknowledged original effect did not complete: deliveries=%d source=%+v", deliveries, current)
 			}
-			if tc.originalEffect && current.Metadata[DispatchEffectIDKey] != "custom-original" {
+			if tc.originalEffect && current.Metadata[beadmeta.DispatchEffectIDMetadataKey] != "custom-original" {
 				t.Fatalf("custom delivery replaced the original proposed effect identity: %+v", current.Metadata)
 			}
 			if !tc.standalone && (current.Title != source.Title || current.Description != source.Description || current.AcceptanceCriteria != source.AcceptanceCriteria) {
@@ -545,8 +549,8 @@ func TestUnknownCustomDeliveryNeverReplaysOrSubstitutesProvider(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			effectID := selected.Metadata[DispatchEffectIDKey]
-			if effectID == "" || selected.Metadata[DispatchEffectStateKey] != "unknown" {
+			effectID := selected.Metadata[beadmeta.DispatchEffectIDMetadataKey]
+			if effectID == "" || selected.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "unknown" {
 				t.Fatalf("ambiguous delivery was reported as completed: %+v", selected.Metadata)
 			}
 			for _, substitute := range []bool{false, true} {
@@ -568,7 +572,7 @@ func TestUnknownCustomDeliveryNeverReplaysOrSubstitutesProvider(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if deliveries != 1 || after.Metadata[DispatchEffectIDKey] != effectID || after.Metadata[DispatchEffectStateKey] != "unknown" ||
+			if deliveries != 1 || after.Metadata[beadmeta.DispatchEffectIDMetadataKey] != effectID || after.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "unknown" ||
 				root.Type != "gate" || root.Metadata[beadmeta.AttachFencePendingMetadataKey] == "" {
 				t.Fatalf("unknown original delivery was replayed or activated: deliveries=%d source=%+v root=%+v", deliveries, after, root)
 			}
@@ -605,8 +609,8 @@ func TestCustomAcknowledgmentRecoversOnlyTheSelectedPendingRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	effectID := selected.Metadata[DispatchEffectIDKey]
-	if selected.Metadata[DispatchEffectStateKey] != "routed" || selected.Metadata["workflow_id"] != result.WorkflowID ||
+	effectID := selected.Metadata[beadmeta.DispatchEffectIDMetadataKey]
+	if selected.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "routed" || selected.Metadata["workflow_id"] != result.WorkflowID ||
 		selected.Metadata[beadmeta.RoutedToMetadataKey] != "" || selected.Status != "open" || selected.Title != source.Title {
 		t.Fatalf("actual acknowledgment did not retain its original selected candidate: %+v", selected.Metadata)
 	}
@@ -624,7 +628,7 @@ func TestCustomAcknowledgmentRecoversOnlyTheSelectedPendingRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	if deliveries != 1 || !recovered.Idempotent || recovered.WorkflowID != result.WorkflowID ||
-		after.Metadata[DispatchEffectIDKey] != effectID || after.Metadata[DispatchEffectStateKey] != "routed" ||
+		after.Metadata[beadmeta.DispatchEffectIDMetadataKey] != effectID || after.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "routed" ||
 		after.Metadata[beadmeta.RoutedToMetadataKey] != "" || after.Status != "open" || after.Title != source.Title ||
 		root.Type != "task" || root.Status != "in_progress" || root.Metadata[beadmeta.AttachFencePendingMetadataKey] != "" {
 		t.Fatalf("acknowledgment recovery redelivered or replaced the original provider: deliveries=%d result=%+v source=%+v root=%+v", deliveries, recovered, after, root)
@@ -689,7 +693,7 @@ func TestCustomAcknowledgmentCannotReplaceChangedSourceConditions(t *testing.T) 
 			}
 			if deliveries != 1 || current.Title != expected.Title || current.Assignee != expected.Assignee ||
 				!slices.Equal(current.Labels, expected.Labels) || current.Metadata["handoff.conflict_state"] != expected.Metadata["handoff.conflict_state"] ||
-				current.Metadata[DispatchEffectIDKey] != expected.Metadata[DispatchEffectIDKey] || current.Metadata[DispatchEffectStateKey] != "attempted" ||
+				current.Metadata[beadmeta.DispatchEffectIDMetadataKey] != expected.Metadata[beadmeta.DispatchEffectIDMetadataKey] || current.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "attempted" ||
 				root.Type != "gate" || root.Metadata[beadmeta.AttachFencePendingMetadataKey] == "" {
 				t.Fatalf("source drift was overwritten or its effect replayed/activated: deliveries=%d source=%+v root=%+v", deliveries, current, root)
 			}
@@ -707,7 +711,7 @@ func TestCustomDeliveryCannotAdoptAForeignUnknownEffect(t *testing.T) {
 			deps.CityPath = t.TempDir()
 			admitCustomDeliveryFixture(t, deps.CityPath)
 			source, err := deps.Store.Create(beads.Bead{Title: "original goal", Type: "task", Metadata: map[string]string{
-				DispatchEffectIDKey: "unknown-original", DispatchEffectStateKey: "unknown",
+				beadmeta.DispatchEffectIDMetadataKey: "unknown-original", beadmeta.DispatchEffectStateMetadataKey: "unknown",
 			}})
 			if err != nil {
 				t.Fatal(err)
@@ -728,8 +732,8 @@ func TestCustomDeliveryCannotAdoptAForeignUnknownEffect(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(runner.calls) != 0 || current.Metadata[DispatchEffectIDKey] != "unknown-original" ||
-				current.Metadata[DispatchEffectStateKey] != "unknown" || current.Metadata[customDispatchProviderKey] != "" ||
+			if len(runner.calls) != 0 || current.Metadata[beadmeta.DispatchEffectIDMetadataKey] != "unknown-original" ||
+				current.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "unknown" || current.Metadata[beadmeta.DispatchProviderMetadataKey] != "" ||
 				current.Metadata["workflow_id"] != "" || current.Metadata[beadmeta.MoleculeIDMetadataKey] != "" {
 				t.Fatalf("foreign unknown effect was delivered, replaced, or fabricated: source=%+v calls=%v", current, runner.calls)
 			}

@@ -19,11 +19,6 @@ import (
 	"github.com/gastownhall/gascity/internal/suspensionstate"
 )
 
-const (
-	DispatchEffectIDKey    = "gc.dispatch_effect_id"
-	DispatchEffectStateKey = "gc.dispatch_effect_state"
-)
-
 // RouteConflictError refuses the current mutation. A previously selected
 // provider remains authoritative and must be reconciled, never blindly replaced.
 type RouteConflictError struct{ BeadID, Reason string }
@@ -34,7 +29,7 @@ func (e *RouteConflictError) Error() string {
 
 func routeConditions(b beads.Bead, requested *beads.UpdateConditions) (beads.UpdateConditions, error) {
 	conditions := beads.UpdateConditions{Status: &b.Status, Assignee: &b.Assignee, Title: &b.Title, Description: &b.Description, AcceptanceCriteria: &b.AcceptanceCriteria, Labels: &b.Labels, Metadata: map[string]string{}}
-	for _, key := range []string{beadmeta.RoutedToMetadataKey, beadmeta.ExecutionRoutedToMetadataKey, beadmeta.MoleculeIDMetadataKey, "workflow_id", "handoff.conflict_state", DispatchEffectIDKey, DispatchEffectStateKey, customDispatchProviderKey} {
+	for _, key := range []string{beadmeta.RoutedToMetadataKey, beadmeta.ExecutionRoutedToMetadataKey, beadmeta.MoleculeIDMetadataKey, "workflow_id", "handoff.conflict_state", beadmeta.DispatchEffectIDMetadataKey, beadmeta.DispatchEffectStateMetadataKey, beadmeta.DispatchProviderMetadataKey} {
 		conditions.Metadata[key] = b.Metadata[key]
 	}
 	if requested != nil {
@@ -62,7 +57,7 @@ func admitRouteBead(b beads.Bead, target string, reassign bool) error {
 	if b.Metadata["handoff.conflict_state"] == "hold" {
 		return &RouteConflictError{b.ID, "canonical handoff hold is active"}
 	}
-	if b.Status != "open" && b.Status != "deferred" && !(b.Status == "in_progress" && reassign) {
+	if b.Status != "open" && b.Status != "deferred" && (b.Status != "in_progress" || !reassign) {
 		return &RouteConflictError{b.ID, "current status does not admit new routing"}
 	}
 	if b.Assignee != "" && b.Assignee != target && !reassign {
@@ -71,7 +66,7 @@ func admitRouteBead(b beads.Bead, target string, reassign bool) error {
 	if routed := b.Metadata[beadmeta.RoutedToMetadataKey]; routed != "" && routed != target && !reassign {
 		return &RouteConflictError{b.ID, "work already has a different canonical route"}
 	}
-	if b.Metadata[DispatchEffectIDKey] != "" && b.Metadata[DispatchEffectStateKey] != "attempted" {
+	if b.Metadata[beadmeta.DispatchEffectIDMetadataKey] != "" && b.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "attempted" {
 		return &RouteConflictError{b.ID, "dispatch effect requires canonical reconciliation, not a new route"}
 	}
 	return nil
@@ -98,8 +93,14 @@ func CheckExecutionAdmission(ctx context.Context, cityPath, target string, requi
 		Allowed *bool  `json:"allowed"`
 		Reason  string `json:"reason"`
 	}
-	if decodeErr := json.Unmarshal(out, &response); decodeErr != nil || response.Allowed == nil {
-		return fmt.Errorf("sling execution-host admission is unreadable (command error: %v)", err)
+	if decodeErr := json.Unmarshal(out, &response); decodeErr != nil {
+		if err != nil {
+			return fmt.Errorf("sling execution-host admission is unreadable (command error: %w)", err)
+		}
+		return fmt.Errorf("sling execution-host admission is unreadable (response error: %w)", decodeErr)
+	}
+	if response.Allowed == nil {
+		return errors.New("sling execution-host admission is unreadable: missing allowed boolean")
 	}
 	if err != nil || !*response.Allowed {
 		return fmt.Errorf("sling execution-host admission refused: %s", response.Reason)
@@ -154,19 +155,19 @@ func CommitRoute(ctx context.Context, store beads.Store, cfg *config.City, cityP
 	// wake a worker merely because the prior acknowledgment was lost.
 	effectID := ""
 	if req.Conditions != nil {
-		effectID = req.Conditions.Metadata[DispatchEffectIDKey]
+		effectID = req.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey]
 	}
-	if b.Metadata[DispatchEffectIDKey] != "" && effectID != b.Metadata[DispatchEffectIDKey] {
+	if b.Metadata[beadmeta.DispatchEffectIDMetadataKey] != "" && effectID != b.Metadata[beadmeta.DispatchEffectIDMetadataKey] {
 		return &RouteConflictError{b.ID, "original dispatch effect must be reconciled with its exact identity"}
 	}
-	if effectID != "" && b.Metadata[DispatchEffectIDKey] == effectID && b.Metadata[beadmeta.RoutedToMetadataKey] == target && b.Metadata[DispatchEffectStateKey] != "attempted" && b.Metadata[DispatchEffectStateKey] != "committed" {
+	if effectID != "" && b.Metadata[beadmeta.DispatchEffectIDMetadataKey] == effectID && b.Metadata[beadmeta.RoutedToMetadataKey] == target && b.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "attempted" && b.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "committed" {
 		return nil
 	}
 	conditions, err := routeConditions(b, req.Conditions)
 	if err != nil {
 		return err
 	}
-	if effectID != "" && (req.Conditions.Status == nil || req.Conditions.Assignee == nil || req.Conditions.Metadata[DispatchEffectStateKey] != "attempted") {
+	if effectID != "" && (req.Conditions.Status == nil || req.Conditions.Assignee == nil || req.Conditions.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "attempted") {
 		return fmt.Errorf("dispatch effect routing requires exact if-status, if-assignee, and attempted effect metadata")
 	}
 	if err := admitRouteBead(b, target, req.Reassign); err != nil {
@@ -178,7 +179,7 @@ func CommitRoute(ctx context.Context, store beads.Store, cfg *config.City, cityP
 	}
 	metadata[beadmeta.RoutedToMetadataKey] = target
 	if effectID != "" {
-		metadata[DispatchEffectIDKey], metadata[DispatchEffectStateKey] = effectID, "routed"
+		metadata[beadmeta.DispatchEffectIDMetadataKey], metadata[beadmeta.DispatchEffectStateMetadataKey] = effectID, "routed"
 	}
 	update := beads.UpdateOpts{Metadata: metadata}
 	if req.Reassign {
@@ -233,37 +234,37 @@ func prepareRouteConditions(opts SlingOpts, deps SlingDeps) (SlingOpts, *beads.B
 		return opts, nil, &BeadLookupError{BeadID: opts.BeadOrFormula, StoreRef: storeRef, Err: err}
 	}
 	custom := IsCustomSlingQuery(opts.Target)
-	if custom && opts.Conditions == nil && b.Metadata[DispatchEffectIDKey] != "" && b.Metadata[customDispatchProviderKey] != "" {
+	if custom && opts.Conditions == nil && b.Metadata[beadmeta.DispatchEffectIDMetadataKey] != "" && b.Metadata[beadmeta.DispatchProviderMetadataKey] != "" {
 		original, err := routeConditions(b, nil)
 		if err != nil {
 			return opts, nil, err
 		}
 		opts.Conditions = &original
 	}
-	if custom && b.Metadata[DispatchEffectIDKey] != "" && b.Metadata[customDispatchProviderKey] == "" &&
-		b.Metadata[DispatchEffectStateKey] != "attempted" {
+	if custom && b.Metadata[beadmeta.DispatchEffectIDMetadataKey] != "" && b.Metadata[beadmeta.DispatchProviderMetadataKey] == "" &&
+		b.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "attempted" {
 		return opts, nil, &RouteConflictError{b.ID, "custom effect lacks its original provider receipt; authoritative reconciliation is required"}
 	}
-	if opts.Conditions != nil && opts.Conditions.Metadata[DispatchEffectIDKey] != "" && (opts.Conditions.Status == nil || opts.Conditions.Assignee == nil) {
+	if opts.Conditions != nil && opts.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey] != "" && (opts.Conditions.Status == nil || opts.Conditions.Assignee == nil) {
 		return opts, nil, fmt.Errorf("dispatch effect requires explicit exact if-status and if-assignee")
 	}
-	if opts.Conditions != nil && opts.Conditions.Metadata[DispatchEffectIDKey] != "" {
-		state := opts.Conditions.Metadata[DispatchEffectStateKey]
-		if state != "attempted" && state != "committed" && !(custom && (state == "unknown" || state == "routed")) {
+	if opts.Conditions != nil && opts.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey] != "" {
+		state := opts.Conditions.Metadata[beadmeta.DispatchEffectStateMetadataKey]
+		if state != "attempted" && state != "committed" && (!custom || state != "unknown" && state != "routed") {
 			return opts, nil, fmt.Errorf("dispatch effect requires an explicit canonical if-metadata state")
 		}
 	}
-	if b.Metadata[DispatchEffectIDKey] != "" && (opts.Conditions == nil || opts.Conditions.Metadata[DispatchEffectIDKey] != b.Metadata[DispatchEffectIDKey]) {
+	if b.Metadata[beadmeta.DispatchEffectIDMetadataKey] != "" && (opts.Conditions == nil || opts.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey] != b.Metadata[beadmeta.DispatchEffectIDMetadataKey]) {
 		return opts, nil, &RouteConflictError{b.ID, "original dispatch effect must be reconciled with its exact identity"}
 	}
 	target := agentutil.NormalizePoolRouteTarget(deps.Cfg, agentutil.RoutedToIdentity(&opts.Target))
 	if opts.Conditions != nil {
-		id := opts.Conditions.Metadata[DispatchEffectIDKey]
-		if id != "" && b.Metadata[DispatchEffectIDKey] == id && b.Metadata[DispatchEffectStateKey] != "attempted" && (b.Metadata[beadmeta.RoutedToMetadataKey] == target || b.Metadata[beadmeta.ExecutionRoutedToMetadataKey] == target) {
+		id := opts.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey]
+		if id != "" && b.Metadata[beadmeta.DispatchEffectIDMetadataKey] == id && b.Metadata[beadmeta.DispatchEffectStateMetadataKey] != "attempted" && (b.Metadata[beadmeta.RoutedToMetadataKey] == target || b.Metadata[beadmeta.ExecutionRoutedToMetadataKey] == target) {
 			return opts, &b, nil
 		}
 	}
-	if !opts.Force && opts.Conditions == nil && b.Metadata[DispatchEffectStateKey] == "routed" && (b.Metadata[beadmeta.RoutedToMetadataKey] == target || b.Metadata[beadmeta.ExecutionRoutedToMetadataKey] == target) {
+	if !opts.Force && opts.Conditions == nil && b.Metadata[beadmeta.DispatchEffectStateMetadataKey] == "routed" && (b.Metadata[beadmeta.RoutedToMetadataKey] == target || b.Metadata[beadmeta.ExecutionRoutedToMetadataKey] == target) {
 		return opts, &b, nil
 	}
 	conditions, err := routeConditions(b, opts.Conditions)
@@ -287,8 +288,8 @@ func isReconciledEffect(opts SlingOpts, b *beads.Bead, deps SlingDeps) bool {
 	if b == nil || opts.Conditions == nil {
 		return false
 	}
-	id := opts.Conditions.Metadata[DispatchEffectIDKey]
+	id := opts.Conditions.Metadata[beadmeta.DispatchEffectIDMetadataKey]
 	target := agentutil.NormalizePoolRouteTarget(deps.Cfg, agentutil.RoutedToIdentity(&opts.Target))
-	state := b.Metadata[DispatchEffectStateKey]
-	return id != "" && b.Metadata[DispatchEffectIDKey] == id && state != "attempted" && state != "committed" && (b.Metadata[beadmeta.RoutedToMetadataKey] == target || b.Metadata[beadmeta.ExecutionRoutedToMetadataKey] == target)
+	state := b.Metadata[beadmeta.DispatchEffectStateMetadataKey]
+	return id != "" && b.Metadata[beadmeta.DispatchEffectIDMetadataKey] == id && state != "attempted" && state != "committed" && (b.Metadata[beadmeta.RoutedToMetadataKey] == target || b.Metadata[beadmeta.ExecutionRoutedToMetadataKey] == target)
 }
