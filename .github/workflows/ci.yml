@@ -775,6 +775,11 @@ jobs:
           bd-version: ${{ env.BD_VERSION }}
           install-claude-cli: "false"
       - name: Run integration shard
+        env:
+          # Read-only, single-repo token: the guarded native sling shard
+          # fetches the pinned private Saitoc admission policy (see
+          # scripts/prepare-native-sling-host.sh). Absent on fork PRs.
+          GH_TOKEN: ${{ secrets.SAITOC_POLICY_READ_TOKEN }}
         run: ${{ matrix.command }}
 
   # The full REST suite is broad release/post-merge coverage. PRs run the
