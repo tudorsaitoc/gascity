@@ -2171,6 +2171,51 @@ func TestHealStatePatch_NamedAlwaysAwakeFlapsToAsleepWithoutReasonOnAliveFalse(t
 	}
 }
 
+func TestHealState_KilledRuntimeExitPreservesResumeIdentity(t *testing.T) {
+	now := time.Date(2026, 8, 11, 3, 0, 0, 0, time.UTC)
+	clk := &clock.Fake{Time: now}
+	sess := makeBead("mayor-kill-race", map[string]string{
+		"state":                      "asleep",
+		"sleep_reason":               string(sessionpkg.SleepReasonKilled),
+		"session_key":                "resume-key",
+		"started_config_hash":        "config-hash",
+		"template":                   "mayor",
+		namedSessionMetadataKey:      "true",
+		namedSessionIdentityMetadata: "mayor",
+		namedSessionModeMetadata:     "on_demand",
+	})
+
+	alivePatch := healStatePatchFromBead(sess, true, clk, 0)
+	if got := alivePatch["state"]; got != "awake" {
+		t.Fatalf("alive heal state = %q, want awake; patch=%#v", got, alivePatch)
+	}
+	for key, value := range alivePatch {
+		sess.Metadata[key] = value
+	}
+
+	deadPatch := healStatePatchFromBead(sess, false, clk, 0)
+	if got := deadPatch["state"]; got != "asleep" {
+		t.Fatalf("dead heal state = %q, want asleep; patch=%#v", got, deadPatch)
+	}
+	for _, key := range []string{"session_key", "started_config_hash", "continuation_reset_pending"} {
+		if value, present := deadPatch[key]; present {
+			t.Errorf("dead heal unexpectedly writes %s=%q; patch=%#v", key, value, deadPatch)
+		}
+	}
+	for key, value := range deadPatch {
+		sess.Metadata[key] = value
+	}
+	if got := sess.Metadata["session_key"]; got != "resume-key" {
+		t.Errorf("session_key after dead heal = %q, want resume-key", got)
+	}
+	if got := sess.Metadata["started_config_hash"]; got != "config-hash" {
+		t.Errorf("started_config_hash after dead heal = %q, want config-hash", got)
+	}
+	if got := sess.Metadata["continuation_reset_pending"]; got == "true" {
+		t.Error("continuation_reset_pending after dead heal = true, want unset")
+	}
+}
+
 func TestHealStatePatchNilClockKeepsCreatingFresh(t *testing.T) {
 	session := makeBead("b1", map[string]string{
 		"state": "creating",
@@ -2195,6 +2240,7 @@ func TestIsDeliberateSleepReason(t *testing.T) {
 		{"user-hold", true},
 		{"wait-hold", true},
 		{"failed-create", true},
+		{"killed", true},
 		{"", false},
 		{"crash", false},
 		{"context-churn", false},
@@ -2316,6 +2362,15 @@ func TestHealState_ClearsStaleResumeMetadata(t *testing.T) {
 			name:                   "city stop — resume metadata preserved",
 			prevState:              "active",
 			sleepReason:            string(sessionpkg.SleepReasonCityStop),
+			sessionKey:             "abc-123",
+			startedConfigHash:      "hash-before",
+			wantKeyCleared:         false,
+			wantStartedHashCleared: false,
+		},
+		{
+			name:                   "operator kill — resume metadata preserved",
+			prevState:              "active",
+			sleepReason:            string(sessionpkg.SleepReasonKilled),
 			sessionKey:             "abc-123",
 			startedConfigHash:      "hash-before",
 			wantKeyCleared:         false,

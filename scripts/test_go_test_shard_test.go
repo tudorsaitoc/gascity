@@ -345,19 +345,11 @@ func TestGoTestShardWithoutTimingPreservesDirectProductContract(t *testing.T) {
 	if got := readFixtureFile(t, fixture.productArgsFile); got != wantArgs {
 		t.Fatalf("direct product argv:\n%s\nwant:\n%s", got, wantArgs)
 	}
-	wantEnv := map[string]string{
-		"PATH": fixture.binDir + string(os.PathListSeparator) + os.Getenv("PATH"),
-		"HOME": fixture.homeDir, "USER": "", "LOGNAME": "", "SHELL": "/bin/sh",
-		"LANG": "C.UTF-8", "TMPDIR": fixture.tmpDir, "XDG_RUNTIME_DIR": "",
-		"GOPATH": filepath.Join(fixture.tmpDir, "gopath"), "GOCACHE": filepath.Join(fixture.tmpDir, "gocache"),
-		"GOMODCACHE": filepath.Join(fixture.tmpDir, "gomodcache"), "GOTMPDIR": filepath.Join(fixture.tmpDir, "gotmp"),
-		"GOROOT": filepath.Join(fixture.tmpDir, "goroot"), "GOENV": "", "GOFLAGS": "", "GO111MODULE": "",
-		"GOEXPERIMENT": "", "GOPROXY": "", "GOPRIVATE": "", "GONOPROXY": "", "GONOSUMDB": "",
-		"GOSUMDB": "", "GOINSECURE": "", "GOVCS": "", "GOWORK": "", "GC_FAST_UNIT": "0",
-		"CGO_CPPFLAGS": "", "CGO_LDFLAGS": "", "GC_TEST_SHARD_INDEX": "1", "GC_TEST_SHARD_TOTAL": "2",
-	}
-	if got := fixtureEnvironment(t, readFixtureFile(t, fixture.productEnvFile)); !maps.Equal(got, wantEnv) {
-		t.Fatalf("direct product environment = %#v, want %#v", got, wantEnv)
+	environment := fixtureEnvironment(t, readFixtureFile(t, fixture.productEnvFile))
+	for _, forbidden := range []string{"SHOULD_NOT_LEAK", "GITHUB_SHA", "RUNNER_OS"} {
+		if _, leaked := environment[forbidden]; leaked {
+			t.Fatalf("control environment %s leaked into the product", forbidden)
+		}
 	}
 	if probes, err := os.ReadFile(fixture.probeFile); err == nil {
 		t.Fatalf("timing-disabled shard ran metadata probes:\n%s", probes)

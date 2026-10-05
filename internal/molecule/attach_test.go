@@ -3,6 +3,7 @@ package molecule
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -724,16 +725,17 @@ func TestAttachDuplicateRecoveryPopulatesIDMappingAndAdvancesEpoch(t *testing.T)
 	_ = base.SetMetadata(control.ID, "gc.control_epoch", "1")
 
 	store := &attachFailOnceDepStore{
-		Store: base,
-		err:   errors.New("wiring outer dep: invalid connection: i/o timeout"),
+		Store:       base,
+		failIssueID: control.ID,
+		err:         errors.New("wiring outer dep: invalid connection: i/o timeout"),
 	}
-	recipe := makeWorkflowRecipe("attempt")
+	recipe := makeWorkflowRecipe("attempt", "run", "eval")
 	_, err := Attach(context.Background(), store, recipe, control.ID, AttachOptions{
 		ExpectedEpoch:  1,
 		IdempotencyKey: "attempt:1",
 	})
-	if err == nil {
-		t.Fatal("expected first attach to fail during outer dependency wiring")
+	if !errors.Is(err, store.err) {
+		t.Fatalf("first attach error = %v, want outer dependency failure %v", err, store.err)
 	}
 
 	afterFailedAttach, err := base.Get(control.ID)
@@ -744,7 +746,43 @@ func TestAttachDuplicateRecoveryPopulatesIDMappingAndAdvancesEpoch(t *testing.T)
 		t.Fatalf("epoch after failed attach = %q, want 1", afterFailedAttach.Metadata["gc.control_epoch"])
 	}
 
-	result, err := Attach(context.Background(), base, recipe, control.ID, AttachOptions{
+	existing, err := base.List(beads.ListQuery{
+		Metadata: map[string]string{"gc.root_bead_id": root.ID},
+	})
+	if err != nil {
+		t.Fatalf("list sub-DAG after failed outer dependency: %v", err)
+	}
+	existingIDs := make(map[string]string, len(recipe.Steps))
+	for _, b := range existing {
+		for _, step := range recipe.Steps {
+			if b.Ref != step.ID {
+				continue
+			}
+			if b.Metadata["molecule_failed"] == "true" {
+				t.Fatalf("outer dependency failure marked step %s failed", step.ID)
+			}
+			if existingIDs[step.ID] != "" {
+				t.Fatalf("multiple beads for step %s before duplicate recovery", step.ID)
+			}
+			existingIDs[step.ID] = b.ID
+		}
+	}
+	for _, step := range recipe.Steps {
+		if existingIDs[step.ID] == "" {
+			t.Fatalf("missing step %s after failed outer dependency", step.ID)
+		}
+	}
+	deps, err := base.DepList(control.ID, "down")
+	if err != nil {
+		t.Fatalf("list control dependencies after failed attach: %v", err)
+	}
+	for _, dep := range deps {
+		if dep.DependsOnID == existingIDs["attempt"] && dep.Type == "blocks" {
+			t.Fatal("failed outer dependency was persisted")
+		}
+	}
+
+	result, err := Attach(context.Background(), base, makeWorkflowRecipe("attempt", "run", "eval"), control.ID, AttachOptions{
 		ExpectedEpoch:  1,
 		IdempotencyKey: "attempt:1",
 	})
@@ -757,6 +795,28 @@ func TestAttachDuplicateRecoveryPopulatesIDMappingAndAdvancesEpoch(t *testing.T)
 	if result.IDMapping["attempt"] != result.RootID || result.RootID == "" {
 		t.Fatalf("duplicate IDMapping = %#v root=%q, want root step mapping", result.IDMapping, result.RootID)
 	}
+	if result.WorkflowRootID != root.ID {
+		t.Fatalf("recovered workflow root = %q, want %q", result.WorkflowRootID, root.ID)
+	}
+	if len(result.IDMapping) != len(recipe.Steps) {
+		t.Fatalf("duplicate IDMapping = %#v, want all %d recipe steps", result.IDMapping, len(recipe.Steps))
+	}
+	for _, step := range recipe.Steps {
+		if got := result.IDMapping[step.ID]; got != existingIDs[step.ID] {
+			t.Fatalf("recovered step %s = %q, want existing bead %q", step.ID, got, existingIDs[step.ID])
+		}
+		b, err := base.Get(result.IDMapping[step.ID])
+		if err != nil {
+			t.Fatalf("get recovered step %s: %v", step.ID, err)
+		}
+		if b.Type != "task" || b.Status != "open" {
+			t.Fatalf("recovered step %s = %+v, want open task", step.ID, b)
+		}
+		if !step.IsRoot && b.ParentID != result.RootID {
+			t.Fatalf("recovered step %s parent = %q, want %q", step.ID, b.ParentID, result.RootID)
+		}
+	}
+	assertAllBeadsHaveRootID(t, base, result.IDMapping, root.ID)
 	assertBlockingDep(t, base, control.ID, result.RootID)
 	afterRecovery, err := base.Get(control.ID)
 	if err != nil {
@@ -780,8 +840,8 @@ func TestAttachIdempotencyRejectsFailedPartialSubDAG(t *testing.T) {
 	_, err := Attach(context.Background(), store, recipe, control.ID, AttachOptions{
 		IdempotencyKey: "attempt:1",
 	})
-	if err == nil {
-		t.Fatal("expected first attach to fail during dependency wiring")
+	if !errors.Is(err, store.err) {
+		t.Fatalf("first attach error = %v, want dependency failure %v", err, store.err)
 	}
 
 	failedRoots, err := base.List(beads.ListQuery{
@@ -797,8 +857,12 @@ func TestAttachIdempotencyRejectsFailedPartialSubDAG(t *testing.T) {
 	if len(failedRoots) != 1 {
 		t.Fatalf("failed partial roots = %d, want 1", len(failedRoots))
 	}
+	beforeRetry, err := base.List(beads.ListQuery{AllowScan: true, IncludeClosed: true, TierMode: beads.TierBoth})
+	if err != nil {
+		t.Fatalf("list graph before refused retry: %v", err)
+	}
 
-	_, err = Attach(context.Background(), base, recipe, control.ID, AttachOptions{
+	_, err = Attach(context.Background(), base, makeWorkflowRecipe("attempt", "run"), control.ID, AttachOptions{
 		IdempotencyKey: "attempt:1",
 	})
 	if err == nil {
@@ -806,6 +870,13 @@ func TestAttachIdempotencyRejectsFailedPartialSubDAG(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "molecule_failed") {
 		t.Fatalf("duplicate attach error = %v, want molecule_failed context", err)
+	}
+	afterRetry, err := base.List(beads.ListQuery{AllowScan: true, IncludeClosed: true, TierMode: beads.TierBoth})
+	if err != nil {
+		t.Fatalf("list graph after refused retry: %v", err)
+	}
+	if !reflect.DeepEqual(afterRetry, beforeRetry) {
+		t.Fatalf("refused duplicate mutated the graph: before=%+v after=%+v", beforeRetry, afterRetry)
 	}
 }
 
@@ -872,12 +943,17 @@ func TestAttachIdempotentDuplicateSkipsRuntimeVarValidation(t *testing.T) {
 
 type attachFailOnceDepStore struct {
 	beads.Store
-	err    error
-	failed bool
+	err         error
+	failIssueID string
+	failed      bool
+}
+
+func (s *attachFailOnceDepStore) ConditionalWritesResolveTarget() beads.Store {
+	return s.Store
 }
 
 func (s *attachFailOnceDepStore) DepAdd(issueID, dependsOnID, depType string) error {
-	if !s.failed {
+	if !s.failed && (s.failIssueID == "" || issueID == s.failIssueID) {
 		s.failed = true
 		return s.err
 	}

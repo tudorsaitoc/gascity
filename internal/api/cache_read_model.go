@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strings"
+
 	"github.com/gastownhall/gascity/internal/beads"
 	"github.com/gastownhall/gascity/internal/session"
 )
@@ -19,14 +21,21 @@ type cachedListStore interface {
 // rows, wrapped in the same partial-result envelope as sessionReadModelRows. It
 // is the typed twin of sessionReadModelRows — the pre-joined pair per row means
 // the response builder never needs a bead index to re-attach the persisted
-// projection. The cache-first tier (#3939/#3941) is preserved inside
-// Store.ListAll: a warm cachedListStore serves the whole list with zero
-// store.List calls (pinned by TestSessionReadModelListingsWarmCacheZeroStoreList).
-func sessionReadModelListings(sessFront *session.Store) ([]session.ListedSession, []string, error) {
-	rows, err := sessFront.ListAllWithResponses(session.ListAllOptions{
-		Sort:       beads.SortCreatedDesc,
-		CacheFirst: true,
-	})
+// projection. Open-only reads retain the cache-first tier; explicit all/closed
+// queries fall through the existing closed-query cache refusal to the store.
+func sessionReadModelListings(sessFront *session.Store, stateFilter string) ([]session.ListedSession, []string, error) {
+	opts := session.ListAllOptions{
+		IncludeClosed: stateFilter == "all",
+		Sort:          beads.SortCreatedDesc,
+		CacheFirst:    true,
+	}
+	for _, filter := range strings.Split(stateFilter, ",") {
+		if filter == "closed" {
+			opts.IncludeClosed = true
+			break
+		}
+	}
+	rows, err := sessFront.ListAllWithResponses(opts)
 	if err == nil {
 		return rows, nil, nil
 	}

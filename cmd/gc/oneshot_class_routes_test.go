@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -444,13 +445,10 @@ func TestFormulaCookLegacyMoleculeStaysOnTheWorkStore(t *testing.T) {
 func TestFormulaCookGraphV2StaysOnTheOneStoreOnSingleStoreCity(t *testing.T) {
 	cityDir := oneShotCookCity(t)
 	seedCLIStorageRoutes(t, cityDir, nil)
+	store := formulaCookMemStoreForTest(t, cityDir, cityDir)
 
 	res := cookFormula(t, "graph-work")
 
-	store, err := openStoreAtForCity(cityDir, cityDir)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
 	root, err := store.Get(res.RootID)
 	if err != nil {
 		t.Fatalf("cooked root %s is not resident in the single store: %v", res.RootID, err)
@@ -502,10 +500,7 @@ func TestFormulaCookAttachLeavesTheSourceBeadUnblockableOnSplitCity(t *testing.T
 	graph := splittest.NewClassStore(t, config.BeadClassGraph)
 	seedCLIStorageRoutes(t, cityDir, messagingSplitRoutes(graph))
 
-	work, err := openStoreAtForCity(cityDir, cityDir)
-	if err != nil {
-		t.Fatalf("open work store: %v", err)
-	}
+	work := formulaCookMemStoreForTest(t, cityDir, cityDir)
 	source, err := work.Create(beads.Bead{Title: "attach target", Type: "task"})
 	if err != nil {
 		t.Fatalf("create attach bead: %v", err)
@@ -517,13 +512,23 @@ func TestFormulaCookAttachLeavesTheSourceBeadUnblockableOnSplitCity(t *testing.T
 	if err != nil {
 		t.Fatalf("listing attach deps: %v", err)
 	}
-	if len(deps) == 0 {
-		t.Fatalf("attach bead %s has no blocking dep after cook; the graft was never wired", source.ID)
+	if len(deps) != 1 || deps[0].IssueID != source.ID || deps[0].DependsOnID != res.RootID || deps[0].Type != "blocks" {
+		t.Fatalf("attach bead %s dependencies = %+v, want one blocking edge to workflow %s", source.ID, deps, res.RootID)
 	}
 	for _, dep := range deps {
 		if _, err := work.Get(dep.DependsOnID); err != nil {
 			t.Errorf("work store holds dep %s -> %s (%s) whose target it cannot resolve: %v — a dangling cross-store blocking edge no backend rejects and no finalize path removes", dep.IssueID, dep.DependsOnID, dep.Type, err)
 		}
+	}
+	if got := allBeads(t, graph); len(got) != 0 {
+		t.Fatalf("attach created graph beads outside the source ledger: %+v", got)
+	}
+	readyBefore, err := work.Ready()
+	if err != nil {
+		t.Fatalf("work Ready() before workflow completion: %v", err)
+	}
+	if slices.Contains(beadIDs(readyBefore), source.ID) {
+		t.Fatalf("attach bead %s is Ready while workflow %s is still open", source.ID, res.RootID)
 	}
 
 	closeEveryBeadExcept(t, graph, source.ID)
@@ -621,20 +626,43 @@ func TestFormulaCookAttachIsIdempotentOnSplitCity(t *testing.T) {
 	graph := splittest.NewClassStore(t, config.BeadClassGraph)
 	seedCLIStorageRoutes(t, cityDir, messagingSplitRoutes(graph))
 
-	work, err := openStoreAtForCity(cityDir, cityDir)
-	if err != nil {
-		t.Fatalf("open work store: %v", err)
-	}
+	work := formulaCookMemStoreForTest(t, cityDir, cityDir)
 	source, err := work.Create(beads.Bead{Title: "attach target", Type: "convoy"})
 	if err != nil {
 		t.Fatalf("create attach bead: %v", err)
 	}
 
 	first := cookFormula(t, "graph-work", "--attach", source.ID)
+	inventory := func(store beads.Store) ([]beads.Bead, map[string][]beads.Dep) {
+		t.Helper()
+		items, err := store.List(beads.ListQuery{AllowScan: true, IncludeClosed: true, TierMode: beads.TierBoth})
+		if err != nil {
+			t.Fatalf("list idempotency inventory: %v", err)
+		}
+		deps := make(map[string][]beads.Dep, len(items))
+		for _, item := range items {
+			rows, err := store.DepList(item.ID, "down")
+			if err != nil {
+				t.Fatalf("list idempotency dependencies for %s: %v", item.ID, err)
+			}
+			deps[item.ID] = rows
+		}
+		return items, deps
+	}
+	workBefore, workDepsBefore := inventory(work)
+	graphBefore, graphDepsBefore := inventory(graph)
 	second := cookFormula(t, "graph-work", "--attach", source.ID)
 
 	if first.RootID != second.RootID {
 		t.Fatalf("re-cook minted a second workflow root (%s then %s); the idempotent lookup read a store that does not hold the root", first.RootID, second.RootID)
+	}
+	workAfter, workDepsAfter := inventory(work)
+	graphAfter, graphDepsAfter := inventory(graph)
+	if !reflect.DeepEqual(workAfter, workBefore) || !reflect.DeepEqual(workDepsAfter, workDepsBefore) {
+		t.Fatalf("re-cook changed the work ledger: beads before=%+v after=%+v; deps before=%+v after=%+v", workBefore, workAfter, workDepsBefore, workDepsAfter)
+	}
+	if !reflect.DeepEqual(graphAfter, graphBefore) || !reflect.DeepEqual(graphDepsAfter, graphDepsBefore) {
+		t.Fatalf("re-cook changed the graph ledger: beads before=%+v after=%+v; deps before=%+v after=%+v", graphBefore, graphAfter, graphDepsBefore, graphDepsAfter)
 	}
 	deps, err := work.DepList(source.ID, "down")
 	if err != nil {

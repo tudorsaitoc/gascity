@@ -323,6 +323,8 @@ func TestCmdSessionKill_SyncsBeadToAsleep(t *testing.T) {
 			"template":                   "worker",
 			"session_name":               sessionName,
 			"state":                      "awake",
+			"session_key":                "resume-key",
+			"started_config_hash":        "config-hash",
 			namedSessionMetadataKey:      "true",
 			namedSessionIdentityMetadata: identity,
 		},
@@ -368,6 +370,15 @@ func TestCmdSessionKill_SyncsBeadToAsleep(t *testing.T) {
 	}
 	if got := updated.Metadata["synced_at"]; got == "" {
 		t.Error("post-kill synced_at is empty, want a refreshed timestamp")
+	}
+	if got := updated.Metadata["sleep_reason"]; got != string(session.SleepReasonKilled) {
+		t.Errorf("post-kill sleep_reason = %q, want %q", got, session.SleepReasonKilled)
+	}
+	if got := updated.Metadata["session_key"]; got != "resume-key" {
+		t.Errorf("post-kill session_key = %q, want retained resume-key", got)
+	}
+	if got := updated.Metadata["started_config_hash"]; got != "config-hash" {
+		t.Errorf("post-kill started_config_hash = %q, want retained config-hash", got)
 	}
 }
 

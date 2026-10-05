@@ -339,7 +339,7 @@ func (sm *SupervisorMux) registerCityRoutes() {
 
 	// Sling. Part of the P12 error-contract pilot (see Beads above); a mutation,
 	// so it also declares 403 for the CSRF/read-only middleware.
-	cityPost(sm, "/sling", (*Server).humaHandleSling, errorStatuses(http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict))
+	cityPost(sm, "/sling", (*Server).humaHandleSling, errorStatuses(http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusServiceUnavailable))
 
 	// Maintenance (Dolt store gc + snapshot).
 	cityGet(sm, "/maintenance/status", (*Server).humaHandleMaintenanceStatus, errorStatuses(http.StatusNotFound, http.StatusServiceUnavailable))

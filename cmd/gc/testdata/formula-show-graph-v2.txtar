@@ -78,16 +78,6 @@ stdout 'variable.*mode'
 stdout 'not in allowed values'
 ! stderr .
 
-! exec gc formula cook graphwf --attach missing-root
-stderr 'gc formula cook:'
-stderr 'missing-root'
-! stdout .
-
-! exec gc formula cook graphwf --attach missing-root --json
-stdout '"ok":false'
-stdout 'missing-root'
-! stderr .
-
 -- city.toml --
 [workspace]
 name = "no-v2"

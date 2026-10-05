@@ -90,6 +90,13 @@ func (c *CachingStore) Update(id string, opts UpdateOpts) error {
 			}
 			return nil
 		}
+		if _, writesClock := opts.Metadata[RefineryDecisionAtKey]; writesClock {
+			c.markDirtyLocked(id)
+			c.updateStatsLocked()
+			c.mu.Unlock()
+			c.recordProblem("refresh bead after update", fmt.Errorf("%s: %w", id, err))
+			return nil
+		}
 		if current, ok := c.beads[id]; ok {
 			fresh = applyUpdateOptsToBead(current, opts)
 			c.absorbFreshLocked(id, fresh, time.Now(), absorbOpts{
@@ -369,6 +376,10 @@ func (c *CachingStore) SetMetadata(id, key, value string) error {
 		return nil
 	}
 	if err := c.backing.SetMetadata(id, key, value); err != nil {
+		c.mu.Lock()
+		c.noteMutationLocked(id)
+		c.markDirtyLocked(id)
+		c.mu.Unlock()
 		return err
 	}
 
@@ -377,6 +388,12 @@ func (c *CachingStore) SetMetadata(id, key, value string) error {
 	notify := false
 	c.mu.Lock()
 	c.noteLocalMutationLocked(id)
+	if !refreshed && key == RefineryDecisionAtKey {
+		c.markDirtyLocked(id)
+		c.updateStatsLocked()
+		c.mu.Unlock()
+		return nil
+	}
 	if refreshed {
 		c.absorbFreshLocked(id, fresh, time.Now(), absorbOpts{
 			depsMode:   depsFromFields,
@@ -439,6 +456,12 @@ func (c *CachingStore) SetMetadataBatch(id string, kvs map[string]string) error 
 	notify := false
 	c.mu.Lock()
 	c.noteLocalMutationLocked(id)
+	if _, writesClock := kvs[RefineryDecisionAtKey]; !refreshed && writesClock {
+		c.markDirtyLocked(id)
+		c.updateStatsLocked()
+		c.mu.Unlock()
+		return nil
+	}
 	if refreshed {
 		c.absorbFreshLocked(id, fresh, time.Now(), absorbOpts{
 			depsMode:   depsFromFields,
@@ -451,9 +474,7 @@ func (c *CachingStore) SetMetadataBatch(id string, kvs map[string]string) error 
 		if b.Metadata == nil {
 			b.Metadata = make(map[string]string, len(kvs))
 		}
-		for k, v := range kvs {
-			b.Metadata[k] = v
-		}
+		mergeUpdateMetadata(b.Metadata, kvs)
 		c.absorbFreshLocked(id, b, time.Now(), absorbOpts{
 			depsMode:   depsKeepCached,
 			seqMode:    seqKeep,
@@ -515,24 +536,31 @@ func (c *CachingStore) refreshBeadWithDepsAfterWrite(id, op string) (Bead, []Dep
 // Tx executes fn through the backing store transaction and refreshes touched
 // cache entries after a successful commit.
 func (c *CachingStore) Tx(commitMsg string, fn func(Tx) error) error {
+	return c.runCachingTx(commitMsg, fn, c.backing.Tx, false)
+}
+
+func (c *CachingStore) runCachingTx(commitMsg string, fn func(Tx) error, run func(string, func(Tx) error) error, evictOnError bool) error {
 	if fn == nil {
 		return errors.New("beads tx: nil callback")
 	}
 	tx := newCachingStoreTx()
-	if err := c.backing.Tx(commitMsg, func(backingTx Tx) error {
+	if err := run(commitMsg, func(backingTx Tx) error {
 		tx.backing = backingTx
 		return fn(tx)
 	}); err != nil {
+		if tx.guarded || evictOnError {
+			for _, id := range tx.ids {
+				c.evictForConditionalWrite(id)
+			}
+		}
 		return err
 	}
 	c.refreshTxTouchedBeads(tx.ids, tx.closed)
 	return nil
 }
 
-// AtomicTx reports whether Tx is atomic, which for the caching store is exactly
-// whether its backing store provides an atomic transaction: CachingStore.Tx is a
-// transparent pass-through to backing.Tx, so it inherits the backing's
-// all-or-nothing (or partial-write) failure semantics.
+// AtomicTx forwards the legacy backing-store rollback capability. It does not
+// attest single-session commit; use SingleTransactionStoreFor for that bound.
 func (c *CachingStore) AtomicTx() bool { return StoreSupportsAtomicTx(c.backing) }
 
 type cachingStoreTx struct {
@@ -540,6 +568,7 @@ type cachingStoreTx struct {
 	seen    map[string]struct{}
 	closed  map[string]struct{}
 	ids     []string
+	guarded bool
 }
 
 func newCachingStoreTx() *cachingStoreTx {
@@ -564,6 +593,20 @@ func (tx *cachingStoreTx) Update(id string, opts UpdateOpts) error {
 	}
 	tx.touch(id)
 	return nil
+}
+
+func (tx *cachingStoreTx) UpdateGuarded(id string, opts UpdateOpts, conditions UpdateConditions) (bool, error) {
+	writer, ok := tx.backing.(GuardedUpdateWriter)
+	if !ok {
+		return false, ErrConditionalWriteUnsupported
+	}
+	tx.guarded = true
+	tx.touch(id)
+	applied, err := writer.UpdateGuarded(id, opts, conditions)
+	if err == nil && applied && opts.Status != nil && *opts.Status == "closed" {
+		tx.closed[id] = struct{}{}
+	}
+	return applied, err
 }
 
 func (tx *cachingStoreTx) SetMetadataBatch(id string, kvs map[string]string) error {
@@ -1179,9 +1222,7 @@ func applyUpdateOptsToBead(bead Bead, opts UpdateOpts) Bead {
 		if bead.Metadata == nil {
 			bead.Metadata = make(map[string]string, len(opts.Metadata))
 		}
-		for key, value := range opts.Metadata {
-			bead.Metadata[key] = value
-		}
+		mergeUpdateMetadata(bead.Metadata, opts.Metadata)
 	}
 	if len(opts.Labels) > 0 || len(opts.RemoveLabels) > 0 {
 		remove := make(map[string]struct{}, len(opts.RemoveLabels))

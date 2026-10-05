@@ -1,7 +1,6 @@
 package sling
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/gastownhall/gascity/internal/beads"
@@ -9,13 +8,8 @@ import (
 	"github.com/gastownhall/gascity/internal/runtime"
 )
 
-// TestAttachFormulaToBeadEntryShapes exercises the two attachment entry points
-// that share attachFormulaToBead — --on-formula and default-formula — and
-// pins the per-path pieces the wrappers select: the sling method and the
-// error-label prefix ("formula" vs "default formula"). This is the drift the
-// S13 consolidation eliminated: before the merge these copies could diverge
-// independently, so the test asserts both success method and error prefix for
-// each entry shape.
+// Both formula entry points must atomically select the attachment on the source
+// and make its root runnable, while retaining their public result method.
 func TestAttachFormulaToBeadEntryShapes(t *testing.T) {
 	newDeps := func(t *testing.T) (SlingDeps, string) {
 		t.Helper()
@@ -41,8 +35,16 @@ func TestAttachFormulaToBeadEntryShapes(t *testing.T) {
 		if result.FormulaName != "code-review" {
 			t.Errorf("FormulaName = %q, want code-review", result.FormulaName)
 		}
-		if result.WispRootID == "" {
-			t.Error("expected non-empty WispRootID")
+		source, err := deps.Store.Get(beadID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		root, err := deps.Store.Get(result.WispRootID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if source.Metadata["molecule_id"] != root.ID || source.Metadata["gc.routed_to"] != a.Name || root.Metadata["gc.attach_fence_pending"] != "" {
+			t.Fatalf("attachment did not activate with its source route: source=%+v root=%+v", source, root)
 		}
 	})
 
@@ -59,32 +61,16 @@ func TestAttachFormulaToBeadEntryShapes(t *testing.T) {
 		if result.FormulaName != "code-review" {
 			t.Errorf("FormulaName = %q, want code-review", result.FormulaName)
 		}
-		if result.WispRootID == "" {
-			t.Error("expected non-empty WispRootID")
+		source, err := deps.Store.Get(beadID)
+		if err != nil {
+			t.Fatal(err)
 		}
-	})
-
-	t.Run("on-formula error label", func(t *testing.T) {
-		deps, beadID := newDeps(t)
-		a := config.Agent{Name: "mayor", MaxActiveSessions: intPtr(1)}
-		_, err := DoSling(SlingOpts{Target: a, BeadOrFormula: beadID, OnFormula: "nonexistent-formula"}, deps, deps.Store)
-		if err == nil {
-			t.Fatal("expected instantiation error for nonexistent on-formula")
+		root, err := deps.Store.Get(result.WispRootID)
+		if err != nil {
+			t.Fatal(err)
 		}
-		if want := `instantiating formula "nonexistent-formula" on`; !strings.Contains(err.Error(), want) {
-			t.Errorf("error = %q, want prefix %q", err.Error(), want)
-		}
-	})
-
-	t.Run("default-formula error label", func(t *testing.T) {
-		deps, beadID := newDeps(t)
-		a := config.Agent{Name: "mayor", MaxActiveSessions: intPtr(1), DefaultSlingFormula: stringPtr("nonexistent-formula")}
-		_, err := DoSling(SlingOpts{Target: a, BeadOrFormula: beadID}, deps, deps.Store)
-		if err == nil {
-			t.Fatal("expected instantiation error for nonexistent default formula")
-		}
-		if want := `instantiating default formula "nonexistent-formula" on`; !strings.Contains(err.Error(), want) {
-			t.Errorf("error = %q, want prefix %q", err.Error(), want)
+		if source.Metadata["molecule_id"] != root.ID || source.Metadata["gc.routed_to"] != a.Name || root.Metadata["gc.attach_fence_pending"] != "" {
+			t.Fatalf("attachment did not activate with its source route: source=%+v root=%+v", source, root)
 		}
 	})
 }

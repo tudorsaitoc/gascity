@@ -61,23 +61,23 @@ func TestCmdSlingRemote_RefusesUnsupportedModes(t *testing.T) {
 	}{
 		{"stdin", func() int {
 			var out, errb bytes.Buffer
-			return cmdSlingRemote(base(), remoteTestTarget(srv.URL), []string{"mayor"}, false, false, false, "", nil, "", false, false, false, "", false, true /*stdin*/, false, "", "", false, &out, &errb)
+			return cmdSlingRemote(base(), remoteTestTarget(srv.URL), []string{"mayor"}, false, false, false, "", nil, "", false, false, false, "", false, true /*stdin*/, false, "", "", false, nil, &out, &errb)
 		}, "stdin"},
 		{"dry-run", func() int {
 			var out, errb bytes.Buffer
-			return cmdSlingRemote(base(), remoteTestTarget(srv.URL), []string{"mayor", "BL-1"}, false, false, false, "", nil, "", false, false, false, "", false, false, true /*dryRun*/, "", "", false, &out, &errb)
+			return cmdSlingRemote(base(), remoteTestTarget(srv.URL), []string{"mayor", "BL-1"}, false, false, false, "", nil, "", false, false, false, "", false, false, true /*dryRun*/, "", "", false, nil, &out, &errb)
 		}, "dry-run"},
 		{"nudge", func() int {
 			var out, errb bytes.Buffer
-			return cmdSlingRemote(base(), remoteTestTarget(srv.URL), []string{"mayor", "BL-1"}, false, true /*nudge*/, false, "", nil, "", false, false, false, "", false, false, false, "", "", false, &out, &errb)
+			return cmdSlingRemote(base(), remoteTestTarget(srv.URL), []string{"mayor", "BL-1"}, false, true /*nudge*/, false, "", nil, "", false, false, false, "", false, false, false, "", "", false, nil, &out, &errb)
 		}, "not supported"},
 		{"one-arg", func() int {
 			var out, errb bytes.Buffer
-			return cmdSlingRemote(base(), remoteTestTarget(srv.URL), []string{"BL-1"}, false, false, false, "", nil, "", false, false, false, "", false, false, false, "", "", false, &out, &errb)
+			return cmdSlingRemote(base(), remoteTestTarget(srv.URL), []string{"BL-1"}, false, false, false, "", nil, "", false, false, false, "", false, false, false, "", "", false, nil, &out, &errb)
 		}, "explicit target"},
 		{"inline-text", func() int {
 			var out, errb bytes.Buffer
-			return cmdSlingRemote(base(), remoteTestTarget(srv.URL), []string{"mayor", "write a readme"}, false, false, false, "", nil, "", false, false, false, "", false, false, false, "", "", false, &out, &errb)
+			return cmdSlingRemote(base(), remoteTestTarget(srv.URL), []string{"mayor", "write a readme"}, false, false, false, "", nil, "", false, false, false, "", false, false, false, "", "", false, nil, &out, &errb)
 		}, "inline text"},
 	}
 	for _, tc := range cases {
@@ -104,7 +104,7 @@ func TestCmdSlingRemote_RoutesBead(t *testing.T) {
 
 	var out, errb bytes.Buffer
 	code := cmdSlingRemote(remoteTestClient(t, srv.URL), remoteTestTarget(srv.URL), []string{"mayor", "BL-42"},
-		false, false, true /*force*/, "", nil, "", false, false, false, "", false, false, false, "", "", false, &out, &errb)
+		false, false, true /*force*/, "", nil, "", false, false, false, "", false, false, false, "", "", false, nil, &out, &errb)
 	if code != 0 {
 		t.Fatalf("exit %d; stderr=%q", code, errb.String())
 	}
@@ -137,7 +137,7 @@ func TestCmdSlingRemote_JSONOutput(t *testing.T) {
 
 	var out, errb bytes.Buffer
 	code := cmdSlingRemote(remoteTestClient(t, srv.URL), remoteTestTarget(srv.URL), []string{"mayor", "review"},
-		true /*formula*/, false, false, "", []string{"pr=42"}, "", false, false, false, "", false, false, false, "", "", true /*json*/, &out, &errb)
+		true /*formula*/, false, false, "", []string{"pr=42"}, "", false, false, false, "", false, false, false, "", "", true /*json*/, nil, &out, &errb)
 	if code != 0 {
 		t.Fatalf("exit %d; stderr=%q", code, errb.String())
 	}
@@ -174,7 +174,7 @@ func TestCmdSlingRemote_ForwardsReassign(t *testing.T) {
 
 	var out, errb bytes.Buffer
 	code := cmdSlingRemote(remoteTestClient(t, srv.URL), remoteTestTarget(srv.URL), []string{"mayor", "BL-7"},
-		false, false, false /*force*/, "", nil, "", false, false, true /*reassign*/, "", false, false, false, "", "", false, &out, &errb)
+		false, false, false /*force*/, "", nil, "", false, false, true /*reassign*/, "", false, false, false, "", "", false, nil, &out, &errb)
 	if code != 0 {
 		t.Fatalf("exit %d; stderr=%q", code, errb.String())
 	}
@@ -197,7 +197,7 @@ func TestCmdSlingRemote_ForwardsMetadataFlags(t *testing.T) {
 
 	var out, errb bytes.Buffer
 	code := cmdSlingRemote(remoteTestClient(t, srv.URL), remoteTestTarget(srv.URL), []string{"mayor", "BL-9"},
-		false, false, false, "", nil, "direct" /*merge*/, true /*noConvoy*/, false /*owned*/, false, "", true /*noFormula*/, false, false, "", "", false, &out, &errb)
+		false, false, false, "", nil, "direct" /*merge*/, true /*noConvoy*/, false /*owned*/, false, "", true /*noFormula*/, false, false, "", "", false, nil, &out, &errb)
 	if code != 0 {
 		t.Fatalf("exit %d; stderr=%q", code, errb.String())
 	}
@@ -221,7 +221,7 @@ func TestCmdSlingRemote_RefusesOn(t *testing.T) {
 
 	var out, errb bytes.Buffer
 	code := cmdSlingRemote(remoteTestClient(t, srv.URL), remoteTestTarget(srv.URL), []string{"mayor", "BL-3"},
-		false, false, false, "", nil, "", false, false, false, "review" /*onFormula*/, false, false, false, "", "", false, &out, &errb)
+		false, false, false, "", nil, "", false, false, false, "review" /*onFormula*/, false, false, false, "", "", false, nil, &out, &errb)
 	if code != 1 {
 		t.Fatalf("exit %d, want 1 (--on refused); stderr=%q", code, errb.String())
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gastownhall/gascity/internal/api"
+	"github.com/gastownhall/gascity/internal/beads"
 )
 
 // cmdSlingRemote routes a sling mutation to a REMOTE city over the control
@@ -16,7 +17,7 @@ import (
 // refused with a clear message: inline text (needs a locally-created bead), the
 // 1-arg form (infers the target from local rig config), and the local
 // batch/dry-run flags the server API does not model.
-func cmdSlingRemote(c *api.Client, target *remoteTarget, args []string, isFormula, doNudge, force bool, title string, vars []string, merge string, noConvoy, owned, reassign bool, onFormula string, noFormula, fromStdin, dryRun bool, scopeKind, scopeRef string, jsonOutput bool, stdout, stderr io.Writer) int {
+func cmdSlingRemote(c *api.Client, target *remoteTarget, args []string, isFormula, doNudge, force bool, title string, vars []string, merge string, noConvoy, owned, reassign bool, onFormula string, noFormula, fromStdin, dryRun bool, scopeKind, scopeRef string, jsonOutput bool, conditions *beads.UpdateConditions, stdout, stderr io.Writer) int {
 	fail := func(code, message string) int {
 		if jsonOutput {
 			return writeJSONError(stdout, stderr, code, message, 1)
@@ -75,6 +76,11 @@ func cmdSlingRemote(c *api.Client, target *remoteTarget, args []string, isFormul
 		NoConvoy:  noConvoy,
 		Owned:     owned,
 		NoFormula: noFormula,
+	}
+	if conditions != nil {
+		req.IfStatus, req.IfAssignee, req.IfMetadata = conditions.Status, conditions.Assignee, conditions.Metadata
+		req.IfLabels = conditions.Labels
+		req.IfTitle, req.IfDescription, req.IfAcceptance = conditions.Title, conditions.Description, conditions.AcceptanceCriteria
 	}
 	if isFormula {
 		req.Formula = args[1]

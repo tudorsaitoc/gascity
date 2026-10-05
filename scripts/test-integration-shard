@@ -15,6 +15,14 @@ source "$repo_root/scripts/lib/common.sh"
 source "$repo_root/scripts/lib/test-slice.sh"
 gc_test_slice_reexec "$repo_root/scripts/test-integration-shard" "$@"
 
+dashboard_mode=prepare
+if [[ "${GC_DASHBOARD_INPUT_REQUIRED:-0}" == "1" ]]; then
+  dashboard_mode=verify
+fi
+python3 "$repo_root/scripts/dashboard-input.py" "$dashboard_mode"
+source "$repo_root/scripts/prepare-native-sling-host.sh"
+trap cleanup_native_sling_host EXIT
+
 timeout="${GO_TEST_TIMEOUT:-30m}"
 pkg="./test/integration"
 
@@ -61,6 +69,11 @@ run_go() {
     GOVCS="${GOVCS-}" \
     GOWORK="${GOWORK-}" \
     GC_BEADS="${GC_BEADS-}" \
+    GC_DASHBOARD_INPUT_REQUIRED="${GC_DASHBOARD_INPUT_REQUIRED-}" \
+    GC_SLING_ADMISSION_COMMAND="${GC_SLING_ADMISSION_COMMAND-}" \
+    GC_SLING_TEST_SCOPE="${GC_SLING_TEST_SCOPE-}" \
+    PYTHONPATH="${PYTHONPATH-}" \
+    CGO_ENABLED="${CGO_ENABLED-}" \
     GC_FAST_UNIT=0 \
     CGO_CPPFLAGS="${cgo_cppflags}" \
     CGO_LDFLAGS="${cgo_ldflags}" \
@@ -68,6 +81,14 @@ run_go() {
 }
 
 run_go_test() {
+  local arg
+  for arg in "$@"; do
+    if [[ "$arg" == "./internal/sling" || "$arg" == "github.com/gastownhall/gascity/internal/sling" || "$arg" == "./internal/..." || "$arg" == "./..." ]]; then
+      prepare_native_sling_host
+      prepare_native_sling_test_scope
+      break
+    fi
+  done
   run_go test "$@"
 }
 

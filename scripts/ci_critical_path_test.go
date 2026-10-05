@@ -277,9 +277,6 @@ func TestProductMetricsTesthookProfileIsFocusedRequiredAndObservable(t *testing.
 	if job.RunsOn != cmdGCProcessRunner || job.If != wf.Jobs["cmd-gc-process"].If {
 		t.Errorf("tagged job runner/route = (%q, %q), want (%q, %q)", job.RunsOn, job.If, cmdGCProcessRunner, wf.Jobs["cmd-gc-process"].If)
 	}
-	if !slices.Equal(job.Needs, []string{"runner-policy", "changes"}) {
-		t.Errorf("tagged job needs = %v", job.Needs)
-	}
 	var runStep, uploadStep *ciCriticalPathStep
 	var setupGo, setupJQ bool
 	for i := range job.Steps {

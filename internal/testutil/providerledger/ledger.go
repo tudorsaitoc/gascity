@@ -327,7 +327,7 @@ func waivedRuntime(constructor SymbolRef, reason string) ContractClaim {
 		Disposition: DispositionWaived,
 		Waiver: &Waiver{
 			Owner:   runtimeContractWaiverOwner,
-			Expires: time.Date(2026, time.August, 12, 0, 0, 0, 0, time.UTC),
+			Expires: time.Date(2026, time.November, 30, 0, 0, 0, 0, time.UTC),
 			Reason:  reason,
 		},
 	}

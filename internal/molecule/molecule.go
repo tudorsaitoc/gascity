@@ -1402,18 +1402,49 @@ func fenceGraphWorkflowBead(b *beads.Bead) {
 }
 
 func activateFencedGraphWorkflowBead(store beads.Store, id string) error {
-	b, err := store.Get(id)
+	writer, ok := beads.GuardedUpdateWriterFor(store)
+	if !ok {
+		return beads.ErrConditionalWriteUnsupported
+	}
+	b, err := beads.HandlesFor(store).Live.Get(id)
 	if err != nil {
 		return err
 	}
-	update := deferredRoutingActivationUpdate(b)
+	update := DeferredRoutingActivationUpdate(b)
 	if update.Assignee == nil && update.Type == nil && len(update.Metadata) == 0 {
 		return nil
 	}
-	return store.Update(id, update)
+	if b.Metadata["handoff.conflict_state"] == "hold" {
+		return fmt.Errorf("candidate %s is held", id)
+	}
+	conditions := beads.UpdateConditions{Status: &b.Status, Assignee: &b.Assignee, Labels: &b.Labels, Metadata: map[string]string{
+		DeferredAssigneeMetadataKey:          b.Metadata[DeferredAssigneeMetadataKey],
+		DeferredTypeMetadataKey:              b.Metadata[DeferredTypeMetadataKey],
+		DeferredRoutedToMetadataKey:          b.Metadata[DeferredRoutedToMetadataKey],
+		DeferredExecutionRoutedToMetadataKey: b.Metadata[DeferredExecutionRoutedToMetadataKey],
+		"handoff.conflict_state":             b.Metadata["handoff.conflict_state"],
+	}}
+	applied, err := writer.UpdateGuarded(id, update, conditions)
+	if err != nil {
+		return err
+	}
+	if !applied {
+		current, readErr := beads.HandlesFor(store).Live.Get(id)
+		if readErr != nil {
+			return readErr
+		}
+		remaining := DeferredRoutingActivationUpdate(current)
+		if remaining.Assignee == nil && remaining.Type == nil && len(remaining.Metadata) == 0 {
+			return nil
+		}
+		return fmt.Errorf("candidate %s ownership or hold changed before activation", id)
+	}
+	return nil
 }
 
-func deferredRoutingActivationUpdate(b beads.Bead) beads.UpdateOpts {
+// DeferredRoutingActivationUpdate restores a speculative bead's existing route.
+// Callers selecting several beads may apply it inside their native transaction.
+func DeferredRoutingActivationUpdate(b beads.Bead) beads.UpdateOpts {
 	update := beads.UpdateOpts{}
 	metadata := map[string]string{}
 	if assignee := b.Metadata[DeferredAssigneeMetadataKey]; assignee != "" {

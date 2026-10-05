@@ -1488,31 +1488,42 @@ func TestInstantiateGraphWorkflowIgnoresParentIDOnRoot(t *testing.T) {
 	}
 }
 
-type recordingStore struct {
-	beads.Store
-	created []beads.Bead
-	updates []struct {
-		ID   string
-		Opts beads.UpdateOpts
+type graphWiringStore struct {
+	*beads.MemStore
+	t *testing.T
+}
+
+func (s *graphWiringStore) Create(b beads.Bead) (beads.Bead, error) {
+	created, err := s.MemStore.Create(b)
+	if err == nil {
+		s.assertNoRunnableWork()
 	}
+	return created, err
 }
 
-func (r *recordingStore) Create(b beads.Bead) (beads.Bead, error) {
-	r.created = append(r.created, b)
-	return r.Store.Create(b)
+func (s *graphWiringStore) DepAdd(issueID, dependsOnID, depType string) error {
+	s.assertNoRunnableWork()
+	if err := s.MemStore.DepAdd(issueID, dependsOnID, depType); err != nil {
+		return err
+	}
+	s.assertNoRunnableWork()
+	return nil
 }
 
-func (r *recordingStore) Update(id string, opts beads.UpdateOpts) error {
-	r.updates = append(r.updates, struct {
-		ID   string
-		Opts beads.UpdateOpts
-	}{ID: id, Opts: opts})
-	return r.Store.Update(id, opts)
+func (s *graphWiringStore) assertNoRunnableWork() {
+	s.t.Helper()
+	ready, err := s.Ready()
+	if err != nil {
+		s.t.Fatalf("Ready during graph wiring: %v", err)
+	}
+	if len(ready) != 0 {
+		s.t.Fatalf("runnable work before graph wiring completes: %+v", ready)
+	}
 }
 
 func TestInstantiateGraphWorkflowDefersAssignmentsUntilGraphWired(t *testing.T) {
 	base := beads.NewMemStore()
-	store := &recordingStore{Store: base}
+	store := &graphWiringStore{MemStore: base, t: t}
 
 	recipe := &formula.Recipe{
 		Name: "graph-assign",
@@ -1521,6 +1532,7 @@ func TestInstantiateGraphWorkflowDefersAssignmentsUntilGraphWired(t *testing.T) 
 				ID:       "graph-assign",
 				Title:    "Graph Assign",
 				Type:     "task",
+				Assignee: "owner",
 				IsRoot:   true,
 				Metadata: map[string]string{"gc.kind": "workflow", "gc.formula_contract": "graph.v2"},
 			},
@@ -1548,23 +1560,6 @@ func TestInstantiateGraphWorkflowDefersAssignmentsUntilGraphWired(t *testing.T) 
 		t.Fatalf("Instantiate: %v", err)
 	}
 
-	createdByRef := make(map[string]beads.Bead, len(store.created))
-	for _, created := range store.created {
-		createdByRef[created.Ref] = created
-	}
-	if got := createdByRef["graph-assign.setup"].Assignee; got != "" {
-		t.Fatalf("setup created assignee = %q, want empty until graph wiring completes", got)
-	}
-	if got := createdByRef["graph-assign.run"].Assignee; got != "" {
-		t.Fatalf("run created assignee = %q, want empty until graph wiring completes", got)
-	}
-	if got := createdByRef["graph-assign.setup"].Type; got != "gate" {
-		t.Fatalf("setup created type = %q, want gate until graph wiring completes", got)
-	}
-	if got := createdByRef["graph-assign.run"].Type; got != "gate" {
-		t.Fatalf("run created type = %q, want gate until graph wiring completes", got)
-	}
-
 	setup, err := base.Get(result.IDMapping["graph-assign.setup"])
 	if err != nil {
 		t.Fatalf("get setup: %v", err)
@@ -1573,6 +1568,21 @@ func TestInstantiateGraphWorkflowDefersAssignmentsUntilGraphWired(t *testing.T) 
 	if err != nil {
 		t.Fatalf("get run: %v", err)
 	}
+	root, err := base.Get(result.RootID)
+	if err != nil {
+		t.Fatalf("get root: %v", err)
+	}
+	if root.Assignee != "owner" || root.Type != "task" || root.Status != "open" {
+		t.Fatalf("workflow owner work = %+v, want open task assigned to owner", root)
+	}
+	for _, leaf := range []beads.Bead{setup, run} {
+		if leaf.Type != "task" || leaf.Status != "open" {
+			t.Fatalf("leaf work = %+v, want open task", leaf)
+		}
+		if got := leaf.Metadata["gc.root_bead_id"]; got != root.ID {
+			t.Fatalf("leaf %s workflow root = %q, want %q", leaf.ID, got, root.ID)
+		}
+	}
 	if setup.Assignee != "worker" {
 		t.Fatalf("setup assignee = %q, want worker", setup.Assignee)
 	}
@@ -1580,8 +1590,19 @@ func TestInstantiateGraphWorkflowDefersAssignmentsUntilGraphWired(t *testing.T) 
 		t.Fatalf("run assignee = %q, want worker", run.Assignee)
 	}
 
-	if len(store.updates) < 1 {
-		t.Fatalf("expected deferred assignment update for graph bead, got %d", len(store.updates))
+	for _, want := range []beads.Bead{setup, run, root} {
+		ready, err := base.Ready()
+		if err != nil {
+			t.Fatalf("Ready before completing %s: %v", want.Ref, err)
+		}
+		if len(ready) != 1 || ready[0].ID != want.ID || ready[0].Assignee != want.Assignee {
+			t.Fatalf("Ready = %+v, want only %s assigned to %q", ready, want.ID, want.Assignee)
+		}
+		if want.ID != root.ID {
+			if err := base.Close(want.ID); err != nil {
+				t.Fatalf("complete %s: %v", want.Ref, err)
+			}
+		}
 	}
 }
 

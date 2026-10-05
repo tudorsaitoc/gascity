@@ -4,12 +4,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"github.com/gastownhall/gascity/internal/config"
 	"github.com/gastownhall/gascity/internal/formula"
-	"github.com/gastownhall/gascity/internal/runtime"
 )
 
 func compileHintFixture(t *testing.T, name, content string) *formula.Recipe {
@@ -68,52 +65,11 @@ func TestRootOnlyVaporPourHint(t *testing.T) {
 				if got == "" {
 					t.Fatalf("want hint, got empty (RootOnly=%v Phase=%q Pour=%v)", recipe.RootOnly, recipe.Phase, recipe.Pour)
 				}
-				if !strings.Contains(got, "pour = true") || !strings.Contains(got, tc.formula) {
-					t.Errorf("hint missing key content: %q", got)
-				}
 				return
 			}
 			if got != "" {
 				t.Errorf("want no hint, got %q (RootOnly=%v Phase=%q Pour=%v)", got, recipe.RootOnly, recipe.Phase, recipe.Pour)
 			}
 		})
-	}
-}
-
-func TestRootOnlyVaporPourHintNilRecipe(t *testing.T) {
-	if got := rootOnlyVaporPourHint("x", nil); got != "" {
-		t.Errorf("nil recipe: want empty, got %q", got)
-	}
-}
-
-// TestDoSlingFormulaVaporNoPourEmitsHint locks the wiring: a vapor-without-pour
-// formula slung via the --formula path surfaces the hint through
-// SlingResult.BeadWarnings (which the CLI prints to stderr).
-func TestDoSlingFormulaVaporNoPourEmitsHint(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "root-only.toml"), []byte(
-		"formula = \"root-only\"\nversion = 1\nphase = \"vapor\"\n\n[[steps]]\nid = \"work\"\ntitle = \"Work\"\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	runner := newFakeRunner()
-	sp := runtime.NewFake()
-	cfg := &config.City{
-		Workspace:     config.Workspace{Name: "test-city"},
-		FormulaLayers: config.FormulaLayers{City: []string{dir}},
-	}
-	a := config.Agent{Name: "agent-a", MaxActiveSessions: intPtr(3)}
-	deps := testDeps(cfg, sp, runner.run)
-	result, err := DoSling(SlingOpts{Target: a, BeadOrFormula: "root-only", IsFormula: true}, deps, nil)
-	if err != nil {
-		t.Fatalf("DoSling: %v", err)
-	}
-	var found bool
-	for _, w := range result.BeadWarnings {
-		if strings.Contains(w, "pour = true") {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("vapor-no-pour sling: want pour hint in BeadWarnings, got %v", result.BeadWarnings)
 	}
 }

@@ -230,6 +230,30 @@ func (c *CachingStore) CompareAndSetMetadataKey(id, key, expected, next string) 
 	return true, nil
 }
 
+// UpdateGuarded keeps guard decisions on the authoritative backing, then evicts
+// the captured row on both a win and a stale-guard miss.
+func (c *CachingStore) UpdateGuarded(id string, opts UpdateOpts, conditions UpdateConditions) (bool, error) {
+	writer, ok := GuardedUpdateWriterFor(c.conditionalBacking())
+	if !ok {
+		return false, ErrConditionalWriteUnsupported
+	}
+	applied, err := writer.UpdateGuarded(id, opts, conditions)
+	if err != nil {
+		c.applyConditionalWriteFailure(id, err)
+		return applied, err
+	}
+	if !applied {
+		c.evictForConditionalWrite(id)
+		return false, nil
+	}
+	fresh, refreshed := c.refreshBeadAfterWrite(id, "refresh bead after guarded update")
+	c.evictForConditionalWrite(id)
+	if refreshed {
+		c.notifyChange("bead.updated", fresh)
+	}
+	return true, nil
+}
+
 // applyConditionalWriteFailure maps the backing writer's error class onto the
 // cache action it dictates. A precondition failure proves the cached revision
 // stale → evict. CAS exhaustion proves the backing revision kept moving under

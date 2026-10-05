@@ -4331,8 +4331,15 @@ gc sling [target] <bead-or-formula-or-text> [flags]
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `-n`, `--dry-run` | bool |  | show what would be done without executing |
-| `--force` | bool |  | suppress warnings, allow cross-rig routing, allow formulas v2 workflow replacement, and for direct bead routes dispatch even if the bead does not resolve in the local store |
+| `--force` | bool |  | allow cross-rig routing and graph workflow replacement; never bypass current holds or ownership conditions |
 | `-f`, `--formula` | bool |  | treat argument as formula name |
+| `--if-acceptance` | string |  | require these exact original native acceptance criteria at route commit |
+| `--if-assignee` | string |  | require this exact canonical assignee at route commit (empty is meaningful) |
+| `--if-description` | string |  | require this exact original source description at route commit |
+| `--if-labels-json` | string |  | require this exact unordered canonical label snapshot as a JSON string array |
+| `--if-metadata` | stringArray |  | require canonical metadata key=value at route commit (repeatable; empty matches absent) |
+| `--if-status` | string |  | require this exact canonical status at route commit |
+| `--if-title` | string |  | require this exact original source title at route commit |
 | `--json` | bool |  | Output dispatch result in JSON format |
 | `--merge` | string |  | merge strategy: direct, mr, or local |
 | `--no-convoy` | bool |  | skip auto-convoy creation |
@@ -4340,7 +4347,7 @@ gc sling [target] <bead-or-formula-or-text> [flags]
 | `--nudge` | bool |  | nudge target after routing |
 | `--on` | string |  | attach wisp from formula to bead before routing |
 | `--owned` | bool |  | mark auto-convoy as owned (skip auto-close) |
-| `--reassign` | bool |  | clear any existing human assignee before routing (for human→pool handoff) |
+| `--reassign` | bool |  | clear the current assignee in the guarded route commit (for human→pool handoff) |
 | `--scope-kind` | string |  | logical workflow scope kind for formulas v2 launches |
 | `--scope-ref` | string |  | logical workflow scope ref for formulas v2 launches |
 | `--stdin` | bool |  | read bead text from stdin (first line = title, rest = description) |

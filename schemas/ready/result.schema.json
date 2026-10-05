@@ -58,6 +58,9 @@
       "description": {
         "type": "string"
       },
+      "acceptance_criteria": {
+        "type": "string"
+      },
       "labels": {
         "type": "array",
         "items": {

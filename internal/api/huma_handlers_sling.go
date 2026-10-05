@@ -36,6 +36,13 @@ func (s *Server) humaHandleSling(ctx context.Context, input *SlingInput) (*Sling
 		NoConvoy:       input.Body.NoConvoy,
 		Owned:          input.Body.Owned,
 		NoFormula:      input.Body.NoFormula,
+		IfStatus:       input.Body.IfStatus,
+		IfAssignee:     input.Body.IfAssignee,
+		IfMetadata:     input.Body.IfMetadata,
+		IfLabels:       input.Body.IfLabels,
+		IfTitle:        input.Body.IfTitle,
+		IfDescription:  input.Body.IfDescription,
+		IfAcceptance:   input.Body.IfAcceptance,
 	}
 
 	if body.Target == "" {
@@ -125,6 +132,12 @@ func (s *Server) humaHandleSling(ctx context.Context, input *SlingInput) (*Sling
 				&huma.ErrorDetail{Location: "body.blocking_workflow_ids", Value: conflict.WorkflowIDs},
 				&huma.ErrorDetail{Location: "body.hint", Value: hint},
 			)
+		}
+		if status == http.StatusConflict {
+			return nil, huma.Error409Conflict(message)
+		}
+		if status == http.StatusServiceUnavailable {
+			return nil, huma.Error503ServiceUnavailable(message)
 		}
 		if status >= http.StatusInternalServerError {
 			return nil, apierr.Internal.Msg(message)

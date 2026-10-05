@@ -50,6 +50,10 @@ var valueFlagsBySub = map[string]map[string]bool{
 		"--session": true, "--set-labels": true, "--set-metadata": true,
 		"-s": true, "--status": true, "-t": true, "--type": true,
 		"--title": true, "--spec-id": true, "--unset-metadata": true,
+		// Native bd field guards plus GC's transaction-only metadata guards.
+		"--if-status": true, "--if-assignee": true, "--if-fence": true,
+		"--if-metadata": true, "--set-metadata-if-absent": true,
+		"--if-labels-json": true, "--if-title": true, "--if-description": true, "--if-acceptance": true,
 	},
 	"close": {
 		"-r": true, "--reason": true, "--reason-file": true, "--session": true,

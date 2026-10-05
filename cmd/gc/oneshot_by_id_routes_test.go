@@ -210,14 +210,38 @@ func TestFormulaCookGraphV2AttachOnAClassResidentBeadIsRefused(t *testing.T) {
 // produce, through the real cobra command, on the split topology where the two
 // legs could diverge.
 func TestFormulaCookAttachEmitsTheWorkAssociationOnASplitCity(t *testing.T) {
-	work, _, cityPath := cookCityWithSplitGraphAt(t)
+	cityPath := oneShotCookCity(t)
+	work := formulaCookMemStoreForTest(t, cityPath, cityPath)
+	graph := splittest.NewClassStore(t, config.BeadClassGraph)
+	seedCLIStorageRoutes(t, cityPath, messagingSplitRoutes(graph))
 
-	source, err := work.Create(beads.Bead{Title: "attach target", Type: "task"})
+	source, err := work.Create(beads.Bead{Title: "attach target", Description: "Preserve the requested work", AcceptanceCriteria: "Deliver the original outcome", Type: "task"})
 	if err != nil {
 		t.Fatalf("create attach bead: %v", err)
 	}
 
 	res := cookFormula(t, "graph-work", "--attach", source.ID)
+	root, err := work.Get(res.RootID)
+	if err != nil {
+		t.Fatalf("get work-resident workflow root: %v", err)
+	}
+	tracked, err := work.DepList(root.Metadata[beadmeta.InputConvoyIDMetadataKey], "down")
+	if err != nil {
+		t.Fatalf("list input convoy members: %v", err)
+	}
+	if len(tracked) != 1 || tracked[0].Type != "tracks" || tracked[0].DependsOnID != source.ID {
+		t.Fatalf("input convoy members = %+v, want exactly the selected source %s", tracked, source.ID)
+	}
+	if got := allBeads(t, graph); len(got) != 0 {
+		t.Fatalf("attach wrote to the graph binding instead of the source ledger: %+v", got)
+	}
+	sourceAfter, err := work.Get(source.ID)
+	if err != nil {
+		t.Fatalf("get source after attach: %v", err)
+	}
+	if sourceAfter.Title != source.Title || sourceAfter.Description != source.Description || sourceAfter.AcceptanceCriteria != source.AcceptanceCriteria {
+		t.Fatalf("attach changed the original goal: before=%+v after=%+v", source, sourceAfter)
+	}
 
 	recorded, err := events.ReadAll(filepath.Join(cityPath, ".gc", "events.jsonl"))
 	if err != nil {
@@ -228,12 +252,12 @@ func TestFormulaCookAttachEmitsTheWorkAssociationOnASplitCity(t *testing.T) {
 		switch {
 		case e.Type == events.ExecutionWorkAssociated && e.RunID == res.RootID && e.Subject == source.ID:
 			associated++
-		case e.Type == events.ExecutionStepDefined && e.RunID == res.RootID:
+		case e.Type == events.ExecutionStepDefined && e.RunID == res.RootID && e.Subject == res.IDMapping["graph-work.step"]:
 			steps++
 		}
 	}
-	if steps == 0 {
-		t.Fatalf("run %s emitted no execution.step_defined at all (events=%+v); the graph leg is wrong and this fixture proves nothing about the work leg", res.RootID, recorded)
+	if steps != 1 {
+		t.Fatalf("run %s emitted %d execution.step_defined for its requested step %s, want 1 (events=%+v)", res.RootID, steps, res.IDMapping["graph-work.step"], recorded)
 	}
 	if associated != 1 {
 		t.Fatalf("run %s emitted %d execution.work_associated for attach bead %s, want 1 (events=%+v); the convoy leg read a ledger the input convoy does not live in, and a DepList on a convoy a store never held comes back empty rather than failing", res.RootID, associated, source.ID, recorded)
@@ -290,7 +314,10 @@ func TestFormulaCookLegacyAttachGraftsOntoAClassResidentBeadInOneStore(t *testin
 // to the binding, the work store keeps only a resolvable edge, and the deferral
 // paragraph on attachStore in cmd_formula.go goes with it.
 func TestFormulaCookAttachOnAWorkResidentBeadIsUnchanged(t *testing.T) {
-	work, graph := cookCityWithSplitGraph(t)
+	cityDir := oneShotCookCity(t)
+	work := formulaCookMemStoreForTest(t, cityDir, cityDir)
+	graph := splittest.NewClassStore(t, config.BeadClassGraph)
+	seedCLIStorageRoutes(t, cityDir, messagingSplitRoutes(graph))
 
 	source, err := work.Create(beads.Bead{Title: "attach target", Type: "task"})
 	if err != nil {
@@ -309,8 +336,8 @@ func TestFormulaCookAttachOnAWorkResidentBeadIsUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listing attach deps: %v", err)
 	}
-	if len(deps) == 0 {
-		t.Fatalf("attach bead %s has no blocking dep after cook", source.ID)
+	if len(deps) != 1 || deps[0].IssueID != source.ID || deps[0].DependsOnID != res.RootID || deps[0].Type != "blocks" {
+		t.Fatalf("attach bead %s dependencies = %+v, want one blocking edge to workflow %s", source.ID, deps, res.RootID)
 	}
 	for _, dep := range deps {
 		if _, err := work.Get(dep.DependsOnID); err != nil {
@@ -327,10 +354,7 @@ func TestFormulaCookAttachStaysOnTheOneStoreOnASingleStoreCity(t *testing.T) {
 	cityDir := oneShotCookCity(t)
 	resetCLIStorageRoutes(t)
 	seedCLIStorageRoutes(t, cityDir, nil)
-	work, err := openStoreAtForCity(cityDir, cityDir)
-	if err != nil {
-		t.Fatalf("open work store: %v", err)
-	}
+	work := formulaCookMemStoreForTest(t, cityDir, cityDir)
 	source, err := work.Create(beads.Bead{Title: "attach target", Type: "task"})
 	if err != nil {
 		t.Fatalf("create attach bead: %v", err)

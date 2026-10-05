@@ -811,7 +811,7 @@ func shouldResetContinuation(base BaseState, input LifecycleInput, sleepReason s
 	case SleepReasonIdle, SleepReasonIdleTimeout, SleepReasonNoWakeReason,
 		SleepReasonConfigDrift, SleepReasonDrained, SleepReasonCityStop,
 		SleepReasonUserHold, SleepReasonWaitHold, SleepReasonRateLimit,
-		SleepReasonRuntimeMissing:
+		SleepReasonRuntimeMissing, SleepReasonKilled:
 		return false
 	}
 	return base == BaseStateActive || base == BaseStateCreating

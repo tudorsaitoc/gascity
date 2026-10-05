@@ -1503,6 +1503,8 @@ func beadCopyDifference(want, got beads.Bead) string {
 		return fmt.Sprintf("type %q != %q", want.Type, got.Type)
 	case want.Description != got.Description:
 		return fmt.Sprintf("description %q != %q", want.Description, got.Description)
+	case want.AcceptanceCriteria != got.AcceptanceCriteria:
+		return fmt.Sprintf("acceptance_criteria %q != %q", want.AcceptanceCriteria, got.AcceptanceCriteria)
 	case !beadCopyEqualInt(want.Priority, got.Priority):
 		return fmt.Sprintf("priority %s != %s", beadCopyFormatInt(want.Priority), beadCopyFormatInt(got.Priority))
 	case want.Assignee != got.Assignee:

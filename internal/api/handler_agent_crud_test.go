@@ -79,35 +79,12 @@ func (s *agentVisibilityFakeState) WaitForAgentVisibility(ctx context.Context, q
 	return nil
 }
 
-// TestHandleAgentCreate_InvokesVisibilityWaiter verifies that POST /agents
-// calls WaitForAgentVisibility with the qualified name on success. This is
-// the read-after-write guarantee that prevents a follow-up POST /sling from
-// 404ing on the freshly created target.
-func TestHandleAgentCreate_InvokesVisibilityWaiter(t *testing.T) {
-	fs := &agentVisibilityFakeState{fakeMutatorState: newFakeMutatorState(t)}
-	h := newTestCityHandler(t, fs)
-
-	body := `{"name":"coder","dir":"myrig","provider":"claude"}`
-	req := newPostRequest(cityURL(fs, "/agents"), strings.NewReader(body))
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	if w.Code != http.StatusCreated {
-		t.Fatalf("status = %d, want %d; body = %s", w.Code, http.StatusCreated, w.Body.String())
-	}
-	if !fs.waitCalled.Load() {
-		t.Fatal("WaitForAgentVisibility was not called")
-	}
-	if got, _ := fs.waitName.Load().(string); got != "myrig/coder" {
-		t.Errorf("WaitForAgentVisibility called with %q, want %q", got, "myrig/coder")
-	}
-}
-
 // TestHandleAgentCreate_MakesImmediateSlingTargetVisible proves the handler
 // sequence that regressed in the live contract: once POST /agents returns 201,
 // a POST /sling against the same freshly-created target resolves through the
 // handler's current Config snapshot.
 func TestHandleAgentCreate_MakesImmediateSlingTargetVisible(t *testing.T) {
+	t.Setenv("GC_SLING_ADMISSION_COMMAND", "")
 	fs := &agentVisibilityFakeState{
 		fakeMutatorState:       newFakeMutatorState(t),
 		publishAgentDuringWait: true,
@@ -115,7 +92,8 @@ func TestHandleAgentCreate_MakesImmediateSlingTargetVisible(t *testing.T) {
 	fs.cfg.Rigs[0].Prefix = "gc"
 	srv := New(fs)
 	srv.SlingRunnerFunc = func(_ string, _ string, _ map[string]string) (string, error) {
-		return "", nil
+		t.Fatal("native route unexpectedly invoked a shell provider")
+		return "", errors.New("unexpected shell provider")
 	}
 	h := newTestCityHandlerWith(t, fs, srv)
 
@@ -138,6 +116,13 @@ func TestHandleAgentCreate_MakesImmediateSlingTargetVisible(t *testing.T) {
 	h.ServeHTTP(slingRec, newPostRequest(cityURL(fs, "/sling"), strings.NewReader(slingBody)))
 	if slingRec.Code != http.StatusOK {
 		t.Fatalf("sling status = %d, want %d; body = %s", slingRec.Code, http.StatusOK, slingRec.Body.String())
+	}
+	routed, err := fs.stores["myrig"].Get(b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if routed.Metadata["gc.routed_to"] != "myrig/coder" || routed.Title != b.Title || routed.Status != b.Status || routed.Assignee != b.Assignee {
+		t.Fatalf("fresh target route corrupted work or omitted delivery: %+v", routed)
 	}
 }
 

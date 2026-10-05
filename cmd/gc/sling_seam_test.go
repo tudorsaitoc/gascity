@@ -37,50 +37,6 @@ func TestReadSlingStdinBead(t *testing.T) {
 	}
 }
 
-// TestApplySlingInlineBead_FormulaPassThrough proves the extracted inline-text
-// helper is a silent pass-through in formula mode: no store touch (nil store is
-// safe), no output, bead unchanged, no error. Demonstrates the last pre-core
-// orchestration chunk is now independently testable.
-func TestApplySlingInlineBead_FormulaPassThrough(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	finalBead, inlineText, errCode, errMsg := applySlingInlineBead(
-		&config.City{}, "deploy-service", true /*isFormula*/, false /*dryRun*/, existingSlingSourceBead{},
-		nil /*store*/, "rig/store", "" /*stdinDesc*/, &stdout, &stderr)
-	if errCode != "" || errMsg != "" {
-		t.Fatalf("unexpected err: code=%q msg=%q", errCode, errMsg)
-	}
-	if finalBead != "deploy-service" || inlineText {
-		t.Fatalf("got (finalBead=%q inlineText=%v), want (deploy-service, false)", finalBead, inlineText)
-	}
-	if stdout.Len() != 0 || stderr.Len() != 0 {
-		t.Fatalf("formula pass-through must be silent; stdout=%q stderr=%q", stdout.String(), stderr.String())
-	}
-}
-
-// TestApplySlingInlineBead_ExistingBeadWarns proves the helper emits the
-// "found existing bead … routing it instead of creating inline text" notice to
-// stderr (and leaves the bead unchanged) when a prose-looking argument matches an
-// existing source bead. Formula mode isolates the warning branch from the
-// store-create path (covered by the sling integration tests).
-func TestApplySlingInlineBead_ExistingBeadWarns(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	finalBead, inlineText, errCode, errMsg := applySlingInlineBead(
-		&config.City{}, "route this existing work", true /*isFormula*/, false, existingSlingSourceBead{exists: true},
-		nil /*store*/, "foundations/store", "", &stdout, &stderr)
-	if errCode != "" {
-		t.Fatalf("unexpected err: code=%q msg=%q", errCode, errMsg)
-	}
-	if finalBead != "route this existing work" || inlineText {
-		t.Fatalf("got (finalBead=%q inlineText=%v), want (unchanged, false)", finalBead, inlineText)
-	}
-	if !strings.Contains(stderr.String(), "found existing bead") {
-		t.Fatalf("stderr missing existing-bead notice: %q", stderr.String())
-	}
-	if stdout.Len() != 0 {
-		t.Fatalf("stdout = %q, want empty", stdout.String())
-	}
-}
-
 // TestInferSling1ArgTarget_FormulaRejected exercises the extracted 1-arg
 // target-inference helper directly (its pure --formula guard needs no store),
 // demonstrating that hoisting the store-touching pre-core orchestration out of
@@ -89,23 +45,6 @@ func TestInferSling1ArgTarget_FormulaRejected(t *testing.T) {
 	target, _, errCode, errMsg := inferSling1ArgTarget(&config.City{}, "/tmp/nonexistent", "some-bead", true)
 	if target != "" || errCode != "invalid_arguments" || errMsg == "" {
 		t.Fatalf("isFormula 1-arg: got (target=%q code=%q msg=%q), want (\"\", invalid_arguments, non-empty)", target, errCode, errMsg)
-	}
-}
-
-// TestSlingTargetIndexSeam proves the injectable slingTargetIndex seam makes the
-// otherwise-random 1-arg default_sling_targets selection deterministic for tests
-// and future sling characterization, and restores the production (rand) picker.
-func TestSlingTargetIndexSeam(t *testing.T) {
-	restore := SetSlingTargetIndexForTest(func(n int) int { return n - 1 }) // always the last target
-	if got := slingTargetIndex(3); got != 2 {
-		t.Fatalf("override: slingTargetIndex(3) = %d, want 2", got)
-	}
-	restore()
-	// Restored picker returns a valid in-range index (production math/rand).
-	for i := 0; i < 50; i++ {
-		if got := slingTargetIndex(3); got < 0 || got > 2 {
-			t.Fatalf("restored: slingTargetIndex(3) = %d, out of [0,3)", got)
-		}
 	}
 }
 
@@ -129,19 +68,11 @@ func TestCmdSlingMultiDefaultTargets_DeterministicPick(t *testing.T) {
 			defer restore()
 
 			var stdout, stderr bytes.Buffer
-			code := cmdSling(
-				[]string{"fo-multi-work"},
-				false, false, false,
-				"", nil, "",
-				true, false, false, "",
-				false, false, false,
-				"", "",
-				&stdout, &stderr,
-			)
+			code := cmdSlingWithJSON([]string{"fo-multi-work"}, false, false, false, "", nil, "", true, false, false, "", false, false, false, "", "", false, nil, &stdout, &stderr)
 			if code != 0 {
 				t.Fatalf("cmdSling = %d, want 0; stderr=%s", code, stderr.String())
 			}
-			rigStore, err := openStoreAtForCity(rigDir, cityDir)
+			rigStore, err := slingOpenStoreAtForCity(rigDir, cityDir)
 			if err != nil {
 				t.Fatalf("openStoreAtForCity: %v", err)
 			}

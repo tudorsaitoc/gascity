@@ -354,6 +354,7 @@ export const zDep = z.object({
 });
 
 export const zBead = z.object({
+    acceptance_criteria: z.string().optional(),
     assignee: z.string().optional(),
     created_at: z.iso.datetime(),
     defer_until: z.iso.datetime().optional(),
@@ -2683,6 +2684,13 @@ export const zSlingInputBody = z.object({
     bead: z.string().optional(),
     force: z.boolean().optional(),
     formula: z.string().optional(),
+    if_acceptance: z.string().optional(),
+    if_assignee: z.string().optional(),
+    if_description: z.string().optional(),
+    if_labels: z.array(z.string()).optional(),
+    if_metadata: z.record(z.string(), z.string()).optional(),
+    if_status: z.string().optional(),
+    if_title: z.string().optional(),
     merge: z.string().optional(),
     no_convoy: z.boolean().optional(),
     no_formula: z.boolean().optional(),

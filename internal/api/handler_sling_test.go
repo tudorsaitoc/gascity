@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -31,11 +32,27 @@ func (s *getErrStore) Get(_ string) (beads.Bead, error) {
 	return beads.Bead{}, s.err
 }
 
-// newSlingTestServer creates a test handler wrapping a Server that has a
-// fake runner injected (captures commands without executing real shell
-// processes).
+type routeRaceStore struct {
+	*beads.MemStore
+	beforeCommit func() error
+}
+
+func (s *routeRaceStore) TxSingle(message string, fn func(beads.Tx) error) error {
+	if s.beforeCommit != nil {
+		before := s.beforeCommit
+		s.beforeCommit = nil
+		if err := before(); err != nil {
+			return err
+		}
+	}
+	return s.MemStore.TxSingle(message, fn)
+}
+
+// newSlingTestServer exercises the native writer against canonical MemStore
+// rows. Custom-provider commands cannot escape the test runner.
 func newSlingTestServer(t *testing.T) (http.Handler, *fakeMutatorState) {
 	t.Helper()
+	t.Setenv("GC_SLING_ADMISSION_COMMAND", "")
 	state := newFakeMutatorState(t)
 	state.cfg.Rigs[0].Prefix = "gc" // match MemStore's auto-generated prefix
 	srv := New(state)
@@ -223,15 +240,28 @@ func TestSlingWithLookupFailureReturnsInternalServerError(t *testing.T) {
 	}
 }
 
-func TestSlingWithForceBypassesMissingBeadGuard(t *testing.T) {
+func TestSlingWithForceRefusesMissingBead(t *testing.T) {
 	h, state := newSlingTestServer(t)
-
+	store := state.stores["myrig"]
+	before, err := store.List(beads.ListQuery{AllowScan: true, IncludeClosed: true})
+	if err != nil {
+		t.Fatal(err)
+	}
 	body := `{"target":"myrig/worker","bead":"gc-zzzzz","force":true}`
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, newPostRequest(cityURL(state, "/sling"), strings.NewReader(body)))
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", rec.Code, rec.Body.String())
+	}
+	if _, err := store.Get("gc-zzzzz"); !errors.Is(err, beads.ErrNotFound) {
+		t.Fatalf("missing bead was fabricated: %v", err)
+	}
+	after, err := store.List(beads.ListQuery{AllowScan: true, IncludeClosed: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after) != len(before) {
+		t.Fatalf("refused route changed store: before=%+v after=%+v", before, after)
 	}
 }
 
@@ -337,16 +367,17 @@ func TestSlingPrefixStoreMissingReturnsMissingBead(t *testing.T) {
 	}
 }
 
-func TestSlingForcePrefixStoreMissingFallsBackToTargetStore(t *testing.T) {
+func TestSlingForcePrefixStoreMissingCannotRouteMissingWork(t *testing.T) {
 	h, state := newSlingTestServer(t)
 	state.cfg.Rigs = append(state.cfg.Rigs, config.Rig{Name: "frontend", Path: "/tmp/frontend", Prefix: "FE"})
-
 	body := `{"target":"myrig/worker","bead":"FE-123","force":true}`
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, newPostRequest(cityURL(state, "/sling"), strings.NewReader(body)))
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", rec.Code, rec.Body.String())
+	}
+	if _, err := state.stores["myrig"].Get("FE-123"); !errors.Is(err, beads.ErrNotFound) {
+		t.Fatalf("force fabricated work in target store: %v", err)
 	}
 }
 
@@ -456,7 +487,7 @@ func TestDocumentProblemTypesIsIdempotent(t *testing.T) {
 	}
 }
 
-func TestSlingLogsMalformedCustomSlingQueryWarning(t *testing.T) {
+func TestSlingRefusesUnreadableCustomProviderIdentity(t *testing.T) {
 	srv, state := newSlingTestServer(t)
 	for i := range state.cfg.Agents {
 		if state.cfg.Agents[i].QualifiedName() == "myrig/worker" {
@@ -464,11 +495,6 @@ func TestSlingLogsMalformedCustomSlingQueryWarning(t *testing.T) {
 			break
 		}
 	}
-
-	var stderr bytes.Buffer
-	oldStderr := apiSlingStderr
-	apiSlingStderr = func() io.Writer { return &stderr }
-	t.Cleanup(func() { apiSlingStderr = oldStderr })
 
 	store := state.stores["myrig"]
 	b, err := store.Create(beads.Bead{Title: "test task", Type: "task"})
@@ -480,14 +506,15 @@ func TestSlingLogsMalformedCustomSlingQueryWarning(t *testing.T) {
 	rec := httptest.NewRecorder()
 	srv.ServeHTTP(rec, newPostRequest(cityURL(state, "/sling"), strings.NewReader(body)))
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body = %s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(stderr.String(), "sling_query") {
-		t.Fatalf("stderr missing field name: %q", stderr.String())
+	current, err := store.Get(b.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if strings.Contains(stderr.String(), "gc.routed_to={{.Rig") {
-		t.Fatalf("stderr should redact raw template, got %q", stderr.String())
+	if !reflect.DeepEqual(current, b) {
+		t.Fatalf("unreadable provider changed original work: got=%+v want=%+v", current, b)
 	}
 }
 
@@ -1186,5 +1213,210 @@ func TestApiVsAgentutilResolverParity(t *testing.T) {
 				t.Fatalf("agentutil.ResolveAgent QualifiedName = %q, want %q", utilAgent.QualifiedName(), tc.utilWantQName)
 			}
 		})
+	}
+}
+
+func TestSlingNativeRejectsChangedCanonicalFieldsAtCommit(t *testing.T) {
+	for _, field := range []string{"title", "description", "acceptance", "owner", "labels", "hold", "effect"} {
+		t.Run(field, func(t *testing.T) {
+			h, state := newSlingTestServer(t)
+			base := beads.NewMemStore()
+			work, err := base.Create(beads.Bead{
+				Title: "approved goal", Description: "approved scope", AcceptanceCriteria: "approved outcome",
+				Type: "task", Labels: []string{"approved"}, Metadata: map[string]string{"handoff.conflict_state": ""},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var changed beads.Bead
+			store := &routeRaceStore{MemStore: base}
+			store.beforeCommit = func() error {
+				value := "changed"
+				update := beads.UpdateOpts{}
+				switch field {
+				case "title":
+					update.Title = &value
+				case "description":
+					update.Description = &value
+				case "acceptance":
+					changed, err = base.Get(work.ID)
+					if err != nil {
+						return err
+					}
+					changed.AcceptanceCriteria = value
+					base = beads.NewMemStoreFrom(1, []beads.Bead{changed}, nil)
+					store.MemStore = base
+					return nil
+				case "owner":
+					update.Assignee = &value
+				case "labels":
+					update.Labels = []string{"hold:new-review"}
+				case "hold":
+					update.Metadata = map[string]string{"handoff.conflict_state": "hold"}
+				case "effect":
+					update.Metadata = map[string]string{"gc.dispatch_effect_id": "new-attempt", "gc.dispatch_effect_state": "attempted"}
+				}
+				if err := base.Update(work.ID, update); err != nil {
+					return err
+				}
+				var err error
+				changed, err = base.Get(work.ID)
+				return err
+			}
+			state.stores["myrig"] = store
+			body, err := json.Marshal(map[string]any{
+				"target": "myrig/worker", "bead": work.ID, "force": true, "reassign": true, "no_convoy": true,
+				"if_title": work.Title, "if_description": work.Description, "if_acceptance": work.AcceptanceCriteria,
+				"if_assignee": "", "if_status": work.Status, "if_labels": work.Labels,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, newPostRequest(cityURL(state, "/sling"), bytes.NewReader(body)))
+			if rec.Code != http.StatusConflict {
+				t.Fatalf("status=%d, want 409 for changed %s; body=%s", rec.Code, field, rec.Body.String())
+			}
+			got, err := base.Get(work.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, changed) {
+				t.Fatalf("refusal mutated canonical work: got=%+v want=%+v", got, changed)
+			}
+		})
+	}
+}
+
+func TestSlingNativeRechecksExecutionAdmissionAtCommit(t *testing.T) {
+	h, state := newSlingTestServer(t)
+	admissionPath := filepath.Join(state.cityPath, "admission.json")
+	if err := os.WriteFile(admissionPath, []byte(`{"allowed":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GC_SLING_ADMISSION_COMMAND", `cat "$GC_CITY_PATH/admission.json"`)
+	base := beads.NewMemStore()
+	work, err := base.Create(beads.Bead{Title: "route after admission", Type: "task"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.stores["myrig"] = &routeRaceStore{
+		MemStore: base,
+		beforeCommit: func() error {
+			return os.WriteFile(admissionPath, []byte(`{"allowed":false,"reason":"human hold installed"}`), 0o600)
+		},
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, newPostRequest(cityURL(state, "/sling"), strings.NewReader(
+		`{"target":"myrig/worker","bead":"`+work.ID+`","no_convoy":true}`,
+	)))
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "human hold installed") {
+		t.Fatalf("status=%d body=%s, want fresh host admission refusal", rec.Code, rec.Body.String())
+	}
+	got, err := base.Get(work.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, work) {
+		t.Fatalf("refused admission changed work: got=%+v want=%+v", got, work)
+	}
+}
+
+func TestSlingNativeUnsupportedStoreCannotReportSuccess(t *testing.T) {
+	h, state := newSlingTestServer(t)
+	base := beads.NewMemStore()
+	work, err := base.Create(beads.Bead{Title: "unsupported route", Type: "task"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Store alone does not advertise native conditional or single-Tx authority.
+	state.stores["myrig"] = struct{ beads.Store }{base}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, newPostRequest(cityURL(state, "/sling"), strings.NewReader(
+		`{"target":"myrig/worker","bead":"`+work.ID+`","no_convoy":true}`,
+	)))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status=%d body=%s, want 503", rec.Code, rec.Body.String())
+	}
+	got, err := base.Get(work.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, work) {
+		t.Fatalf("unsupported route changed work: got=%+v want=%+v", got, work)
+	}
+}
+
+func TestSlingNativePrefixStoreOwnsCollidingIdentity(t *testing.T) {
+	for _, sourceExists := range []bool{false, true} {
+		t.Run(map[bool]string{false: "missing", true: "owned"}[sourceExists], func(t *testing.T) {
+			h, state := newSlingTestServer(t)
+			state.cfg.Agents = append(state.cfg.Agents, config.Agent{Name: "dispatcher", MaxActiveSessions: intPtr(1)})
+			state.cfg.Rigs = append(state.cfg.Rigs, config.Rig{Name: "frontend", Prefix: "FE", Path: "/tmp/frontend"})
+			state.cfg.Workspace.Prefix = "HQ"
+			collision := beads.Bead{ID: "FE-123", Title: "wrong-store collision", Type: "task", Status: "open"}
+			cityStore := beads.NewMemStoreFrom(0, []beads.Bead{collision}, nil)
+			state.cityBeadStore = cityStore
+			sourceRows := []beads.Bead{}
+			if sourceExists {
+				sourceRows = append(sourceRows, beads.Bead{ID: "FE-123", Title: "canonical source", Type: "task", Status: "open", Assignee: "human"})
+			}
+			source := beads.NewMemStoreFrom(0, sourceRows, nil)
+			state.stores["frontend"] = source
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, newPostRequest(cityURL(state, "/sling"), strings.NewReader(
+				`{"target":"dispatcher","bead":"FE-123","force":true,"no_convoy":true}`,
+			)))
+			wantStatus := http.StatusBadRequest
+			if sourceExists {
+				wantStatus = http.StatusConflict
+			}
+			if rec.Code != wantStatus {
+				t.Fatalf("status=%d want=%d body=%s", rec.Code, wantStatus, rec.Body.String())
+			}
+			gotCollision, err := cityStore.Get(collision.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(gotCollision, collision) {
+				t.Fatalf("wrong-store collision was routed: %+v", gotCollision)
+			}
+			if sourceExists {
+				got, err := source.Get(collision.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(got, sourceRows[0]) {
+					t.Fatalf("canonical owned work changed: %+v", got)
+				}
+			} else if _, err := source.Get(collision.ID); !errors.Is(err, beads.ErrNotFound) {
+				t.Fatalf("source identity was fabricated: %v", err)
+			}
+		})
+	}
+}
+
+func TestSlingNativeCannotReplayUnknownEffectAsFreshRoute(t *testing.T) {
+	h, state := newSlingTestServer(t)
+	work, err := state.stores["myrig"].Create(beads.Bead{
+		Title: "ambiguous external effect", Type: "task",
+		Metadata: map[string]string{"gc.dispatch_effect_id": "original-attempt", "gc.dispatch_effect_state": "unknown"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, newPostRequest(cityURL(state, "/sling"), strings.NewReader(
+		`{"target":"myrig/worker","bead":"`+work.ID+`","force":true,"reassign":true,"no_convoy":true}`,
+	)))
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status=%d body=%s, want unknown-effect reconciliation refusal", rec.Code, rec.Body.String())
+	}
+	got, err := state.stores["myrig"].Get(work.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, work) {
+		t.Fatalf("unknown effect was overwritten: got=%+v want=%+v", got, work)
 	}
 }

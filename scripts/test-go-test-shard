@@ -26,6 +26,11 @@ source "$repo_root/scripts/lib/common.sh"
 # shellcheck source=lib/test-slice.sh
 source "$repo_root/scripts/lib/test-slice.sh"
 gc_test_slice_reexec "$repo_root/scripts/test-go-test-shard" "$@"
+dashboard_mode=prepare
+if [[ "${GC_DASHBOARD_INPUT_REQUIRED:-0}" == "1" ]]; then
+  dashboard_mode=verify
+fi
+python3 "$repo_root/scripts/dashboard-input.py" "$dashboard_mode"
 
 timeout="${GO_TEST_TIMEOUT:-20m}"
 
@@ -80,6 +85,10 @@ run_in_test_env() {
     GOVCS="${GOVCS-}" \
     GOWORK="${GOWORK-}" \
     GC_FAST_UNIT="${GC_FAST_UNIT:-0}" \
+    GC_DASHBOARD_INPUT_REQUIRED="${GC_DASHBOARD_INPUT_REQUIRED:-0}" \
+    GC_SLING_ADMISSION_COMMAND="${GC_SLING_ADMISSION_COMMAND:-}" \
+    GC_SLING_TEST_SCOPE="${GC_SLING_TEST_SCOPE:-}" \
+    PYTHONPATH="${PYTHONPATH:-}" \
     CGO_CPPFLAGS="${cgo_cppflags}" \
     CGO_LDFLAGS="${cgo_ldflags}" \
     GC_TEST_SHARD_INDEX="${shard_index}" \

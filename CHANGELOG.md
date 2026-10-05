@@ -9,6 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Guarded control preserves the durable source goal and first terminal
+  receipt.** Dispatch activation refuses unsupported stores before materializing
+  a graph; standalone graphs retain an explicit source root. Ready output and
+  infra migration carry acceptance criteria. The writer uses the maintained
+  Beads SDK fork `v1.1.3`; isolated Dolt 2.2.1 and installed CLI mutation probes
+  preserve the first terminal clock and reject invalid-clock writes atomically.
+- **Co-activation recognizes an already completed fenced transition.** If
+  another activator finishes between the read and guarded update, the loser
+  re-reads the row and accepts only the existing no-op state. Pending
+  ownership or hold drift still refuses; no second write is attempted.
+- **Go package loading uses admitted, source-matched dashboard assets.**
+  Compiled SPA assets are no longer tracked. The frontend producer builds once;
+  CI consumers verify checkout, source and asset identities plus the 16 MiB
+  bound before loading the embed package, without rebuilding a mismatched input.
+- **Guarded native integration exercises real authority and SQL.** The
+  maintained runner prepares pinned private policy source through existing
+  authentication and owns a private Dolt SQL server. Competing routes, original
+  candidate drift and atomic refusal are checked through independent native
+  handles rather than FileStore or a synthetic admission response.
+- **Interrupted provider staging freezes the original formula and requested
+  target.** A retry with the same source/effect cannot activate the original
+  candidate while reporting a different formula or worker. The requested
+  target is recorded independently of private control-root routing and is
+  included in activation preconditions. Missing original intent is a conflict,
+  not permission to infer it from the retry.
+- **Unavailable native runtime observations remain unknown, not empty.**
+  A responsive empty tmux server can clear stale liveness, while transport and
+  malformed snapshots retain last-known-good state. Managed Dolt launch accepts
+  one exact validated PID/port and does not fall through to a second shell owner
+  after the configured native helper fails. Opt-in Linux cgroup placement binds
+  both SQL and its watchdog from process birth; canonical adoption requires a
+  separate pre-production lifecycle receipt.
+
 - **The dolt pack's `run_bounded` python3 fallback now sends SIGTERM before
   SIGKILL, matching its documented contract.** The fallback (used when
   neither `timeout` nor `gtimeout` is on `PATH`, the default on stock macOS)
@@ -22,6 +55,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now uses `Popen` + `terminate()` + a 2s grace `wait()` + `kill()`,
   streaming output instead of buffering it. (gascity#4823)
 
+- **`gc status` no longer pays a full event-log scan for a cosmetic field.**
+  `storehealth.LastMaintenance` now prefers the `TailProvider` backward-scan
+  fast path over an unbounded forward `List` when the provider supports it,
+  and a new `Filter.MaxScanBytes` bounds that backward scan so a rare or
+  never-emitted event type (the common case: a city that has never run store
+  maintenance) can no longer force a full-file walk just to populate the
+  `Last GC:` status line. Previously this cost two full scans of
+  `events.jsonl` on every `gc status` call, dominating latency on large event
+  logs and surfacing as a spurious "runtime status probe timed out" warning.
 - **ACP activity is now available across process boundaries.** ACP
   `session/update` timestamps are published through an atomic, coalesced
   sidecar, allowing a process other than the session owner to report

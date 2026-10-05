@@ -1014,6 +1014,9 @@ func (s *BdStore) CreateWithStorage(b Bead, storage StorageClass) (Bead, error) 
 	if b.Description != "" {
 		args = append(args, "--description", b.Description)
 	}
+	if b.AcceptanceCriteria != "" {
+		args = append(args, "--acceptance", b.AcceptanceCriteria)
+	}
 	if b.Assignee != "" {
 		args = append(args, "--assignee", b.Assignee)
 	}
@@ -1204,6 +1207,9 @@ func bdUpdateArgs(id string, opts UpdateOpts) []string {
 
 // Update modifies fields of an existing bead via bd update.
 func (s *BdStore) Update(id string, opts UpdateOpts) error {
+	if _, protected := opts.Metadata[RefineryDecisionAtKey]; protected {
+		return fmt.Errorf("immutable refinery clock requires native transactional metadata writes: %w", ErrConditionalWriteUnsupported)
+	}
 	args := bdUpdateArgs(id, opts)
 	// No fields to update — no-op (bd errors on empty update).
 	if len(args) == 3 {
@@ -1618,6 +1624,9 @@ func beadSliceContains(items []Bead, id string) bool {
 
 // SetMetadata sets a key-value metadata pair on a bead via bd update.
 func (s *BdStore) SetMetadata(id, key, value string) error {
+	if key == RefineryDecisionAtKey {
+		return s.Update(id, UpdateOpts{Metadata: map[string]string{key: value}})
+	}
 	err := s.runBDTransientWrite("update", "--json", id,
 		"--set-metadata", key+"="+value)
 	if err != nil {
@@ -1635,6 +1644,9 @@ func (s *BdStore) SetMetadata(id, key, value string) error {
 func (s *BdStore) SetMetadataBatch(id string, kvs map[string]string) error {
 	if len(kvs) == 0 {
 		return nil
+	}
+	if _, protected := kvs[RefineryDecisionAtKey]; protected {
+		return s.Update(id, UpdateOpts{Metadata: kvs})
 	}
 	args := []string{"update", "--json", id}
 	keys := make([]string, 0, len(kvs))

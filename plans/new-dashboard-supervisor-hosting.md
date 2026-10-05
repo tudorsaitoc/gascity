@@ -3,6 +3,13 @@
 > **Worktree:** `/data/projects/gascity/.claude/worktrees/new-dashboard`
 > **Source repo being absorbed:** `/data/projects/gascity-dashboard` (npm workspaces: `shared` / `backend` / `frontend`)
 > **Chosen strategy:** **Hybrid-Thin-BFF** (unanimous across all three adversarial lenses; top self-score 7.8)
+>
+> **Build-input policy superseded by ADR-0044 source checkpoint repair:** this
+> historical plan's committed-dist and npm-free fresh source-build decisions no
+> longer apply. Compiled SPA assets are ignored and admitted before Go loading
+> using checkout HEAD, source SHA-256, asset SHA-256, and a 16 MiB cap.
+> Generated API client source remains tracked. See `CONTRIBUTING.md` for the
+> maintained local/CI/release producer contract.
 
 ---
 

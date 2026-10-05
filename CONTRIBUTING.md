@@ -33,20 +33,40 @@ endpoints. When `internal/api/openapi.json` changes, the hook regenerates
 `internal/api/dashboardspa/web/shared/src/generated/gc-supervisor-client/`
 (the typed API client) and, when that or the SPA source changes, rebuilds
 `internal/api/dashboardspa/dist/` (the compiled bundle that the Go static
-server embeds via `go:embed`). The hook needs Node / npm on your PATH; if
-npm is missing and a spec change is staged, the hook now fails closed with
-the recovery command, since a stale client would otherwise ship silently
-until CI catches it — for unrelated (docs/Go-only) changes it still just
-warns and skips the rebuild. The hook runs dashboard typecheck, Vitest, and
-production build for dashboard/API-schema changes. Run `make dashboard-dev`
-to iterate with Vite HMR, `make dashboard-build` to produce a fresh
-bundle, `make dashboard-check` for typecheck + build + test. For
-API-schema changes, run `make dashboard-ci` instead — it also regenerates
-the typed client from the spec and fails if that or `dist/` is stale,
-which `dashboard-check` alone does not catch. For dashboard or API-schema
-changes, also smoke the built app with
-`npm run preview -- --host 127.0.0.1 --port <port>` from
-`internal/api/dashboardspa/web/` and load the served page before pushing.
+server embeds via `go:embed`). Compiled assets and their admission manifest
+are ignored, never staged. Generated TypeScript client source remains tracked.
+`make build`, `make install`, and Go-loading check/test targets prepare the real
+SPA input before loading packages; Node 22/npm are required for a fresh source
+checkout. Before a raw `go build`, `go test`, or `go install`, run
+`make dashboard-input`. It reuses only a verified current bundle.
+`make dashboard-ci` builds once, regenerates the typed client, rejects source
+drift, verifies the admitted input again, and runs typechecks, embedded Go
+tests, and preview smoke. Node-running targets install locked dependencies
+independently of bundle admission; smoke previews the admitted `dist` tree.
+CI Go-only consumers download the same-run bundle and verify checkout HEAD,
+frontend source SHA-256, asset SHA-256, and the 16 MiB cap before package loading.
+They never rebuild or accept mismatched input. The dashboard job retains
+typechecks, Vitest, and Playwright against that admitted bundle.
+For dashboard or API-schema changes, also smoke the built app with
+`npm run preview -- --outDir ../../dist --host 127.0.0.1 --port <port>` from
+`internal/api/dashboardspa/web/frontend/` and load the served page before pushing.
+
+**Real guarded-sling integration.** The maintained integration shard runner
+sources `scripts/prepare-native-sling-host.sh`. An existing nonempty
+`GC_SLING_ADMISSION_COMMAND` takes precedence. Otherwise, preparation uses the
+caller's existing `gh` authentication to fetch exactly two pinned,
+SHA-256-verified Saitoc policy files with two empty package markers into a
+private temporary root. The default command executes the verified file path
+with only that root on `PYTHONPATH`, not an ambient checkout's package.
+Authentication must already read the private source; public-fork CI cannot
+infer or manufacture it. The unchanged policy reads real Andon state and the
+production maintenance freeze, rather than returning a fixture allow decision.
+The runner also owns one loopback Dolt SQL server and exports its private
+`GC_SLING_TEST_SCOPE`; each Go case creates a separate schema and opens two
+genuine native handles. Runner cleanup stops that server and removes only its
+owned roots. A raw integration invocation must provide the same genuine
+authority and initialized private SQL scope. FileStore is not an alternative
+for guarded-write acceptance.
 
 ## Development Workflow
 
@@ -164,7 +184,7 @@ Run `make help` for the full list. The most useful targets are:
 | `make dashboard-build` | Compile the dashboard bundle and sync it into the embedded `dist/` |
 | `make dashboard-dev` | Vite dev server for SPA iteration |
 | `make dashboard-check` | Typecheck + build + test the dashboard |
-| `make dashboard-ci` | `dashboard-check` plus fail-on-drift for the generated API client and `dist/` — the gate for openapi.json/dashboard changes |
+| `make dashboard-ci` | Fail on generated API client source drift; build and admit the current SPA, typecheck, test, and smoke |
 | `make cover` | Coverage run |
 
 > **`make install` writes to the shared `$(go env GOPATH)/bin`.** It (and

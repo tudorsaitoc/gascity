@@ -39,6 +39,8 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
 
+    - uses: ./.github/actions/dashboard-input
+
     - name: Install system dependencies
       shell: bash
       run: sudo apt-get update && sudo apt-get install -y tmux jq

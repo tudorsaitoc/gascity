@@ -252,25 +252,13 @@ type tmuxFetcher struct {
 func (f *tmuxFetcher) FetchState(ctx context.Context) (runtimeStateSnapshot, error) {
 	out, err := f.tm.runCtx(ctx, "list-panes", "-a", "-F", "#{session_name}\t#{pane_dead}\t#{pane_current_command}\t#{pane_pid}")
 	if err != nil {
-		if isNoServerError(err) {
-			// An unreachable tmux server is an observation FAILURE, not the
-			// fact "no sessions exist". Returning an empty *success* here let
-			// refresh() overwrite the cache's last-known-good and instantly
-			// report every session as not-running, so a brief server blip (a
-			// supervisor restart, a transient socket stall) drove the
-			// reconciler to drain/close healthy pool slots. Surface it as
-			// runtime.ErrRuntimeUnavailable instead: refresh() then preserves
-			// last-known-good until the existing staleTTL cliff, bounding the
-			// trust window. Genuine session ends evict from the cache via
-			// Stop()/EvictSession, so they are not masked by this preservation
-			// (the only residual is an externally-killed LAST session, whose
-			// cleanup is delayed by at most staleTTL — the intended trade).
-			// isNoServerError still matches the wrapped error (it contains the
-			// original "no server running" cause), so downstream absorbers are
-			// unaffected.
-			return runtimeStateSnapshot{}, fmt.Errorf("%w: %w", runtime.ErrRuntimeUnavailable, err)
+		// exit-empty off keeps a responsive server after its last session ends.
+		// Its no-current-target reply proves zero panes; a connection failure
+		// does not. Check the specific reply before its ErrNoServer parent.
+		if errors.Is(err, ErrNoCurrentTarget) {
+			return runtimeStateSnapshot{Sessions: make(map[string]sessionRuntimeState)}, nil
 		}
-		return runtimeStateSnapshot{}, err
+		return runtimeStateSnapshot{}, fmt.Errorf("%w: %w", runtime.ErrRuntimeUnavailable, err)
 	}
 	state := runtimeStateSnapshot{
 		Sessions: make(map[string]sessionRuntimeState),
@@ -279,22 +267,20 @@ func (f *tmuxFetcher) FetchState(ctx context.Context) (runtimeStateSnapshot, err
 		return state, nil
 	}
 
-	for _, line := range strings.Split(out, "\n") {
-		parts := strings.SplitN(line, "\t", 4)
-		if len(parts) < 2 || parts[0] == "" {
-			continue
+	for row, line := range strings.Split(out, "\n") {
+		parts := strings.Split(line, "\t")
+		if len(parts) != 4 || parts[0] == "" || (parts[1] != "0" && parts[1] != "1") {
+			return runtimeStateSnapshot{}, fmt.Errorf("%w: malformed tmux pane snapshot row %d", runtime.ErrRuntimeUnavailable, row+1)
 		}
 		name := parts[0]
 		if parts[1] == "1" {
 			continue
 		}
-		var pane paneRuntimeState
-		if len(parts) > 2 {
-			pane.Command = strings.TrimSpace(parts[2])
+		pid, err := strconv.Atoi(parts[3])
+		if err != nil || pid <= 0 {
+			return runtimeStateSnapshot{}, fmt.Errorf("%w: invalid tmux pane PID at row %d", runtime.ErrRuntimeUnavailable, row+1)
 		}
-		if len(parts) > 3 {
-			pane.PID = strings.TrimSpace(parts[3])
-		}
+		pane := paneRuntimeState{Command: strings.TrimSpace(parts[2]), PID: parts[3]}
 		session := state.Sessions[name]
 		session.Running = true
 		if pane.Command != "" || pane.PID != "" {

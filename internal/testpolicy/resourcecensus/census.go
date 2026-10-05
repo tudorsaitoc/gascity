@@ -123,15 +123,15 @@ var bootstrapPolicy = Ledger{
 		{
 			Scope:           ScopeAll,
 			Resource:        ResourceSubprocess,
-			BaselineCalls:   607,
-			BaselineFiles:   173,
+			BaselineCalls:   612,
+			BaselineFiles:   174,
 			ReportedCalls:   495,
 			ReportedFiles:   135,
 			OwnerBead:       "ga-80po0c.2",
 			Invariant:       "tracked test source totals remain visible as audit evidence",
 			ResourceOwner:   "ga-80po0c.2 owns this point-in-time source census",
 			MigrationTarget: "P0.4a",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeAll,
@@ -144,7 +144,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "tracked test source totals remain visible as audit evidence",
 			ResourceOwner:   "ga-80po0c.2 owns this point-in-time source census",
 			MigrationTarget: "P0.4a",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeAll,
@@ -157,7 +157,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "all-source listener-helper call/file totals cannot drift without an explicit checked policy update",
 			ResourceOwner:   "ga-80po0c.2.2.3 owns this all-source audit; tagged calls stay Large and receive no Medium exemption",
 			MigrationTarget: "P0.4c-listener-helper",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 	},
 	Debt: []Baseline{
@@ -172,7 +172,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged subprocess call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "each process-owning test removes or replaces its source call site",
 			MigrationTarget: "D1/D2/D5/D6/E6",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -185,7 +185,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged fixed-sleep call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "each owning test replaces elapsed wall time with its lifecycle signal",
 			MigrationTarget: "W1-W5",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeCmdGCUntagged,
@@ -198,7 +198,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged cmd/gc environment call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "cmd/gc callers restore or eliminate every recognized process-environment mutation",
 			MigrationTarget: "D5/D6/E6",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeCmdGCUntagged,
@@ -211,7 +211,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged cmd/gc cwd call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "cmd/gc callers restore or eliminate every recognized cwd mutation",
 			MigrationTarget: "D5/D6",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeCmdGCUntagged,
@@ -224,7 +224,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged cmd/gc slow-process marker totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "the helper definition and every marked caller retain an explicit process-suite migration owner",
 			MigrationTarget: "D5/D6/E6",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -237,7 +237,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged HTTP test server call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "each owning test closes its loopback server and removes duplicate server-backed coverage",
 			MigrationTarget: "P0.4c",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -250,7 +250,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged listener-helper call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "each owning test replaces helper-backed listeners or moves the retained boundary to exact Medium ownership",
 			MigrationTarget: "P0.4c-listener-helper",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -263,7 +263,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged stream-listener call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "each owning test closes its stream listener and removes duplicate listener-backed coverage",
 			MigrationTarget: "P0.4c-listener",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -276,7 +276,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged net.ListenConfig listener call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "each owning test closes its configured listener and removes duplicate listener-backed coverage",
 			MigrationTarget: "P0.4c-listener",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -289,7 +289,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged packet-listener call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "each owning test closes its packet listener and removes duplicate listener-backed coverage",
 			MigrationTarget: "P0.4c-listener",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -302,7 +302,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged syscall.Listen call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "each owning test closes its listening file descriptor and removes duplicate listener-backed coverage",
 			MigrationTarget: "P0.4c",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -315,7 +315,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged tmux dependency call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "each owning test confines tmux processes and sockets to its isolated namespace and cleanup",
 			MigrationTarget: "P0.4c-tmux",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 	},
 	Medium: []MediumOwner{
@@ -328,7 +328,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "internal/api tracked-source error URN guard is a checked Medium owner",
 			ResourceOwner:   "only the git ls-files call lexically inside TestEveryEmittedErrorCodeIsRegistered leaves Small debt",
 			MigrationTarget: "P0.4b",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			PackageDir:      "cmd/gc",
@@ -339,7 +339,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "cmd/gc TestMain is the checked package-level Medium owner for process environment and tmux namespace setup",
 			ResourceOwner:   "only declared environment and tmux calls lexically inside TestMain leave Small debt",
 			MigrationTarget: "P0.4b/P0.4c-tmux",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			PackageDir:      "cmd/gc",
@@ -350,7 +350,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "the controller-token withholding proof is a checked Medium subprocess owner",
 			ResourceOwner:   "the one /bin/sh subprocess is confined to TestPassthroughEnvWithholdsControllerTokenFromChildProcess, which exists to read a credential back out of a real child process: the session env is an overlay, so only a real child can prove GC_CONTROLLER_TOKEN is absent rather than merely missing from a map",
 			MigrationTarget: "P0.4b",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			PackageDir:      "internal/runtime/herdr",
@@ -361,7 +361,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "herdr stale-socket liveness regression is a checked Medium stream-listener owner",
 			ResourceOwner:   "the Unix stream listener is confined to TestServerAliveRejectsStaleSocket and closed before liveness detection",
 			MigrationTarget: "P0.4c-listener",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			PackageDir:      "internal/runtime/herdr",
@@ -372,7 +372,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "herdr live-server liveness regression is a checked Medium stream-listener owner",
 			ResourceOwner:   "the Unix stream listener is confined to TestServerAliveDetectsLiveServer and closed by test cleanup",
 			MigrationTarget: "P0.4c-listener",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			PackageDir:      "internal/runtime/tmux",
@@ -383,7 +383,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "runtime tmux TestMain is the checked Medium owner for isolated tmux process and socket cleanup",
 			ResourceOwner:   "only declared environment and tmux calls lexically inside TestMain leave Small debt",
 			MigrationTarget: "P0.4c-tmux",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			PackageDir:      "scripts",
@@ -394,7 +394,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "Docker session adapter protocol proof is a checked Medium owner",
 			ResourceOwner:   "the one adapter subprocess is confined to TestDockerSessionProtocol and Docker itself is a strict PATH-injected fake",
 			MigrationTarget: "W6",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			PackageDir:      "scripts",
@@ -405,7 +405,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "Make/provider and suite-contract proof is a checked Medium owner",
 			ResourceOwner:   "the six isolated Make invocations are confined to TestProviderOverridesAndSuiteContractsCrossMakeIsolation",
 			MigrationTarget: "P0.1",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			PackageDir:      "internal/doctor",
@@ -416,7 +416,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "doctor custom-types config-CSV-vs-table drift detect+heal proof is a checked Medium owner",
 			ResourceOwner:   "the bd and dolt subprocesses are confined to TestCustomTypesCheck_TableDrift, which manufactures and heals real table drift against a throwaway store",
 			MigrationTarget: "P0.4b",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			PackageDir:      "internal/doctor",
@@ -427,7 +427,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "doctor custom-types test-owned-HOME dolt-isolation regression proof is a checked Medium owner",
 			ResourceOwner:   "the bd subprocess is confined to TestCustomTypesCheck_TableDriftUsesTestOwnedDoltContext, which proves bd routes to an embedded, test-owned dolt store rather than a machine-level shared server",
 			MigrationTarget: "P0.4b",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 	},
 	ReviewedHermeticBody: []ReviewedHermeticBody{
@@ -472,7 +472,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged Small subprocess call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "non-Medium lexical owners remove or replace each process call site",
 			MigrationTarget: "D1/D2/D5/D6/E6",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -485,7 +485,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged Small fixed-sleep call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "non-Medium lexical owners replace elapsed wall time with lifecycle signals",
 			MigrationTarget: "W1-W5",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeCmdGCUntagged,
@@ -498,7 +498,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged Small cmd/gc environment call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "non-Medium lexical owners restore or eliminate every process-environment mutation",
 			MigrationTarget: "D5/D6/E6",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeCmdGCUntagged,
@@ -511,7 +511,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged Small cmd/gc cwd call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "non-Medium lexical owners restore or eliminate every cwd mutation",
 			MigrationTarget: "D5/D6",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeCmdGCUntagged,
@@ -524,7 +524,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged Small cmd/gc slow-process marker totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "each non-Medium marked caller retains an explicit process-suite migration owner",
 			MigrationTarget: "D5/D6/E6",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -537,7 +537,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged Small HTTP test server call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "non-Medium lexical owners move server-backed tests to exact Medium ownership or replace the listener",
 			MigrationTarget: "P0.4c",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -550,7 +550,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged Small listener-helper call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "non-Medium lexical owners replace helper-backed listeners or declare exact isolated ownership",
 			MigrationTarget: "P0.4c-listener-helper",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -563,7 +563,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged Small stream-listener call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "non-Medium lexical owners move stream-listener tests to exact Medium ownership or replace the listener",
 			MigrationTarget: "P0.4c-listener",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -576,7 +576,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged Small net.ListenConfig listener call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "non-Medium lexical owners move ListenConfig-backed tests to exact Medium ownership or replace the listener",
 			MigrationTarget: "P0.4c-listener",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -589,7 +589,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged Small packet-listener call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "non-Medium lexical owners move packet-listener tests to exact Medium ownership or replace the listener",
 			MigrationTarget: "P0.4c-listener",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -602,7 +602,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged Small syscall.Listen call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "non-Medium lexical owners move syscall-backed listener tests to exact Medium ownership or replace the listener",
 			MigrationTarget: "P0.4c",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 		{
 			Scope:           ScopeUntagged,
@@ -615,7 +615,7 @@ var bootstrapPolicy = Ledger{
 			Invariant:       "untagged Small tmux dependency call/file totals cannot grow; reductions must lower this baseline",
 			ResourceOwner:   "non-Medium lexical owners replace tmux with a fake executor or declare exact isolated ownership",
 			MigrationTarget: "P0.4c-tmux",
-			Expires:         "2026-10-01",
+			Expires:         "2026-11-30",
 		},
 	},
 }

@@ -143,7 +143,12 @@ func startManagedDoltSQLServerWithScopeWatchdog(cityPath, configFile, logFilePat
 	if err != nil {
 		return managedDoltStartedProcess{}, fmt.Errorf("prepare dolt scope watchdog: %w", err)
 	}
-	if err := cmd.Start(); err != nil {
+	if err := startManagedDoltCommand(cmd, cityPath); err != nil {
+		// Placement can fail before exec.Start gets to close its own pipes.
+		_ = stdout.Close()
+		if pipe, ok := cmd.Stdout.(*os.File); ok {
+			_ = pipe.Close()
+		}
 		return managedDoltStartedProcess{}, fmt.Errorf("start dolt scope watchdog: %w", err)
 	}
 	pid, startTimeTicks, startIdentity, err := readManagedDoltScopeWatchdogStart(stdout, cmd.Process.Pid)
@@ -212,7 +217,7 @@ func runManagedDoltScopeWatchdog(args []string, stdout, stderr *os.File) int {
 	// escalation of an unresponsive server could strand descendants.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Env = doltServerEnv(cityPath, os.Environ())
-	if err := cmd.Start(); err != nil {
+	if err := startManagedDoltCommand(cmd, cityPath); err != nil {
 		fmt.Fprintf(stderr, "start dolt sql-server: %v\n", err) //nolint:errcheck
 		return 1
 	}

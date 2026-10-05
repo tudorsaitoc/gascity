@@ -332,6 +332,73 @@ func TestTmuxFetcher_NoServerMapsToRuntimeUnavailable(t *testing.T) {
 	}
 }
 
+func TestStateCache_ResponsiveEmptyServerClearsLastKnownGood(t *testing.T) {
+	fe := &fakeExecutor{
+		outs: []string{"agent-1\t0\tclaude\t123"},
+		errs: []error{nil, ErrNoCurrentTarget},
+	}
+	cache := NewStateCache(&tmuxFetcher{tm: &Tmux{cfg: DefaultConfig(), exec: fe}}, 0)
+	if !cache.IsRunning("agent-1") {
+		t.Fatal("expected agent-1 running after prime")
+	}
+	if cache.IsRunning("agent-1") {
+		t.Fatal("responsive empty server retained a stale running actor")
+	}
+	cache.mu.RLock()
+	defer cache.mu.RUnlock()
+	if cache.state.Sessions == nil || len(cache.state.Sessions) != 0 || cache.lastError != nil {
+		t.Fatalf("empty observation = %+v, error = %v", cache.state, cache.lastError)
+	}
+}
+
+func TestTmuxFetcher_TransportFailureRemainsUnavailable(t *testing.T) {
+	for _, cause := range []error{ErrNoServer, context.Canceled, context.DeadlineExceeded, errors.New("tmux protocol failure")} {
+		f := &tmuxFetcher{tm: &Tmux{cfg: DefaultConfig(), exec: &fakeExecutor{err: cause}}}
+		snapshot, err := f.FetchState(context.Background())
+		if !errors.Is(err, gcruntime.ErrRuntimeUnavailable) || !errors.Is(err, cause) {
+			t.Fatalf("FetchState error = %v, want unavailable with cause %v", err, cause)
+		}
+		if snapshot.Sessions != nil {
+			t.Fatalf("failed observation returned authoritative sessions: %+v", snapshot)
+		}
+	}
+}
+
+func TestStateCache_MalformedPaneSnapshotPreservesLastKnownGood(t *testing.T) {
+	for _, malformed := range []string{
+		"missing-columns",
+		"agent-2\t0\tclaude",
+		"\t0\tclaude\t123",
+		"agent-2\tunknown\tclaude\t123",
+		"agent-2\t0\tclaude\tnot-a-pid",
+		"agent-2\t0\tclaude\t0",
+		"agent-2\t0\tclaude\t123\textra",
+		"agent-2\t0\tclaude\t123\nbroken-row",
+	} {
+		t.Run(malformed, func(t *testing.T) {
+			fe := &fakeExecutor{outs: []string{"agent-1\t0\tclaude\t123", malformed}}
+			cache := NewStateCache(&tmuxFetcher{tm: &Tmux{cfg: DefaultConfig(), exec: fe}}, 0)
+			if !cache.IsRunning("agent-1") {
+				t.Fatal("expected agent-1 running after prime")
+			}
+			cache.mu.RLock()
+			fetchedAt := cache.fetchedAt
+			cache.mu.RUnlock()
+			if !cache.IsRunning("agent-1") {
+				t.Fatal("malformed observation discarded the last-known-good actor")
+			}
+			cache.mu.RLock()
+			defer cache.mu.RUnlock()
+			if !errors.Is(cache.lastError, gcruntime.ErrRuntimeUnavailable) {
+				t.Fatalf("last error = %v, want unavailable", cache.lastError)
+			}
+			if !cache.fetchedAt.Equal(fetchedAt) || cache.state.Sessions["agent-2"].Running {
+				t.Fatal("malformed observation replaced or refreshed the trusted snapshot")
+			}
+		})
+	}
+}
+
 // End to end at the cache: after a good prime, an ErrNoServer refresh must
 // preserve last-known-good (within staleTTL) instead of collapsing to empty.
 func TestStateCache_NoServerRefreshPreservesLastKnownGood(t *testing.T) {

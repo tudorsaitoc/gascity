@@ -186,7 +186,8 @@ type bdByIDOp struct {
 	DepType   string
 	// Update carries the field and metadata writes of the update verb, already
 	// translated into the object model's own shape.
-	Update beads.UpdateOpts
+	Update     beads.UpdateOpts
+	Conditions beads.UpdateConditions
 }
 
 // parseBdByIDOp recognizes the by-ID invocations this surface serves. Anything
@@ -228,10 +229,10 @@ func parseBdByIDOp(bdArgs []string) (bdByIDOp, bool) {
 // refusal an unserved class-owned update produces can say WHICH flag it was
 // rather than leaving an operator to bisect their own command line.
 //
-// The served set is exactly the flags that map onto beads.UpdateOpts, which is
-// the whole of what the object model can represent. Anything else is rejected
-// rather than dropped: a flag this arm silently ignored would change the
-// meaning of a command it then reported as executed, and on the step-completion
+// The served set is exactly the flags that map onto beads.UpdateOpts and
+// UpdateConditions, which is what the object model can represent. Anything
+// else is rejected rather than dropped: silently ignoring a flag would change
+// the meaning of a command it then reported as executed, and on the step-completion
 // write that means an outcome an operator believes was recorded and was not.
 //
 // `--notes` is the consequential rejection and it is not an oversight — see
@@ -240,6 +241,8 @@ func parseBdByIDUpdateArgs(args []string) (op bdByIDOp, rejected string, ok bool
 	op = bdByIDOp{Verb: bdByIDUpdate}
 	claim := false
 	metadata := map[string]string{}
+	metadataDocument := false
+	metadataPairs := false
 	set := func(field **string, value string) { v := value; *field = &v }
 
 	for i := 0; i < len(args); i++ {
@@ -270,6 +273,8 @@ func parseBdByIDUpdateArgs(args []string) (op bdByIDOp, rejected string, ok bool
 		switch name {
 		case "--json":
 			op.JSON = true
+		case "--actor":
+			op.Conditions.Actor = value
 		case "--claim":
 			claim = true
 		case "--status", "-s":
@@ -280,6 +285,66 @@ func parseBdByIDUpdateArgs(args []string) (op bdByIDOp, rejected string, ok bool
 			set(&op.Update.Description, value)
 		case "--assignee", "-a":
 			set(&op.Update.Assignee, value)
+		case "--if-status":
+			if op.Conditions.Status != nil && *op.Conditions.Status != value {
+				return bdByIDOp{}, name, false
+			}
+			set(&op.Conditions.Status, value)
+		case "--if-assignee":
+			if op.Conditions.Assignee != nil && *op.Conditions.Assignee != value {
+				return bdByIDOp{}, name, false
+			}
+			set(&op.Conditions.Assignee, value)
+		case "--if-title":
+			if op.Conditions.Title != nil && *op.Conditions.Title != value {
+				return bdByIDOp{}, name, false
+			}
+			set(&op.Conditions.Title, value)
+		case "--if-description":
+			if op.Conditions.Description != nil && *op.Conditions.Description != value {
+				return bdByIDOp{}, name, false
+			}
+			set(&op.Conditions.Description, value)
+		case "--if-acceptance":
+			if op.Conditions.AcceptanceCriteria != nil && *op.Conditions.AcceptanceCriteria != value {
+				return bdByIDOp{}, name, false
+			}
+			set(&op.Conditions.AcceptanceCriteria, value)
+		case "--if-labels-json":
+			var labels []string
+			if op.Conditions.Labels != nil || json.Unmarshal([]byte(value), &labels) != nil || labels == nil {
+				return bdByIDOp{}, name, false
+			}
+			for index, label := range labels {
+				for _, prior := range labels[:index] {
+					if prior == label {
+						return bdByIDOp{}, name, false
+					}
+				}
+			}
+			op.Conditions.Labels = &labels
+		case "--if-metadata", "--set-metadata-if-absent":
+			key, metaValue, split := strings.Cut(value, "=")
+			if !split || strings.TrimSpace(key) == "" {
+				return bdByIDOp{}, name, false
+			}
+			if name == "--if-metadata" {
+				if op.Conditions.Metadata == nil {
+					op.Conditions.Metadata = map[string]string{}
+				}
+				if previous, exists := op.Conditions.Metadata[key]; exists && previous != metaValue {
+					return bdByIDOp{}, name, false
+				}
+				op.Conditions.Metadata[key] = metaValue
+			} else {
+				if op.Conditions.SetMetadataIfAbsent == nil {
+					op.Conditions.SetMetadataIfAbsent = map[string]string{}
+				}
+				if previous, exists := op.Conditions.SetMetadataIfAbsent[key]; exists && previous != metaValue {
+					return bdByIDOp{}, name, false
+				}
+				op.Conditions.SetMetadataIfAbsent[key] = metaValue
+			}
 		case "--type", "-t":
 			set(&op.Update.Type, value)
 		case "--parent":
@@ -294,7 +359,22 @@ func parseBdByIDUpdateArgs(args []string) (op bdByIDOp, rejected string, ok bool
 			op.Update.Labels = append(op.Update.Labels, value)
 		case "--remove-label":
 			op.Update.RemoveLabels = append(op.Update.RemoveLabels, value)
+		case "--metadata":
+			if metadataDocument || metadataPairs || json.Unmarshal([]byte(value), &metadata) != nil || metadata == nil {
+				return bdByIDOp{}, name, false
+			}
+			metadataDocument = true
+		case "--unset-metadata":
+			if metadataDocument || strings.TrimSpace(value) == "" {
+				return bdByIDOp{}, name, false
+			}
+			metadataPairs = true
+			op.Conditions.UnsetMetadata = append(op.Conditions.UnsetMetadata, value)
 		case "--set-metadata":
+			if metadataDocument {
+				return bdByIDOp{}, name, false
+			}
+			metadataPairs = true
 			key, metaValue, split := strings.Cut(value, "=")
 			if !split || strings.TrimSpace(key) == "" {
 				return bdByIDOp{}, name, false
@@ -311,10 +391,15 @@ func parseBdByIDUpdateArgs(args []string) (op bdByIDOp, rejected string, ok bool
 		// The claim is a compare-and-swap the store owns; bundling other field
 		// writes into it here would either apply them outside that swap or
 		// re-implement it. bd's own `--claim` is likewise its own operation.
-		if bdByIDUpdateWritesFields(op, metadata) {
+		if bdByIDUpdateWritesFields(op, metadata) || op.Conditions.Requested() {
 			return bdByIDOp{}, "--claim", false
 		}
 		return bdByIDOp{Verb: bdByIDClaim, ID: op.ID, JSON: op.JSON}, "", true
+	}
+	for key := range op.Conditions.SetMetadataIfAbsent {
+		if _, exists := metadata[key]; exists {
+			return bdByIDOp{}, "--set-metadata-if-absent", false
+		}
 	}
 	if len(metadata) > 0 {
 		op.Update.Metadata = metadata
@@ -336,6 +421,11 @@ var bdByIDUpdateValueFlags = map[string]bool{
 	"-d": true, "--assignee": true, "-a": true, "--type": true, "-t": true,
 	"--parent": true, "--priority": true, "-p": true, "--add-label": true,
 	"--remove-label": true, "--set-metadata": true,
+	"--if-status": true, "--if-assignee": true, "--if-metadata": true,
+	"--set-metadata-if-absent": true,
+	"--if-labels-json":         true, "--if-title": true, "--if-description": true, "--if-acceptance": true,
+	"--metadata": true, "--unset-metadata": true,
+	"--actor": true,
 }
 
 // bdByIDUpdateUnrepresentable explains the rejection an operator is most likely
@@ -355,7 +445,7 @@ func bdByIDUpdateWritesFields(op bdByIDOp, metadata map[string]string) bool {
 	return u.Status != nil || u.Title != nil || u.Description != nil ||
 		u.Assignee != nil || u.Type != nil || u.ParentID != nil ||
 		u.Priority != nil || len(u.Labels) > 0 || len(u.RemoveLabels) > 0 ||
-		len(metadata) > 0
+		len(metadata) > 0 || len(op.Conditions.SetMetadataIfAbsent) > 0 || len(op.Conditions.UnsetMetadata) > 0
 }
 
 // bdByIDUnservedFlag names the flag that kept an otherwise-routable invocation
@@ -1171,6 +1261,11 @@ func printBdByIDBead(b beads.Bead, jsonOut bool, binding string, stdout, stderr 
 // have learned to trust that output; rendering the UpdateOpts back would report
 // what was asked for rather than what the store now holds.
 func doBdByIDUpdate(graph storebinding.GraphStore, op bdByIDOp, binding string, stdout, stderr io.Writer) int {
+	_, protectedClock := op.Update.Metadata[beads.RefineryDecisionAtKey]
+	if op.Conditions.Requested() || protectedClock {
+		fmt.Fprintln(stderr, "gc bd update: graph binding does not expose transactional field/metadata guards; refusing unchecked mutation") //nolint:errcheck
+		return 1
+	}
 	if err := graph.Update(op.ID, op.Update); err != nil {
 		fmt.Fprintf(stderr, "gc bd update: %s: %v\n", op.ID, err) //nolint:errcheck // best-effort stderr
 		return 1

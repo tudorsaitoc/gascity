@@ -882,6 +882,9 @@
       "Bead": {
         "additionalProperties": false,
         "properties": {
+          "acceptance_criteria": {
+            "type": "string"
+          },
           "assignee": {
             "type": "string"
           },
@@ -10688,11 +10691,45 @@
             "type": "string"
           },
           "force": {
-            "description": "Bypass cross-rig guards; for direct bead routes, also bypass missing-bead validation. Formula-backed graph routes may replace existing live workflow roots but still require the source bead to exist.",
+            "description": "Allow cross-rig routing and graph workflow replacement without bypassing current holds, unreadable receipt beads, or ownership conditions.",
             "type": "boolean"
           },
           "formula": {
             "description": "Formula name for workflow launch.",
+            "type": "string"
+          },
+          "if_acceptance": {
+            "description": "Exact original native acceptance criteria required at route commit.",
+            "type": "string"
+          },
+          "if_assignee": {
+            "description": "Exact canonical assignee required at route commit; an empty string requires unowned work.",
+            "type": "string"
+          },
+          "if_description": {
+            "description": "Exact original canonical description required at route commit.",
+            "type": "string"
+          },
+          "if_labels": {
+            "description": "Exact unordered canonical label snapshot required by the same route transaction; an empty array requires no labels.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "if_metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Canonical metadata equality predicates consumed by the same route transaction; an empty value matches absent.",
+            "type": "object"
+          },
+          "if_status": {
+            "description": "Exact canonical status required at the native route commit.",
+            "type": "string"
+          },
+          "if_title": {
+            "description": "Exact original canonical title required at route commit.",
             "type": "string"
           },
           "merge": {
@@ -10712,7 +10749,7 @@
             "type": "boolean"
           },
           "reassign": {
-            "description": "Clear any existing human assignee on the bead before routing, so a bead claimed via bd update --claim is handed to the target's pool.",
+            "description": "Clear the current assignee in the guarded route transaction, handing the bead to the target's claim path.",
             "type": "boolean"
           },
           "rig": {
@@ -46237,6 +46274,21 @@
               }
             },
             "description": "Internal Server Error",
+            "headers": {
+              "X-GC-Request-Id": {
+                "$ref": "#/components/headers/X-GC-Request-Id"
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Service Unavailable",
             "headers": {
               "X-GC-Request-Id": {
                 "$ref": "#/components/headers/X-GC-Request-Id"
