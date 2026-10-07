@@ -31,7 +31,6 @@ const (
 	SleepReasonFailedCreate          SleepReason = "failed-create"
 	SleepReasonProviderTerminalError SleepReason = "provider-terminal-error"
 	SleepReasonRuntimeMissing        SleepReason = SleepReason(LifecycleReasonRuntimeMissing)
-	SleepReasonKilled                SleepReason = "killed"
 	SleepReasonQuarantine            SleepReason = "quarantine"
 	SleepReasonContextChurn          SleepReason = "context-churn"
 	SleepReasonMaxSessionAge         SleepReason = "max-session-age"
